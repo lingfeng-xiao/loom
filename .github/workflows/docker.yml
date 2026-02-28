@@ -47,25 +47,26 @@ jobs:
 
     steps:
       - name: Deploy container
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: ${{ secrets.SERVER_HOST }}
-          username: ${{ secrets.SERVER_USER }}
-          key: ${{ secrets.SERVER_SSH_KEY }}
-          script: |
-            VERSION=${{ needs.build.outputs.version }}
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.SERVER_HOST }}
+        username: ${{ secrets.SERVER_USER }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
+        script: |
+          IMAGE_NAME=${{ env.IMAGE_NAME }}
+          VERSION=${{ needs.build.outputs.version }}
 
-            docker pull $IMAGE_NAME:$VERSION
-            docker stop loom || true
-            docker rm loom || true
+          docker pull $IMAGE_NAME:$VERSION
+          docker stop loom || true
+          docker rm loom || true
 
-            docker run -d \
-              --name loom \
-              -p 8080:8080 \
-              --restart always \
-              $IMAGE_NAME:$VERSION
+          docker run -d \
+            --name loom \
+            -p 8080:8080 \
+            --restart always \
+            $IMAGE_NAME:$VERSION
 
-            echo "success"
+          echo "success"
 
   health-check:
     runs-on: ubuntu-latest
