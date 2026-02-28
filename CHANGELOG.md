@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.3] - 2026-02-28
+
+### Fixed
+- 修复部署工作流中的镜像名称错误
+  - 将镜像名称从 'your-image' 更正为 'loom'
+  - 简化部署脚本中的变量使用
+
 ## [1.1.2] - 2026-02-28
 
 ### Changed
@@ -47,7 +54,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - GitHub Actions 自动构建与发布
   - GHCR 镜像仓库集成
 
-[Unreleased]: https://github.com/loom-project/loom/compare/v1.1.2...HEAD
+[Unreleased]: https://github.com/loom-project/loom/compare/v1.1.3...HEAD
+[1.1.3]: https://github.com/loom-project/loom/compare/v1.1.2...v1.1.3
 [1.1.2]: https://github.com/loom-project/loom/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/loom-project/loom/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/loom-project/loom/compare/v1.0.0...v1.1.0
