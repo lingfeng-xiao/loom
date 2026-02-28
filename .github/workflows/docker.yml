@@ -1,12 +1,15 @@
-name: Build and Deploy
+name: Release and Deploy
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - 'v*'
+
+env:
+  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/your-image
 
 jobs:
-  deploy:
+  release:
     runs-on: ubuntu-latest
 
     permissions:
@@ -14,19 +17,33 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: |
-          docker build -t ghcr.io/${{ github.repository_owner }}/your-image:latest -f docker/Dockerfile .
+      # 解析版本号（去掉 v）
+      - name: Extract version
+        id: vars
+        run: echo "VERSION=${GITHUB_REF#refs/tags/v}" >> $GITHUB_OUTPUT
 
+      # 登录 GHCR
       - name: Login to GHCR
         run: echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      # 构建镜像
+      - name: Build image
+        run: |
+          docker build \
+            -t $IMAGE_NAME:${{ steps.vars.outputs.VERSION }} \
+            -t $IMAGE_NAME:latest \
+            -f docker/Dockerfile .
+
+      # 推送镜像
       - name: Push image
         run: |
-          docker push ghcr.io/${{ github.repository_owner }}/your-image:latest
+          docker push $IMAGE_NAME:${{ steps.vars.outputs.VERSION }}
+          docker push $IMAGE_NAME:latest
 
+      # 部署服务器
       - name: Deploy to Server
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -34,11 +51,15 @@ jobs:
           username: ${{ secrets.SERVER_USER }}
           key: ${{ secrets.SERVER_SSH_KEY }}
           script: |
-            docker pull ghcr.io/${{ github.repository_owner }}/your-image:latest
+            IMAGE=${{ env.IMAGE_NAME }}
+            VERSION=${{ steps.vars.outputs.VERSION }}
+
+            docker pull $IMAGE:$VERSION
             docker stop loom || true
             docker rm loom || true
+
             docker run -d \
               --name loom \
               -p 8080:8080 \
               --restart always \
-              ghcr.io/${{ github.repository_owner }}/your-image:latest
+              $IMAGE:$VERSION

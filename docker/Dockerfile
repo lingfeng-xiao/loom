@@ -5,15 +5,17 @@ FROM node:18-alpine AS frontend
 
 WORKDIR /frontend
 
-# Copy dependency files first for caching
-COPY frontend/package*.json ./
-RUN npm install
+# 只复制依赖文件（利用缓存）
+COPY frontend/package.json frontend/package-lock.json ./
 
-# Copy source code
+# 更稳定的安装方式
+RUN npm ci --registry=https://registry.npmmirror.com
+
+# 复制源码
 COPY frontend .
 
-# Build frontend application
 RUN npm run build
+
 
 # ===============================
 # Stage 2: Build Backend
@@ -22,31 +24,39 @@ FROM maven:3.9-eclipse-temurin-17 AS build
 
 WORKDIR /build
 
-# Copy backend source code
+# 先复制 pom.xml，利用缓存
+COPY backend/pom.xml .
+
+# 先下载依赖（极大提升缓存命中率）
+RUN mvn dependency:go-offline -B
+
+# 再复制源码
 COPY backend .
 
-# Copy frontend build artifacts to Spring Boot static resources
+# 拷贝前端产物
 COPY --from=frontend /frontend/dist ./src/main/resources/static
 
-# Maven build with tests skipped
+# 打包
 RUN mvn clean package -DskipTests
+
 
 # ===============================
 # Stage 3: Runtime
 # ===============================
-FROM eclipse-temurin:17-jre
+FROM eclipse-temurin:17-jre-alpine
 
 WORKDIR /app
 
-# Create non-root user
-RUN adduser --system --group appuser
-USER appuser
+# 创建非 root 用户
+RUN addgroup -S appuser && adduser -S appuser -G appuser
 
-# Copy built jar from build stage
+# 复制 jar
 COPY --from=build /build/target/*.jar app.jar
 
-# Expose application port
+RUN chown appuser:appuser app.jar
+
+USER appuser
+
 EXPOSE 8080
 
-# Set entrypoint
 ENTRYPOINT ["java", "-jar", "app.jar"]
