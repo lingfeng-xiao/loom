@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.2] - 2026-02-28
+
+### Changed
+- 简化健康检查配置
+  - 移除显式的 livenessstate 和 readinessstate 配置（使用 Spring Boot 默认值）
+  - 部署脚本添加成功日志输出
+
 ## [1.1.1] - 2026-02-28
 
 ### Changed
@@ -40,7 +47,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - GitHub Actions 自动构建与发布
   - GHCR 镜像仓库集成
 
-[Unreleased]: https://github.com/loom-project/loom/compare/v1.1.1...HEAD
+[Unreleased]: https://github.com/loom-project/loom/compare/v1.1.2...HEAD
+[1.1.2]: https://github.com/loom-project/loom/compare/v1.1.1...v1.1.2
 [1.1.1]: https://github.com/loom-project/loom/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/loom-project/loom/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/loom-project/loom/releases/tag/v1.0.0
