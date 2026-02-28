@@ -1,0 +1,22 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: docker build -t your-image .
+
+      - name: Login to registry
+        run: docker login ...
+
+      - name: Push image
+        run: docker push ...
