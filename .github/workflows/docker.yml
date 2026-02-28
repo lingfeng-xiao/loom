@@ -66,6 +66,8 @@ jobs:
               --restart always \
               $IMAGE:$VERSION
 
+            echo "success"
+
   health-check:
     runs-on: ubuntu-latest
     needs: deploy
