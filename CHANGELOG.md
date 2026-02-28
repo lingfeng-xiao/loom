@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-02-28
+
+### Changed
+- CI/CD 流水线优化
+  - 拆分构建和部署为独立 Job
+  - 部署后自动健康检查
+  - 验证 `/actuator/health` 端点确保应用正常启动
+
 ## [1.1.0] - 2026-02-28
 
 ### Added
@@ -32,6 +40,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - GitHub Actions 自动构建与发布
   - GHCR 镜像仓库集成
 
-[Unreleased]: https://github.com/loom-project/loom/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/loom-project/loom/compare/v1.1.1...HEAD
+[1.1.1]: https://github.com/loom-project/loom/compare/v1.1.0...v1.1.1
 [1.1.0]: https://github.com/loom-project/loom/compare/v1.0.0...v1.1.0
 [1.0.0]: https://github.com/loom-project/loom/releases/tag/v1.0.0
