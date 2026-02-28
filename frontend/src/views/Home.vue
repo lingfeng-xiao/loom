@@ -10,27 +10,21 @@
   </div>
 </template>
 
-<script>
-export default {
-  name: 'Home',
-  data() {
-    return {
-      message: ''
-    }
-  },
-  methods: {
-    async fetchHello() {
-      try {
-        const response = await fetch('/api/hello')
-        const data = await response.json()
-        this.message = data.message
-      } catch (error) {
-        console.error('Error fetching data:', error)
-        this.message = '获取数据失败'
-      }
-    }
+<script setup>
+import { ref } from 'vue';
+
+const message = ref('');
+
+const fetchHello = async () => {
+  try {
+    const response = await fetch('/api/hello');
+    const data = await response.json();
+    message.value = data.message;
+  } catch (error) {
+    console.error('Error fetching data:', error);
+    message.value = '获取数据失败';
   }
-}
+};
 </script>
 
 <style scoped>
