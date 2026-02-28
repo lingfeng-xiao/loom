@@ -1,4 +1,4 @@
-name: Build and Push to GHCR
+name: Build and Deploy
 
 on:
   push:
@@ -6,12 +6,12 @@ on:
       - main
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
 
     permissions:
       contents: read
-      packages: write   # 关键权限
+      packages: write
 
     steps:
       - uses: actions/checkout@v3
@@ -26,3 +26,19 @@ jobs:
       - name: Push image
         run: |
           docker push ghcr.io/${{ github.repository_owner }}/your-image:latest
+
+      - name: Deploy to Server
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            docker pull ghcr.io/${{ github.repository_owner }}/your-image:latest
+            docker stop loom || true
+            docker rm loom || true
+            docker run -d \
+              --name loom \
+              -p 8080:8080 \
+              --restart always \
+              ghcr.io/${{ github.repository_owner }}/your-image:latest
