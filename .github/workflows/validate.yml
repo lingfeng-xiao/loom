@@ -99,5 +99,5 @@ jobs:
         run: |
           docker compose config
           docker compose -f docker-compose.yml -f docker-compose.dev.yml config
-          docker compose -f deploy/compose/docker-compose.production.yml config
+          docker compose -f deploy/compose/docker-compose.production.yml --env-file .env.example config
           docker compose build loom-server loom-web loom-node
