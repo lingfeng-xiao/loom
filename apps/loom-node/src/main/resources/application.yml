@@ -1,0 +1,40 @@
+spring:
+  application:
+    name: loom-node
+
+server:
+  port: ${LOOM_NODE_PORT:8090}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+loom:
+  node:
+    name: ${LOOM_NODE_NAME:${HOSTNAME:loom-node}}
+    type: ${LOOM_NODE_TYPE:server}
+    host: ${LOOM_NODE_HOST:${HOSTNAME:localhost}}
+    server-base-url: ${LOOM_SERVER_BASE_URL:http://localhost:8080}
+    server-token: ${LOOM_SERVER_TOKEN:change-me}
+    heartbeat-interval-ms: ${LOOM_NODE_HEARTBEAT_INTERVAL_MS:30000}
+    heartbeat-initial-delay-ms: ${LOOM_NODE_HEARTBEAT_INITIAL_DELAY_MS:5000}
+    state-dir: ${LOOM_NODE_STATE_DIR:./data/node-state}
+    tags:
+      - local
+      - read-only
+    service-probes:
+      - name: loom-server
+        kind: http
+        target: ${LOOM_SERVER_HEALTH_URL:http://loom-server:8080/api/health}
+        timeout-ms: 3000
+        expected-status: 200
+      - name: loom-web
+        kind: http
+        target: ${LOOM_WEB_HEALTH_URL:http://loom-web/}
+        timeout-ms: 3000
+        expected-status: 200

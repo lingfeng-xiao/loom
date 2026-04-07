@@ -1,0 +1,39 @@
+spring:
+  application:
+    name: loom-server
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/loom?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:loom}
+    password: ${SPRING_DATASOURCE_PASSWORD:loom}
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+server:
+  port: 8080
+
+loom:
+  storage:
+    server-vault-root: ./data/obsidian-server
+    local-vault-root: ./data/obsidian-local
+  bootstrap:
+    enabled: true
+  nodes:
+    heartbeat-timeout-seconds: 90
+    server-token: ${LOOM_SERVER_TOKEN:change-me}
+  ai:
+    provider-label: ${LOOM_AI_PROVIDER_LABEL:OpenAI Compatible}
+    base-url: ${LOOM_AI_BASE_URL:http://127.0.0.1:11434/v1}
+    model: ${LOOM_AI_MODEL:gpt-4.1-mini}
+    temperature: ${LOOM_AI_TEMPERATURE:0.2}
+    api-key: ${LOOM_AI_API_KEY:}
+    system-prompt: ${LOOM_AI_SYSTEM_PROMPT:You are Loom, the assistant inside a project-first AI workspace. Reply in the user's language when possible, keep answers concise and actionable, and use Markdown when it improves readability.}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always

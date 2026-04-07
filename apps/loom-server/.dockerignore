@@ -1,0 +1,113 @@
+# =============================================================================
+# Docker Build Ignore File
+# Excludes files not needed in the Docker build context
+# =============================================================================
+
+# Version control
+.git
+.gitattributes
+.gitignore
+
+# IDE and editor files
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Build outputs
+build/
+.gradle/
+target/*
+!target/
+!target/*.jar
+*.class
+*.jar
+!target/*.jar
+*.war
+*.ear
+
+# Log files
+*.log
+logs/
+
+# Local configuration overrides
+*.local
+*.local.*
+application-local.yml
+application-local.properties
+
+# Environment files (secrets should be passed via env, not baked into image)
+.env
+.env.*
+*.env
+
+# Documentation (not needed in container)
+*.md
+docs/
+README*
+
+# Test files
+src/test/
+*.test.ts
+*.test.js
+jest.config.*
+
+# CI/CD configuration (not needed in container)
+.github/
+.gitlab-ci.yml
+.travis.yml
+Jenkinsfile
+azure-pipelines.yml
+
+# Embedded git repos (not part of this project)
+jva-stream-a/
+jva-stream-b/
+jva-stream-c/
+jva-stream-d/
+
+# External data and backups
+data/
+memory/
+*.bak
+*.backup
+backups/
+
+# Cron and scheduling data
+cron/runs/
+
+# Browser user data
+browser/
+
+# Agent-specific files
+agents/
+
+# Other projects
+agent-fabric/
+
+# Docker files themselves (to avoid confusion)
+# docker-compose.yml
+# Dockerfile
+# .dockerignore
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Windows specific
+*.lnk
+*.ini (except in project root)
+
+# Gradle wrapper (not needed if using maven)
+gradle/
+gradlew
+gradlew.bat
+
+# MCP and CLI config
+.claude/
+openclaw.json

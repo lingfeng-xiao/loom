@@ -1,0 +1,30 @@
+# Build outputs
+build/
+target/
+.m2-local/
+deploy/
+.gradle/
+*.class
+*.jar
+*.war
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Embedded git repos (not part of this project)
+jva-stream-a/
+jva-stream-b/
+jva-stream-c/
+jva-stream-d/
+
+# Local config overrides
+*.local.*

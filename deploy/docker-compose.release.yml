@@ -1,0 +1,84 @@
+name: loom
+
+services:
+  loom-mysql:
+    image: mysql:8.2
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+    environment:
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-loom}
+      MYSQL_USER: ${MYSQL_USER:-loom}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-loom}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-loom-root}
+    volumes:
+      - loom-mysql-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-loom-root}"]
+      interval: 10s
+      timeout: 5s
+      retries: 20
+
+  loom-server:
+    image: ${LOOM_SERVER_IMAGE:?set LOOM_SERVER_IMAGE}
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: 8080
+      SPRING_DATASOURCE_URL: jdbc:mysql://loom-mysql:3306/${MYSQL_DATABASE:-loom}?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC
+      SPRING_DATASOURCE_USERNAME: ${MYSQL_USER:-loom}
+      SPRING_DATASOURCE_PASSWORD: ${MYSQL_PASSWORD:-loom}
+      LOOM_SERVER_TOKEN: ${LOOM_SERVER_TOKEN:-change-me}
+      LOOM_OBSIDIAN_VAULT_ROOT: /workspace/vault
+      LOOM_LOG_DIR: /workspace/logs
+      LOOM_BOOTSTRAP_ENABLED: ${LOOM_BOOTSTRAP_ENABLED:-true}
+      LOOM_AI_PROVIDER_LABEL: ${LOOM_AI_PROVIDER_LABEL:-OpenAI Compatible}
+      LOOM_AI_BASE_URL: ${LOOM_AI_BASE_URL:-http://127.0.0.1:11434/v1}
+      LOOM_AI_MODEL: ${LOOM_AI_MODEL:-gpt-4.1-mini}
+      LOOM_AI_TEMPERATURE: ${LOOM_AI_TEMPERATURE:-0.2}
+      LOOM_AI_API_KEY: ${LOOM_AI_API_KEY:-}
+    volumes:
+      - ${LOOM_VAULT_HOST_DIR:-./deploy/data/vault}:/workspace/vault
+      - ${LOOM_SERVER_LOG_HOST_DIR:-./deploy/data/logs/server}:/workspace/logs
+    depends_on:
+      loom-mysql:
+        condition: service_healthy
+
+  loom-web:
+    image: ${LOOM_WEB_IMAGE:?set LOOM_WEB_IMAGE}
+    restart: unless-stopped
+    ports:
+      - "${LOOM_PUBLIC_PORT:-80}:80"
+    depends_on:
+      loom-server:
+        condition: service_started
+
+  loom-node:
+    image: ${LOOM_NODE_IMAGE:?set LOOM_NODE_IMAGE}
+    restart: unless-stopped
+    environment:
+      LOOM_NODE_PORT: 8090
+      LOOM_NODE_NAME: ${LOOM_NODE_NAME:-jd-node}
+      LOOM_NODE_TYPE: ${LOOM_NODE_TYPE:-server}
+      LOOM_NODE_HOST: ${LOOM_NODE_HOST:-jd}
+      LOOM_SERVER_BASE_URL: http://loom-server:8080
+      LOOM_SERVER_TOKEN: ${LOOM_SERVER_TOKEN:-change-me}
+      LOOM_NODE_HEARTBEAT_INTERVAL_MS: ${LOOM_NODE_HEARTBEAT_INTERVAL_MS:-30000}
+      LOOM_NODE_HEARTBEAT_INITIAL_DELAY_MS: ${LOOM_NODE_HEARTBEAT_INITIAL_DELAY_MS:-5000}
+      LOOM_NODE_STATE_DIR: /workspace/state
+      SPRING_APPLICATION_JSON: >-
+        {"loom":{"node":{"service-probes":[
+        {"name":"loom-server","kind":"http","target":"http://loom-server:8080/api/health","timeoutMs":3000,"expectedStatus":200},
+        {"name":"loom-web","kind":"http","target":"http://loom-web/","timeoutMs":3000,"expectedStatus":200}
+        ]}}}
+    volumes:
+      - ${LOOM_NODE_LOG_HOST_DIR:-./deploy/data/logs/node}:/workspace/logs
+      - ${LOOM_NODE_STATE_HOST_DIR:-./deploy/data/node-state}:/workspace/state
+    depends_on:
+      loom-server:
+        condition: service_started
+      loom-web:
+        condition: service_started
+
+volumes:
+  loom-mysql-data:

@@ -1,0 +1,16 @@
+services:
+  loom-mysql:
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+
+  loom-server:
+    ports:
+      - "${LOOM_SERVER_PORT:-8080}:8080"
+
+  loom-web:
+    ports:
+      - "${LOOM_WEB_PORT:-3000}:80"
+
+  loom-node:
+    ports:
+      - "${LOOM_NODE_PORT:-8090}:8090"
