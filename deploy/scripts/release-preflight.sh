@@ -3,11 +3,8 @@ set -euo pipefail
 
 REMOTE_NAME="${REMOTE_NAME:-origin}"
 GITHUB_OWNER="${GITHUB_OWNER:-${GITHUB_REPOSITORY_OWNER:-}}"
-PACKAGE_TOKEN="${GHCR_TOKEN:-${GITHUB_TOKEN:-}}"
 ALLOW_TAGS="${ALLOW_TAGS:-0}"
-STRICT_GHCR_ALLOWLIST="${STRICT_GHCR_ALLOWLIST:-1}"
-
-readonly KEEP_PACKAGES_REGEX='^(loom-server|loom-web|loom-node)$'
+FORBIDDEN_PACKAGE_NAMES="${FORBIDDEN_PACKAGE_NAMES:-template-api template-web sprite-api sprite-web loom your-image}"
 
 log() {
   printf '[release-preflight] %s\n' "$*"
@@ -48,38 +45,22 @@ if [[ -z "$GITHUB_OWNER" ]]; then
   exit 0
 fi
 
-fetch_packages() {
-  local url="$1"
-  shift || true
+found_forbidden_packages=""
+for package_name in $FORBIDDEN_PACKAGE_NAMES; do
+  status_code="$(
+    curl -o /dev/null -sSL -w '%{http_code}' \
+      -H 'User-Agent: codex' \
+      "https://github.com/users/${GITHUB_OWNER}/packages/container/${package_name}"
+  )"
 
-  curl -fsSL \
-    -H 'Accept: application/vnd.github+json' \
-    -H 'User-Agent: codex' \
-    "$@" \
-    "$url"
-}
-
-packages_json="$(
-  fetch_packages "https://api.github.com/users/${GITHUB_OWNER}/packages?package_type=container&per_page=100" || \
-  {
-    [[ -n "$PACKAGE_TOKEN" ]] || exit 1
-    fetch_packages "https://api.github.com/users/${GITHUB_OWNER}/packages?package_type=container&per_page=100" \
-      -H "Authorization: Bearer $PACKAGE_TOKEN" || \
-    fetch_packages "https://api.github.com/user/packages?package_type=container&per_page=100" \
-      -H "Authorization: Bearer $PACKAGE_TOKEN"
-  }
-)"
-
-package_names="$(
-  python3 -c 'import json, sys; print("\n".join(pkg["name"] for pkg in json.load(sys.stdin) if "name" in pkg))' <<<"$packages_json"
-)"
-
-if [[ "$STRICT_GHCR_ALLOWLIST" == "1" ]]; then
-  unexpected_packages="$(printf '%s\n' "$package_names" | sed '/^$/d' | grep -vE "$KEEP_PACKAGES_REGEX" || true)"
-  if [[ -n "$unexpected_packages" ]]; then
-    printf '%s\n' "$unexpected_packages" >&2
-    die "Unexpected GHCR packages are still present"
+  if [[ "$status_code" != "404" ]]; then
+    found_forbidden_packages+="${package_name} (status ${status_code})"$'\n'
   fi
+done
+
+if [[ -n "$found_forbidden_packages" ]]; then
+  printf '%s' "$found_forbidden_packages" >&2
+  die "Forbidden GHCR package pages are still reachable"
 fi
 
 log "Release preflight passed"
