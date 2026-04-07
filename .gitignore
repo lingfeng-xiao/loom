@@ -1,30 +1,9 @@
-# Canonical monorepo paths
-apps/loom-server/target/
-apps/loom-server/.m2/
-apps/loom-server/.m2-local/
-apps/loom-node/target/
-apps/loom-node/.m2/
-apps/loom-node/.m2-local/
-apps/loom-web/node_modules/
-apps/loom-web/dist/
-apps/loom-web/coverage/
-apps/loom-web/.vitest-temp/
-apps/loom-web/.vite-temp/
-packages/contracts/dist/
-
-# Local environment and deployment state
-deploy/prod/.env.production
-deploy/local/.env.local
-deploy/runtime/
-vault/
-logs/
-*.local
+apps/server/target/
+apps/server/.mvn/wrapper/maven-wrapper.jar
+apps/node/target/
+apps/node/.mvn/wrapper/maven-wrapper.jar
+apps/web/node_modules/
+apps/web/dist/
+apps/web/.vite/
+deploy/data/
 *.log
-*.tgz
-
-# Editors / OS
-.idea/
-.vscode/
-*.iml
-.DS_Store
-Thumbs.db

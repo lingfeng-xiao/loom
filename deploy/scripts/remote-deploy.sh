@@ -14,6 +14,5 @@ if [[ -n "${GHCR_USERNAME:-}" && -n "${GHCR_TOKEN:-}" ]]; then
   printf '%s' "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USERNAME" --password-stdin
 fi
 
-compose_with_env "$TARGET_ENV_FILE" pull loom-mysql || true
-compose_with_env "$TARGET_ENV_FILE" pull loom-edge loom-server loom-web loom-node
+compose_with_env "$TARGET_ENV_FILE" pull template-server template-web template-node
 compose_with_env "$TARGET_ENV_FILE" up -d --remove-orphans

@@ -1,13 +1,10 @@
-# `@loom/contracts`
+# `@template/contracts`
 
-Shared Loom Phase 1 contracts for the monorepo.
+Shared infrastructure contracts for the API, web shell, and node agent.
 
-This package is the canonical catalog for:
+This package intentionally keeps the surface area small:
 
-- core enums and object shapes
-- slash commands
-- built-in skills
-- basic bootstrap/sample objects
-
-The backend may mirror these contracts in Java for now, while the web app can
-import them directly through a local alias.
+- bootstrap payloads for the web shell
+- generic workspace settings
+- node registration and heartbeat contracts
+- probe and node status records

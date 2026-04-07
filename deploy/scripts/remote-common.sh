@@ -1,50 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-DEPLOY_STAGE_ROOT="${DEPLOY_STAGE_ROOT:-${DEPLOY_ROOT:-$HOME/loom-deploy}}"
-INSTALL_ROOT="${INSTALL_ROOT:-/opt/loom}"
+DEPLOY_STAGE_ROOT="${DEPLOY_STAGE_ROOT:-${DEPLOY_ROOT:-$HOME/template-deploy}}"
+INSTALL_ROOT="${INSTALL_ROOT:-/opt/template}"
 BUNDLE_ROOT="${BUNDLE_ROOT:-$DEPLOY_STAGE_ROOT/bundle}"
 COMPOSE_FILE="${COMPOSE_FILE:-$INSTALL_ROOT/compose/docker-compose.production.yml}"
 ENV_FILE="${ENV_FILE:-$INSTALL_ROOT/env/.env.production}"
 STATE_DIR="${STATE_DIR:-$INSTALL_ROOT/state}"
 BACKUP_DIR_ROOT="${BACKUP_DIR_ROOT:-$INSTALL_ROOT/backups}"
-SYSTEMD_UNIT_NAME="${SYSTEMD_UNIT_NAME:-loom.service}"
+SYSTEMD_UNIT_NAME="${SYSTEMD_UNIT_NAME:-template.service}"
 ROOT_HELPER_IMAGE="${ROOT_HELPER_IMAGE:-debian:bookworm-slim}"
 DEPLOY_OWNER="${DEPLOY_OWNER:-$(id -un)}"
 DEPLOY_GROUP="${DEPLOY_GROUP:-$(id -gn)}"
 
-readonly LEGACY_CONTAINER_PATTERN='^(sprite-proxy|sprite-app|sprite-web-1|sprite-mysql|template-api|template-web)$'
-readonly LEGACY_NETWORK_PATTERN='^(sprite-network|sprite_default)$'
-readonly LOOM_EDGE_CONTAINER_NAME='loom-loom-edge-1'
+readonly LEGACY_CONTAINER_PATTERN='^(sprite-proxy|sprite-app|sprite-web-1|sprite-mysql|loom-.*|template-api|template-web)$'
+readonly LEGACY_NETWORK_PATTERN='^(sprite-network|sprite_default|loom_default)$'
+readonly TEMPLATE_EDGE_CONTAINER_NAME='template-template-edge-1'
 readonly COMPOSE_ENV_KEYS=(
   MYSQL_DATABASE
   MYSQL_USER
   MYSQL_PASSWORD
   MYSQL_ROOT_PASSWORD
-  LOOM_PUBLIC_PORT
-  LOOM_NODE_NAME
-  LOOM_NODE_TYPE
-  LOOM_NODE_HOST
-  LOOM_SERVER_TOKEN
-  LOOM_BOOTSTRAP_ENABLED
-  LOOM_NODE_HEARTBEAT_INTERVAL_MS
-  LOOM_NODE_HEARTBEAT_INITIAL_DELAY_MS
-  LOOM_AI_PROVIDER_LABEL
-  LOOM_AI_BASE_URL
-  LOOM_AI_MODEL
-  LOOM_AI_TEMPERATURE
-  LOOM_AI_API_KEY
-  LOOM_VAULT_HOST_DIR
-  LOOM_SERVER_LOG_HOST_DIR
-  LOOM_NODE_LOG_HOST_DIR
-  LOOM_NODE_STATE_HOST_DIR
-  LOOM_SERVER_IMAGE
-  LOOM_WEB_IMAGE
-  LOOM_NODE_IMAGE
+  TEMPLATE_PUBLIC_PORT
+  TEMPLATE_SERVER_PORT
+  TEMPLATE_NODE_PORT
+  TEMPLATE_SERVER_TOKEN
+  TEMPLATE_NODE_HEARTBEAT_TIMEOUT_SECONDS
+  TEMPLATE_NODE_NAME
+  TEMPLATE_NODE_TYPE
+  TEMPLATE_NODE_HOST
+  TEMPLATE_NODE_HEARTBEAT_INTERVAL_MS
+  TEMPLATE_NODE_HEARTBEAT_INITIAL_DELAY_MS
+  TEMPLATE_NODE_STATE_HOST_DIR
+  TEMPLATE_SERVER_IMAGE
+  TEMPLATE_WEB_IMAGE
+  TEMPLATE_NODE_IMAGE
 )
 
 log() {
-  printf '[loom-release] %s\n' "$*"
+  printf '[template-release] %s\n' "$*"
 }
 
 die() {
@@ -95,7 +89,6 @@ compose_with_env() {
   local env_file="$1"
   shift
   local env_command=(env)
-  local key
 
   for key in "${COMPOSE_ENV_KEYS[@]}"; do
     env_command+=("-u" "$key")
@@ -114,10 +107,6 @@ ensure_root_dirs() {
     '$STATE_DIR' \
     '$BACKUP_DIR_ROOT' \
     '$INSTALL_ROOT/data' \
-    '$INSTALL_ROOT/data/vault' \
-    '$INSTALL_ROOT/data/logs' \
-    '$INSTALL_ROOT/data/logs/server' \
-    '$INSTALL_ROOT/data/logs/node' \
     '$INSTALL_ROOT/data/node-state'"
   root_shell "chown -R '$DEPLOY_OWNER:$DEPLOY_GROUP' '$INSTALL_ROOT'"
 }
@@ -125,13 +114,13 @@ ensure_root_dirs() {
 sync_bundle_to_install_root() {
   require_file "$BUNDLE_ROOT/compose/docker-compose.production.yml"
   require_file "$BUNDLE_ROOT/compose/edge/nginx.conf"
-  require_file "$BUNDLE_ROOT/systemd/loom.service"
+  require_file "$BUNDLE_ROOT/systemd/template.service"
 
   ensure_root_dirs
 
   root_shell "cp '$BUNDLE_ROOT/compose/docker-compose.production.yml' '$INSTALL_ROOT/compose/docker-compose.production.yml'"
   root_shell "cp '$BUNDLE_ROOT/compose/edge/nginx.conf' '$INSTALL_ROOT/compose/edge/nginx.conf'"
-  root_shell "cp '$BUNDLE_ROOT/systemd/loom.service' '/etc/systemd/system/$SYSTEMD_UNIT_NAME'"
+  root_shell "cp '$BUNDLE_ROOT/systemd/template.service' '/etc/systemd/system/$SYSTEMD_UNIT_NAME'"
   root_shell "chmod 644 '/etc/systemd/system/$SYSTEMD_UNIT_NAME'"
   root_shell "find '$INSTALL_ROOT/scripts' -maxdepth 1 -type f -name '*.sh' -delete"
   root_shell "cp '$BUNDLE_ROOT'/scripts/*.sh '$INSTALL_ROOT/scripts/'"

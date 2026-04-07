@@ -1,44 +1,26 @@
-# Loom Rollback
+# Template Rollback
 
-## Primary Rollback Path
+Rollback uses the last successful promoted env snapshot:
 
-The standard rollback entrypoint is:
+- current env: `/opt/template/env/.env.production`
+- last successful env: `/opt/template/state/last_successful.env`
 
-```bash
-/opt/loom/scripts/remote-rollback.sh
-```
-
-It restores the stack from:
-
-- `/opt/loom/state/last_successful.env`
-
-and then re-runs:
+## Host Command
 
 ```bash
-docker compose -f /opt/loom/compose/docker-compose.production.yml --env-file /opt/loom/env/.env.production up -d --remove-orphans
+/opt/template/scripts/remote-rollback.sh
 ```
 
-## When To Roll Back
+## What Rollback Does
 
-Roll back immediately if:
+1. Brings the stack back up with the image tags stored in `last_successful.env`.
+2. Restores the active env file from the successful snapshot.
+3. Restarts the systemd unit if it is active.
 
-- deploy succeeds but smoke fails
-- `/` returns 5xx
-- `/api/health` or `/api/nodes` returns non-200 after the readiness window
-- real chat generation fails because of a bad runtime configuration
+## If No Successful Snapshot Exists
 
-## Manual Verification After Rollback
+The rollback script fails closed. In that case:
 
-```bash
-curl -fsS http://127.0.0.1/ >/dev/null
-curl -fsS http://127.0.0.1/api/health >/dev/null
-curl -fsS http://127.0.0.1/api/nodes >/dev/null
-systemctl status loom.service
-docker ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
-```
-
-## Notes
-
-- `previous.env` is only a convenience snapshot; `last_successful.env` is the rollback source of truth.
-- Legacy `sprite-*` services are intentionally removed during the Loom cutover and are not the primary rollback target anymore.
-- If no successful release snapshot exists, the rollback script will stop the failed candidate stack and fail fast instead of pretending rollback succeeded.
+1. Inspect `/opt/template/state` for the last candidate env.
+2. Inspect container logs and smoke-test output.
+3. Re-run deploy with known good image tags.

@@ -35,15 +35,15 @@ if [[ -n "$legacy_networks" && "$ALLOW_LEGACY_NETWORKS" != "1" ]]; then
   die "Legacy Docker networks are still present"
 fi
 
-port_80_containers="$(list_port_80_containers | grep -v "^${LOOM_EDGE_CONTAINER_NAME}\$" || true)"
+port_80_containers="$(list_port_80_containers | grep -v "^${TEMPLATE_EDGE_CONTAINER_NAME}\$" || true)"
 if [[ -n "$port_80_containers" ]]; then
   printf '%s\n' "$port_80_containers" >&2
-  die "Port 80 is occupied by non-Loom containers"
+  die "Port 80 is occupied by non-template containers"
 fi
 
-if ! list_port_80_containers | grep -qx "$LOOM_EDGE_CONTAINER_NAME"; then
+if ! list_port_80_containers | grep -qx "$TEMPLATE_EDGE_CONTAINER_NAME"; then
   if root_shell "ss -ltnH '( sport = :80 )' | grep -q ."; then
-    die "Port 80 is occupied by a non-Loom listener"
+    die "Port 80 is occupied by a non-template listener"
   fi
 fi
 

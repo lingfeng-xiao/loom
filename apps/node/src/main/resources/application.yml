@@ -1,0 +1,43 @@
+spring:
+  application:
+    name: template-node
+
+server:
+  port: ${TEMPLATE_NODE_PORT:8090}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+template:
+  node:
+    name: ${TEMPLATE_NODE_NAME:${HOSTNAME:template-node}}
+    type: ${TEMPLATE_NODE_TYPE:server}
+    host: ${TEMPLATE_NODE_HOST:${HOSTNAME:localhost}}
+    server-base-url: ${TEMPLATE_SERVER_BASE_URL:http://localhost:8080}
+    server-token: ${TEMPLATE_SERVER_TOKEN:change-me}
+    heartbeat-interval-ms: ${TEMPLATE_NODE_HEARTBEAT_INTERVAL_MS:30000}
+    heartbeat-initial-delay-ms: ${TEMPLATE_NODE_HEARTBEAT_INITIAL_DELAY_MS:5000}
+    state-dir: ${TEMPLATE_NODE_STATE_DIR:./data/node-state}
+    tags:
+      - local
+      - template
+    capabilities:
+      - http-probe
+      - heartbeat
+    service-probes:
+      - name: template-server
+        kind: http
+        target: ${TEMPLATE_SERVER_HEALTH_URL:http://template-server:8080/api/health}
+        timeout-ms: 3000
+        expected-status: 200
+      - name: template-web
+        kind: http
+        target: ${TEMPLATE_WEB_HEALTH_URL:http://template-web/}
+        timeout-ms: 3000
+        expected-status: 200

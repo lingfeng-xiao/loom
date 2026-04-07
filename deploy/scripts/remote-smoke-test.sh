@@ -8,7 +8,7 @@ source "$SCRIPT_DIR/remote-common.sh"
 TARGET_ENV_FILE="${ENV_FILE:-}"
 [[ -n "$TARGET_ENV_FILE" && -f "$TARGET_ENV_FILE" ]] && parse_env_file "$TARGET_ENV_FILE"
 
-WEB_URL="${WEB_URL:-http://127.0.0.1:${LOOM_PUBLIC_PORT:-80}}"
+WEB_URL="${WEB_URL:-http://127.0.0.1:${TEMPLATE_PUBLIC_PORT:-80}}"
 API_URL="${API_URL:-${WEB_URL%/}/api}"
 SMOKE_ATTEMPTS="${SMOKE_ATTEMPTS:-30}"
 SMOKE_DELAY_SECONDS="${SMOKE_DELAY_SECONDS:-2}"
@@ -61,7 +61,7 @@ print_failure_context() {
   log "Container status:"
   docker ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}' >&2 || true
 
-  for container in loom-loom-edge-1 loom-loom-web-1 loom-loom-server-1 loom-loom-node-1; do
+  for container in template-template-edge-1 template-template-web-1 template-template-server-1 template-template-node-1; do
     if docker ps -a --format '{{.Names}}' | grep -qx "$container"; then
       log "Recent logs for $container:"
       docker logs --tail 40 "$container" >&2 || true

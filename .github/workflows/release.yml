@@ -5,23 +5,23 @@ on:
     branches:
       - main
     paths:
-      - apps/loom-server/**
-      - apps/loom-web/**
-      - apps/loom-node/**
+      - apps/server/**
+      - apps/web/**
+      - apps/node/**
       - packages/contracts/**
       - deploy/**
-      - Dockerfile.loom-server
-      - Dockerfile.loom-web
-      - Dockerfile.loom-node
+      - Dockerfile.template-server
+      - Dockerfile.template-web
+      - Dockerfile.template-node
       - docker-compose.yml
       - .env.example
       - .github/workflows/release.yml
 
 env:
   REGISTRY: ghcr.io
-  SERVER_IMAGE: ghcr.io/${{ github.repository_owner }}/loom-server
-  WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/loom-web
-  NODE_IMAGE: ghcr.io/${{ github.repository_owner }}/loom-node
+  SERVER_IMAGE: ghcr.io/${{ github.repository_owner }}/template-server
+  WEB_IMAGE: ghcr.io/${{ github.repository_owner }}/template-web
+  NODE_IMAGE: ghcr.io/${{ github.repository_owner }}/template-node
 
 jobs:
   preflight:
@@ -34,7 +34,6 @@ jobs:
       - name: Check release hygiene
         env:
           GITHUB_OWNER: ${{ github.repository_owner }}
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: bash deploy/scripts/release-preflight.sh
 
   build-and-push:
@@ -56,15 +55,15 @@ jobs:
         with:
           node-version: '18'
           cache: npm
-          cache-dependency-path: apps/loom-web/package-lock.json
+          cache-dependency-path: apps/web/package-lock.json
       - name: Build server
-        working-directory: apps/loom-server
+        working-directory: apps/server
         run: sed -i 's/\r$//' mvnw && chmod +x mvnw && ./mvnw -q -DskipTests package
       - name: Build node
-        working-directory: apps/loom-node
+        working-directory: apps/node
         run: sed -i 's/\r$//' mvnw && chmod +x mvnw && ./mvnw -q -DskipTests package
       - name: Build web
-        working-directory: apps/loom-web
+        working-directory: apps/web
         run: |
           npm ci
           npm run build
@@ -74,11 +73,11 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Build and push API image
+      - name: Build and push server image
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.loom-server
+          file: ./Dockerfile.template-server
           push: true
           tags: |
             ${{ env.SERVER_IMAGE }}:${{ github.sha }}
@@ -87,7 +86,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.loom-web
+          file: ./Dockerfile.template-web
           push: true
           tags: |
             ${{ env.WEB_IMAGE }}:${{ github.sha }}
@@ -96,7 +95,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile.loom-node
+          file: ./Dockerfile.template-node
           push: true
           tags: |
             ${{ env.NODE_IMAGE }}:${{ github.sha }}
@@ -138,7 +137,7 @@ jobs:
           mkdir -p deploy-bundle/compose/edge deploy-bundle/scripts deploy-bundle/systemd
           cp deploy/compose/docker-compose.production.yml deploy-bundle/compose/docker-compose.production.yml
           cp deploy/compose/edge/nginx.conf deploy-bundle/compose/edge/nginx.conf
-          cp deploy/systemd/loom.service deploy-bundle/systemd/loom.service
+          cp deploy/systemd/template.service deploy-bundle/systemd/template.service
           cp deploy/scripts/remote-*.sh deploy-bundle/scripts/
           chmod +x deploy-bundle/scripts/*.sh
           tar -czf deploy-bundle.tgz -C deploy-bundle .
@@ -167,11 +166,11 @@ jobs:
           DEPLOY_ROOT: ${{ secrets.DEPLOY_ROOT }}
         run: |
           ssh -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "STAGE_ROOT='${DEPLOY_ROOT}'; if [ -z \"\$STAGE_ROOT\" ]; then STAGE_ROOT=\"\$HOME/loom-deploy\"; fi; rm -rf \"\$STAGE_ROOT/bundle\" && mkdir -p \"\$STAGE_ROOT/bundle\""
-          stage_root="${DEPLOY_ROOT:-~/loom-deploy}"
+            "STAGE_ROOT='${DEPLOY_ROOT}'; if [ -z \"\$STAGE_ROOT\" ]; then STAGE_ROOT=\"\$HOME/template-deploy\"; fi; rm -rf \"\$STAGE_ROOT/bundle\" && mkdir -p \"\$STAGE_ROOT/bundle\""
+          stage_root="${DEPLOY_ROOT:-~/template-deploy}"
           scp -P "${DEPLOY_PORT:-22}" deploy-bundle.tgz "${DEPLOY_USER}@${DEPLOY_HOST}:${stage_root}/deploy-bundle.tgz"
           ssh -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "STAGE_ROOT='${DEPLOY_ROOT}'; if [ -z \"\$STAGE_ROOT\" ]; then STAGE_ROOT=\"\$HOME/loom-deploy\"; fi; tar -xzf \"\$STAGE_ROOT/deploy-bundle.tgz\" -C \"\$STAGE_ROOT/bundle\""
+            "STAGE_ROOT='${DEPLOY_ROOT}'; if [ -z \"\$STAGE_ROOT\" ]; then STAGE_ROOT=\"\$HOME/template-deploy\"; fi; tar -xzf \"\$STAGE_ROOT/deploy-bundle.tgz\" -C \"\$STAGE_ROOT/bundle\""
       - name: Deploy on server
         if: steps.deploy-secrets.outputs.ready == 'true'
         env:
@@ -181,17 +180,15 @@ jobs:
           DEPLOY_ROOT: ${{ secrets.DEPLOY_ROOT }}
           GHCR_USERNAME: ${{ secrets.GHCR_USERNAME }}
           GHCR_TOKEN: ${{ secrets.GHCR_TOKEN }}
-          LOOM_MODELS_API_KEY: ${{ secrets.LOOM_MODELS_API_KEY }}
         run: |
           ssh -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
-            "STAGE_ROOT='${DEPLOY_ROOT}'; if [ -z \"\$STAGE_ROOT\" ]; then STAGE_ROOT=\"\$HOME/loom-deploy\"; fi; \
+            "STAGE_ROOT='${DEPLOY_ROOT}'; if [ -z \"\$STAGE_ROOT\" ]; then STAGE_ROOT=\"\$HOME/template-deploy\"; fi; \
              env \
              DEPLOY_STAGE_ROOT=\"\$STAGE_ROOT\" \
-             INSTALL_ROOT='/opt/loom' \
-             LOOM_SERVER_IMAGE='${SERVER_IMAGE}:${GITHUB_SHA}' \
-             LOOM_WEB_IMAGE='${WEB_IMAGE}:${GITHUB_SHA}' \
-             LOOM_NODE_IMAGE='${NODE_IMAGE}:${GITHUB_SHA}' \
+             INSTALL_ROOT='/opt/template' \
+             TEMPLATE_SERVER_IMAGE='${SERVER_IMAGE}:${GITHUB_SHA}' \
+             TEMPLATE_WEB_IMAGE='${WEB_IMAGE}:${GITHUB_SHA}' \
+             TEMPLATE_NODE_IMAGE='${NODE_IMAGE}:${GITHUB_SHA}' \
              GHCR_USERNAME='${GHCR_USERNAME}' \
              GHCR_TOKEN='${GHCR_TOKEN}' \
-             LOOM_MODELS_API_KEY='${LOOM_MODELS_API_KEY}' \
              \"\$STAGE_ROOT/bundle/scripts/remote-release.sh\""

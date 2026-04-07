@@ -4,7 +4,7 @@ set -euo pipefail
 REMOTE_NAME="${REMOTE_NAME:-origin}"
 GITHUB_OWNER="${GITHUB_OWNER:-${GITHUB_REPOSITORY_OWNER:-}}"
 ALLOW_TAGS="${ALLOW_TAGS:-0}"
-FORBIDDEN_PACKAGE_NAMES="${FORBIDDEN_PACKAGE_NAMES:-template-api template-web sprite-api sprite-web loom your-image}"
+FORBIDDEN_PACKAGE_NAMES="${FORBIDDEN_PACKAGE_NAMES:-template-api sprite-api sprite-web loom-server loom-web loom-node your-image}"
 
 log() {
   printf '[release-preflight] %s\n' "$*"
@@ -40,8 +40,7 @@ if [[ "${CI:-}" != "true" ]]; then
 fi
 
 if [[ -z "$GITHUB_OWNER" ]]; then
-  log "Skipping GHCR package check because GITHUB_OWNER is not available"
-  log "Release preflight passed"
+  log "Skipping GHCR package checks because GITHUB_OWNER is not available"
   exit 0
 fi
 
