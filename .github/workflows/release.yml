@@ -8,6 +8,7 @@ on:
       - apps/loom-server/**
       - apps/loom-web/**
       - apps/loom-node/**
+      - packages/contracts/**
       - deploy/**
       - Dockerfile.loom-server
       - Dockerfile.loom-web
@@ -43,9 +44,11 @@ jobs:
           cache: npm
           cache-dependency-path: apps/loom-web/package-lock.json
       - name: Build server
-        run: sed -i 's/\r$//' ./apps/loom-server/mvnw && chmod +x ./apps/loom-server/mvnw && ./apps/loom-server/mvnw -q -DskipTests package
+        working-directory: apps/loom-server
+        run: sed -i 's/\r$//' mvnw && chmod +x mvnw && ./mvnw -q -DskipTests package
       - name: Build node
-        run: sed -i 's/\r$//' ./apps/loom-node/mvnw && chmod +x ./apps/loom-node/mvnw && ./apps/loom-node/mvnw -q -DskipTests package
+        working-directory: apps/loom-node
+        run: sed -i 's/\r$//' mvnw && chmod +x mvnw && ./mvnw -q -DskipTests package
       - name: Build web
         working-directory: apps/loom-web
         run: |
