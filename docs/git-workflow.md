@@ -1,41 +1,42 @@
-# Loom Git 工作流规范
+# Loom Git Workflow
 
-## 主干策略
+## Branch Policy
 
-- 默认主干为 `main`
-- 不直接在 `main` 上开发
-- 所有功能、修复、重构都先走分支，再通过 PR 合并
+- `main` is the only long-lived branch.
+- Do not develop directly on `main`.
+- Use short-lived branches with the `codex/` prefix unless a task explicitly requires another name.
 
-## 分支命名
+## Branch Names
 
-- 功能：`codex/feat-<topic>`
-- 修复：`codex/fix-<topic>`
-- 重构：`codex/refactor-<topic>`
-- 文档：`codex/docs-<topic>`
-- 运维：`codex/chore-<topic>`
+- `codex/feat-<topic>`
+- `codex/fix-<topic>`
+- `codex/refactor-<topic>`
+- `codex/docs-<topic>`
+- `codex/chore-<topic>`
 
-示例：
+Examples:
 
-- `codex/feat-db-compose`
-- `codex/fix-node-probes`
-- `codex/docs-rollout`
+- `codex/feat-release-preflight`
+- `codex/fix-smoke-retries`
+- `codex/docs-runbook-hardening`
 
-## 提交规范
+## Commits
 
-统一使用 Conventional Commits：
+Use Conventional Commits:
 
-- `feat(server): persist projects and conversations to mysql`
-- `fix(node): include last error in heartbeat payload`
-- `refactor(web): reduce chat workspace explanatory copy`
-- `docs(deploy): document jd cutover and rollback`
+- `feat(server): add release readiness endpoint`
+- `fix(deploy): harden remote preflight port checks`
+- `docs(runbook): add GHCR credential policy`
 
-## PR 规范
+## Pull Requests
 
-- PR 必须说明改动范围、验证方式、风险点
-- 合并前至少通过 `validate` 流水线
-- `main` 只接受通过 CI 的 PR 合并
+- Describe scope, verification, and rollback risk.
+- Wait for `Validate` to pass before merging.
+- Keep production docs and release scripts in the same PR when deployment behavior changes.
 
-## 仓库目标
+## Remote Policy
 
-- GitHub 仓库目标固定为 `lingfeng-xiao/loom`
-- 推荐 SSH 远端：`git@github.com:lingfeng-xiao/loom.git`
+- Fetch can stay on the standard GitHub URL.
+- Pushes should use the SSH 443 remote:
+
+`ssh://git@ssh.github.com:443/lingfeng-xiao/loom.git`

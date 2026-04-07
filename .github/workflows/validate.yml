@@ -88,6 +88,9 @@ jobs:
       - web
     steps:
       - uses: actions/checkout@v4
+      - name: Lint deploy scripts
+        run: |
+          find deploy/scripts -maxdepth 1 -type f -name '*.sh' -print0 | xargs -0 -n1 bash -n
       - name: Validate compose file
         env:
           LOOM_SERVER_IMAGE: ghcr.io/example/loom-server:test
@@ -96,5 +99,5 @@ jobs:
         run: |
           docker compose config
           docker compose -f docker-compose.yml -f docker-compose.dev.yml config
-          docker compose -f deploy/docker-compose.release.yml config
+          docker compose -f deploy/compose/docker-compose.production.yml config
           docker compose build loom-server loom-web loom-node

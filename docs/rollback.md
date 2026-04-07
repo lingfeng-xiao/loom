@@ -1,47 +1,44 @@
-# Loom 运维回滚文档
+# Loom Rollback
 
-## 适用场景
+## Primary Rollback Path
 
-- `jd` 上 Loom 独立 compose 栈切换后 smoke test 失败
-- `loom-web` 首页或 `/api/health` 不通
-- MySQL、节点、资产写入在切换后异常
-
-## 回滚原则
-
-- 先停新栈，再决定是否恢复旧 `sprite`
-- 旧 `sprite` 的 volume / network 在验收窗口内不删除
-- 先保留现场，再做清理
-
-## 最小回滚步骤
-
-1. 记录现状
+The standard rollback entrypoint is:
 
 ```bash
-docker ps --format 'table {{.Names}}\t{{.Image}}\t{{.Ports}}'
-ss -ltnp
+/opt/loom/scripts/remote-rollback.sh
 ```
 
-2. 停掉 Loom
+It restores the stack from:
+
+- `/opt/loom/state/last_successful.env`
+
+and then re-runs:
 
 ```bash
-cd ~/loom
-docker compose --env-file .env down --remove-orphans
+docker compose -f /opt/loom/compose/docker-compose.production.yml --env-file /opt/loom/env/.env.production up -d --remove-orphans
 ```
 
-3. 如果需要恢复旧 `sprite`
+## When To Roll Back
 
-- 回到旧 `sprite` compose 目录
-- 执行 `docker compose up -d`
-- 不要在验收窗口内手动删除旧 volume
+Roll back immediately if:
 
-4. 重新验证入口
+- deploy succeeds but smoke fails
+- `/` returns 5xx
+- `/api/health` or `/api/nodes` returns non-200 after the readiness window
+- real chat generation fails because of a bad runtime configuration
+
+## Manual Verification After Rollback
 
 ```bash
-curl -fsS http://127.0.0.1 >/dev/null
+curl -fsS http://127.0.0.1/ >/dev/null
 curl -fsS http://127.0.0.1/api/health >/dev/null
+curl -fsS http://127.0.0.1/api/nodes >/dev/null
+systemctl status loom.service
+docker ps -a --format 'table {{.Names}}\t{{.Image}}\t{{.Status}}\t{{.Ports}}'
 ```
 
-## 切换成功后的清理
+## Notes
 
-- 只有在 Loom 独立栈通过一轮完整验收后，才考虑清理旧 `sprite` volume / network
-- 清理前先导出一次 `docker ps`、`docker volume ls`、`docker network ls`
+- `previous.env` is only a convenience snapshot; `last_successful.env` is the rollback source of truth.
+- Legacy `sprite-*` services are intentionally removed during the Loom cutover and are not the primary rollback target anymore.
+- If no successful release snapshot exists, the rollback script will stop the failed candidate stack and fail fast instead of pretending rollback succeeded.

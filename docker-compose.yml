@@ -36,7 +36,7 @@ services:
       LOOM_BOOTSTRAP_ENABLED: ${LOOM_BOOTSTRAP_ENABLED:-true}
       LOOM_AI_PROVIDER_LABEL: ${LOOM_AI_PROVIDER_LABEL:-OpenAI Compatible}
       LOOM_AI_BASE_URL: ${LOOM_AI_BASE_URL:-http://127.0.0.1:11434/v1}
-      LOOM_AI_MODEL: ${LOOM_AI_MODEL:-gpt-4.1-mini}
+      LOOM_AI_MODEL: ${LOOM_AI_MODEL:-openai/gpt-4.1-mini}
       LOOM_AI_TEMPERATURE: ${LOOM_AI_TEMPERATURE:-0.2}
       LOOM_AI_API_KEY: ${LOOM_AI_API_KEY:-}
     volumes:
@@ -66,9 +66,9 @@ services:
     restart: unless-stopped
     environment:
       LOOM_NODE_PORT: 8090
-      LOOM_NODE_NAME: ${LOOM_NODE_NAME:-jd-node}
+      LOOM_NODE_NAME: ${LOOM_NODE_NAME:-loom-node}
       LOOM_NODE_TYPE: ${LOOM_NODE_TYPE:-server}
-      LOOM_NODE_HOST: ${LOOM_NODE_HOST:-jd}
+      LOOM_NODE_HOST: ${LOOM_NODE_HOST:-localhost}
       LOOM_SERVER_BASE_URL: http://loom-server:8080
       LOOM_SERVER_TOKEN: ${LOOM_SERVER_TOKEN:-change-me}
       LOOM_NODE_HEARTBEAT_INTERVAL_MS: ${LOOM_NODE_HEARTBEAT_INTERVAL_MS:-30000}

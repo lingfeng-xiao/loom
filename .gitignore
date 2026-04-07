@@ -22,12 +22,6 @@ logs/
 *.log
 *.tgz
 
-# Legacy split repositories kept during migration
-sprite-be/
-sprite-fe/
-sprite-monorepo.bundle
-monorepo-sync*.tar
-
 # Editors / OS
 .idea/
 .vscode/

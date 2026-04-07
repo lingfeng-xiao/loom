@@ -1,124 +1,93 @@
 # Loom Deployment
 
-Loom Phase 1 以独立 `docker compose` 为唯一正式部署路径。
+## Production Shape
 
-不再保留进程式 runtime 发布，也不再保留 Python `serve-web.py` 网关作为正式入口。外部访问统一走 `loom-web` 容器内的 Nginx，同源代理 `/api/* -> loom-server:8080`。
+Loom production is standardized around:
 
-## Prerequisites
+- install root: `/opt/loom`
+- public entrypoint: host port `80`
+- release compose: `/opt/loom/compose/docker-compose.production.yml`
+- environment file: `/opt/loom/env/.env.production`
+- release state: `/opt/loom/state/`
+- backup root: `/opt/loom/backups/`
+- systemd unit: `loom.service`
 
-- `jd` 上的旧 `sprite` 容器允许先退役，volume / network 保留一轮验收窗口
-- Docker 28.2.2 or newer
-- The repository checked out under `~/loom`
-- A `.env` file based on [.env.example](../.env.example)
-- 如果本地需要执行 `mvnw` 或打包 Java 服务，本机仍需要可用的 JDK 21
+The runtime stack is:
 
-## Local Compose
+- `loom-edge`: public Nginx edge proxy
+- `loom-web`: internal web container
+- `loom-server`: internal API container
+- `loom-node`: internal node agent
+- `loom-mysql`: MySQL 8.2
 
-```bash
-cp .env.example .env
-docker compose up -d --build
-```
+Only `loom-edge` binds a host port. `loom-web`, `loom-server`, `loom-node`, and `loom-mysql` stay on the internal Docker network.
 
-如果要本地调试宿主机端口，再叠加 dev override：
+## Release Flow
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
-```
+`release.yml` now performs a single remote release entrypoint:
 
-标准栈会拉起：
+1. run release preflight against remote Git refs and GHCR package hygiene
+2. build and push application images
+3. upload a versioned deploy bundle to the staging root on the server
+4. sync bundle content into `/opt/loom`
+5. back up legacy services
+6. retire legacy `sprite-*` and `template-*` containers
+7. run remote preflight
+8. deploy the candidate release
+9. smoke test `/`, `/api/health`, and `/api/nodes`
+10. promote the candidate env file to `/opt/loom/env/.env.production`
+11. update `/opt/loom/state/last_successful.env`
+12. reload or start `loom.service`
+13. roll back automatically if deploy or smoke fails
 
-- `loom-server`
-- `loom-web`
-- `loom-node`
-- `loom-mysql`
+## Release Bundle Contents
 
-## `jd` 切换顺序
+The release bundle contains:
 
-1. 预备目录与环境文件
+- `deploy/compose/docker-compose.production.yml`
+- `deploy/compose/edge/nginx.conf`
+- `deploy/systemd/loom.service`
+- `deploy/scripts/remote-*.sh`
 
-```bash
-bash deploy/scripts/bootstrap-jd.sh
-```
+The bundle is uploaded to a user-writable staging root first, then copied into `/opt/loom`.
 
-2. 留档并退役旧 `sprite`
+## Preflight Rules
 
-```bash
-bash deploy/scripts/retire-sprite-jd.sh
-```
+Preflight is split into two scripts:
 
-这个脚本会：
+- `deploy/scripts/release-preflight.sh`: checks GitHub refs, GHCR package hygiene, and the repository push-remote policy
+- `/opt/loom/scripts/remote-preflight.sh`: checks host state before the cutover
 
-- 导出当前容器、端口、volume、network 状态
-- 对 `sprite` compose 执行 `down --remove-orphans`
-- 不删除旧 volume / network，保留回滚窗口
+`remote-preflight.sh` is expected to fail when:
 
-3. 部署 Loom 独立栈
+- legacy `sprite-*` or `template-*` containers still exist
+- legacy Docker networks still exist
+- port `80` is occupied by something other than `loom-loom-edge-1`
+- Docker or Docker Compose is unavailable
+- the staging root or install root is not writable
+- `loom.service` is already in a failed state
+- the compose config cannot be rendered once the compose file and env file are available
 
-```bash
-bash deploy/scripts/deploy-jd.sh
-```
+The remote script can be run independently before a manual cutover. If the bundle has not been synced yet, it still validates host readiness and skips the compose render check.
 
-4. 运行冒烟验证
+## Environment File Rules
 
-```bash
-bash deploy/scripts/smoke-test-jd.sh
-```
+`/opt/loom/env/.env.production` is the single runtime source of truth.
 
-## 端口策略
+The release script rewrites the production env file with:
 
-- 生产只对外暴露宿主机 `80`
-- `loom-server`、`loom-node`、`loom-mysql` 不映射宿主机端口
-- 本地调试时才通过 `docker-compose.dev.yml` 暴露 `3306 / 8080 / 3000 / 8090`
+- absolute host paths under `/opt/loom/data/...`
+- host port `80`
+- the candidate image tags
+- the active LLM provider settings
 
-## Java 21
+Do not treat `.env` as a shell script. All scripts must parse it explicitly as `key=value`.
 
-Windows 上用 PowerShell 运行 `mvnw.cmd` 时，wrapper 会优先使用当前 `JAVA_HOME`，若版本过低则自动回退到本机可用的 JDK 21，例如 IntelliJ JBR。
+## LLM Credentials
 
-## Notes
+Production currently uses GitHub Models through the standard Loom OpenAI-compatible gateway.
 
-- The node agent is read-only in Phase 1.
-- The server Vault is the write target for assets.
-- The local Vault can be synced separately and is not reconciled by the app.
-- 回滚策略见 [rollback.md](./rollback.md)。
-## GitHub Actions Release Deploy
-
-The repository now contains a release-only compose bundle at `deploy/docker-compose.release.yml`.
-
-`release.yml` performs these steps on every push to `main` when relevant files change:
-
-1. build and push `loom-server`, `loom-web`, and `loom-node` images to GHCR
-2. upload the release compose file and remote scripts to the server over SSH
-3. pull the exact `${GITHUB_SHA}` image tags on the server
-4. run a basic smoke test against `/`, `/api/health`, and `/api/nodes`
-
-Required GitHub secrets:
-
-- `DEPLOY_HOST`
-- `DEPLOY_USER`
-- `DEPLOY_SSH_PRIVATE_KEY`
-
-Optional GitHub secrets:
-
-- `DEPLOY_PORT`
-- `DEPLOY_ROOT`
-- `DEPLOY_SSH_KNOWN_HOSTS`
-- `GHCR_USERNAME`
-- `GHCR_TOKEN`
-- `DEPLOY_WEB_URL`
-
-Server-side prerequisites:
-
-- Docker and Docker Compose installed
-- a writable deploy directory, defaulting to `~/loom-deploy`
-- a `${DEPLOY_ROOT}/.env` file derived from the repository `.env.example`
-
-If your GHCR package is private, set `GHCR_USERNAME` and `GHCR_TOKEN` so the remote host can `docker login ghcr.io` before pulling images.
-
-## Real LLM Configuration
-
-Loom now calls an OpenAI-compatible LLM endpoint whenever a user sends a chat message.
-
-Set these values in the server `.env` file:
+Required runtime keys:
 
 - `LOOM_AI_PROVIDER_LABEL`
 - `LOOM_AI_BASE_URL`
@@ -126,8 +95,22 @@ Set these values in the server `.env` file:
 - `LOOM_AI_TEMPERATURE`
 - `LOOM_AI_API_KEY`
 
-Examples:
+The release pipeline supports injecting `LOOM_MODELS_API_KEY` from GitHub Actions secrets into the candidate env file.
 
-- OpenAI: `LOOM_AI_BASE_URL=https://api.openai.com/v1`
-- DeepSeek: `LOOM_AI_BASE_URL=https://api.deepseek.com/v1`
-- Self-hosted OpenAI-compatible gateway: point `LOOM_AI_BASE_URL` at that service
+Credential rules:
+
+- Git pushes should use `ssh://git@ssh.github.com:443/<owner>/<repo>.git`
+- GHCR pulls should use a dedicated read-only service credential when packages are private
+- `LOOM_MODELS_API_KEY` should be a dedicated production credential, not a personal long-lived PAT
+- keep Actions secrets scoped to the minimum permissions needed for release
+
+Important cost note:
+
+- GitHub Models has free, rate-limited access for prototyping
+- usage and rate limits vary by model and plan
+- paid usage can be enabled
+
+Official references:
+
+- https://docs.github.com/en/billing/concepts/product-billing/github-models
+- https://docs.github.com/en/github-models/prototyping-with-ai-models

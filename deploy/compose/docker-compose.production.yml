@@ -1,6 +1,19 @@
 name: loom
 
 services:
+  loom-edge:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    depends_on:
+      loom-web:
+        condition: service_started
+      loom-server:
+        condition: service_started
+    ports:
+      - "${LOOM_PUBLIC_PORT:-80}:80"
+    volumes:
+      - ./edge/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+
   loom-mysql:
     image: mysql:8.2
     restart: unless-stopped
@@ -34,12 +47,12 @@ services:
       LOOM_BOOTSTRAP_ENABLED: ${LOOM_BOOTSTRAP_ENABLED:-true}
       LOOM_AI_PROVIDER_LABEL: ${LOOM_AI_PROVIDER_LABEL:-OpenAI Compatible}
       LOOM_AI_BASE_URL: ${LOOM_AI_BASE_URL:-http://127.0.0.1:11434/v1}
-      LOOM_AI_MODEL: ${LOOM_AI_MODEL:-gpt-4.1-mini}
+      LOOM_AI_MODEL: ${LOOM_AI_MODEL:-openai/gpt-4.1-mini}
       LOOM_AI_TEMPERATURE: ${LOOM_AI_TEMPERATURE:-0.2}
       LOOM_AI_API_KEY: ${LOOM_AI_API_KEY:-}
     volumes:
-      - ${LOOM_VAULT_HOST_DIR:-./deploy/data/vault}:/workspace/vault
-      - ${LOOM_SERVER_LOG_HOST_DIR:-./deploy/data/logs/server}:/workspace/logs
+      - ${LOOM_VAULT_HOST_DIR:?set LOOM_VAULT_HOST_DIR}:/workspace/vault
+      - ${LOOM_SERVER_LOG_HOST_DIR:?set LOOM_SERVER_LOG_HOST_DIR}:/workspace/logs
     depends_on:
       loom-mysql:
         condition: service_healthy
@@ -47,8 +60,6 @@ services:
   loom-web:
     image: ${LOOM_WEB_IMAGE:?set LOOM_WEB_IMAGE}
     restart: unless-stopped
-    ports:
-      - "${LOOM_PUBLIC_PORT:-80}:80"
     depends_on:
       loom-server:
         condition: service_started
@@ -58,9 +69,9 @@ services:
     restart: unless-stopped
     environment:
       LOOM_NODE_PORT: 8090
-      LOOM_NODE_NAME: ${LOOM_NODE_NAME:-jd-node}
+      LOOM_NODE_NAME: ${LOOM_NODE_NAME:-loom-node}
       LOOM_NODE_TYPE: ${LOOM_NODE_TYPE:-server}
-      LOOM_NODE_HOST: ${LOOM_NODE_HOST:-jd}
+      LOOM_NODE_HOST: ${LOOM_NODE_HOST:-loom-host}
       LOOM_SERVER_BASE_URL: http://loom-server:8080
       LOOM_SERVER_TOKEN: ${LOOM_SERVER_TOKEN:-change-me}
       LOOM_NODE_HEARTBEAT_INTERVAL_MS: ${LOOM_NODE_HEARTBEAT_INTERVAL_MS:-30000}
@@ -72,8 +83,8 @@ services:
         {"name":"loom-web","kind":"http","target":"http://loom-web/","timeoutMs":3000,"expectedStatus":200}
         ]}}}
     volumes:
-      - ${LOOM_NODE_LOG_HOST_DIR:-./deploy/data/logs/node}:/workspace/logs
-      - ${LOOM_NODE_STATE_HOST_DIR:-./deploy/data/node-state}:/workspace/state
+      - ${LOOM_NODE_LOG_HOST_DIR:?set LOOM_NODE_LOG_HOST_DIR}:/workspace/logs
+      - ${LOOM_NODE_STATE_HOST_DIR:?set LOOM_NODE_STATE_HOST_DIR}:/workspace/state
     depends_on:
       loom-server:
         condition: service_started
