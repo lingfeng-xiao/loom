@@ -16,8 +16,24 @@ fi
 WEB_URL="${WEB_URL:-http://127.0.0.1:${LOOM_PUBLIC_PORT:-80}}"
 API_URL="${API_URL:-${WEB_URL%/}/api}"
 
-curl -fsS "$WEB_URL" >/dev/null
-curl -fsS "${API_URL%/}/health" >/dev/null
-curl -fsS "${API_URL%/}/nodes" >/dev/null
+retry_curl() {
+  local url="$1"
+  local attempts="${2:-30}"
+  local delay_seconds="${3:-2}"
+  local attempt
+
+  for ((attempt = 1; attempt <= attempts; attempt++)); do
+    if curl -fsS "$url" >/dev/null; then
+      return 0
+    fi
+    sleep "$delay_seconds"
+  done
+
+  curl -fsS "$url" >/dev/null
+}
+
+retry_curl "$WEB_URL"
+retry_curl "${API_URL%/}/health"
+retry_curl "${API_URL%/}/nodes"
 
 echo "smoke-test-passed"
