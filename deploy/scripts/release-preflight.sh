@@ -42,23 +42,32 @@ if [[ "${CI:-}" != "true" ]]; then
   fi
 fi
 
-if [[ -z "$GITHUB_OWNER" || -z "$PACKAGE_TOKEN" ]]; then
-  log "Skipping GHCR package check because GITHUB_OWNER or API token is not available"
+if [[ -z "$GITHUB_OWNER" ]]; then
+  log "Skipping GHCR package check because GITHUB_OWNER is not available"
   log "Release preflight passed"
   exit 0
 fi
 
+fetch_packages() {
+  local url="$1"
+  shift || true
+
+  curl -fsSL \
+    -H 'Accept: application/vnd.github+json' \
+    -H 'User-Agent: codex' \
+    "$@" \
+    "$url"
+}
+
 packages_json="$(
-  curl -fsSL \
-    -H 'Accept: application/vnd.github+json' \
-    -H "Authorization: Bearer $PACKAGE_TOKEN" \
-    -H 'User-Agent: codex' \
-    "https://api.github.com/users/${GITHUB_OWNER}/packages?package_type=container&per_page=100" || \
-  curl -fsSL \
-    -H 'Accept: application/vnd.github+json' \
-    -H "Authorization: Bearer $PACKAGE_TOKEN" \
-    -H 'User-Agent: codex' \
-    "https://api.github.com/user/packages?package_type=container&per_page=100"
+  fetch_packages "https://api.github.com/users/${GITHUB_OWNER}/packages?package_type=container&per_page=100" || \
+  {
+    [[ -n "$PACKAGE_TOKEN" ]] || exit 1
+    fetch_packages "https://api.github.com/users/${GITHUB_OWNER}/packages?package_type=container&per_page=100" \
+      -H "Authorization: Bearer $PACKAGE_TOKEN" || \
+    fetch_packages "https://api.github.com/user/packages?package_type=container&per_page=100" \
+      -H "Authorization: Bearer $PACKAGE_TOKEN"
+  }
 )"
 
 package_names="$(
