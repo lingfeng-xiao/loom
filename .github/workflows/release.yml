@@ -188,4 +188,5 @@ jobs:
         run: |
           ssh -p "${DEPLOY_PORT:-22}" "${DEPLOY_USER}@${DEPLOY_HOST}" \
             "REMOTE_ROOT='${DEPLOY_ROOT}'; if [ -z \"\$REMOTE_ROOT\" ]; then REMOTE_ROOT=\"\$HOME/loom-deploy\"; fi; \
-             export WEB_URL='${DEPLOY_WEB_URL:-http://127.0.0.1}' && \"\$REMOTE_ROOT/scripts/remote-smoke-test.sh\""
+             export ENV_FILE=\"\$REMOTE_ROOT/.env\" && \
+             export WEB_URL='${DEPLOY_WEB_URL}' && \"\$REMOTE_ROOT/scripts/remote-smoke-test.sh\""
