@@ -119,3 +119,36 @@
 - 附件：`apps/web` 下执行 `npm run build` 通过
 - 下一步动作：补联调清单执行记录，并推进 `FE-004 / BE-004`
 - 是否允许进入下一阶段：允许继续推进 Context 真数据接线
+
+## 6. 证据回填摘要
+
+### 后端证据
+
+- `BE-002`
+  - 提交：`687d57d`
+  - 验证：`apps/server` 执行 `./mvnw -q test` 通过
+  - 覆盖：Project / Conversation / Message / Context / Trace / Settings / Stream 最小接口
+  - 结论：接口层可作为前后端接线基线
+- `BE-003`
+  - 提交：`0fdb1e9`
+  - 验证：集成测试新增 SSE 事件断言，事件名已锁定
+  - 覆盖：`thinking.summary.delta`、`thinking.summary.done`、`message.delta`、`message.done`、`trace.step.created`、`trace.step.completed`、`context.updated`、`run.completed`
+  - 结论：流式层可作为前端订阅基线
+
+### 前端证据
+
+- `FE-002`
+  - 提交：`80a5084`
+  - 验证：消息提交接通真实 workspace API，提交后触发 bootstrap 刷新
+  - 结论：composer 到后端主数据链路已打通
+- `FE-003`
+  - 提交：`d5a748f`
+  - 验证：`apps/web` 执行 `npm run build` 通过
+  - 覆盖：EventSource 事件消费、消息 / Trace / Context 视图回填
+  - 结论：前端已具备最小实时更新能力
+
+### 当前缺口
+
+- `QA-004` 仍缺一份实际联调执行记录
+- `QA-005` 仍缺发布前 go/no-go 签字和回退确认
+- `FE-004 / FE-005` 仍缺真实数据渲染证据

@@ -21,6 +21,8 @@
 - [loom Phase 1 test plan](./loom-phase1-test-plan.md)
 - [loom Phase 1 test record](./loom-phase1-test-record.md)
 - [loom Phase 1 joint debug checklist](./loom-phase1-joint-debug-checklist.md)
+- [loom Phase 1 go / no-go checklist](./loom-phase1-go-no-go-checklist.md)
+- [loom Phase 1 frontend smoke record](./loom-phase1-frontend-smoke-record.md)
 - [loom Phase 1 risk and release record](./loom-phase1-risk-release-record.md)
 - [loom Spring Boot backend module design](./loom-springboot-backend-module-design.md)
 - [loom Java package structure](./loom-java-package-structure.md)

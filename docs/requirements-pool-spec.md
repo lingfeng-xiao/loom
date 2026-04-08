@@ -98,8 +98,8 @@
 | QA-001 | P0 | Done | 基于新架构补 Phase 1 测试计划，覆盖会话主链路、Trace、Context、Settings、降级策略。 | 开发规范、第 9 节；当前测试文档缺位 | ARC-002, PM-001 | 输出测试范围、环境、入口数据、回归清单和发布建议口径。 |
 | QA-002 | P0 | In Progress | 扩展后端集成测试，覆盖 project / conversation / message / stream / settings 新接口。 | 当前 `apps/server` 测试现状 | BE-002, BE-003, BE-005 | 新接口具备 MockMvc 或集成测试，关键错误态可回归。 |
 | QA-003 | P0 | In Progress | 建立前端冒烟与关键路径验证，覆盖欢迎页进入、会话切换、模式切换、流式回复、右侧面板切换。 | 当前 `apps/web` 实现现状 | FE-002, FE-003, FE-004 | 主链路有自动化或明确手测清单，可在每次合并前执行。 |
-| QA-004 | P1 | Ready | 建立前后端联调检查单，明确契约字段、事件顺序、断线重连、空态和错态。 | 开发规范、第 4.5 节 | ARC-002, FE-003, BE-003 | 联调结果可回填到需求条目，不再只留口头结论。 |
-| QA-005 | P1 | Ready | 建立发布前验收与回归建议，区分 P0 主链路、P1 配置面、P2 占位能力。 | 开发规范、第 4.6/4.7 节 | PM-005 | 发布前有一份明确的 go / no-go 检查清单。 |
+| QA-004 | P1 | In Progress | 建立前后端联调检查单，明确契约字段、事件顺序、断线重连、空态和错态。 | 开发规范、第 4.5 节 | ARC-002, FE-003, BE-003 | 联调结果可回填到需求条目，不再只留口头结论。 |
+| QA-005 | P1 | In Progress | 建立发布前验收与回归建议，区分 P0 主链路、P1 配置面、P2 占位能力。 | 开发规范、第 4.6/4.7 节 | PM-005 | 发布前有一份明确的 go / no-go 检查清单。 |
 
 ## 4. 当前执行顺序建议
 
@@ -125,4 +125,6 @@
 - `QA-001`：测试计划与记录模板已形成独立提交 `2c69dd3`，状态更新为 `Done`。
 - `QA-002`：`apps/server/src/test/java/com/loom/server/LoomApiIntegrationTest.java` 已新增 workspace 主链路覆盖，状态调整为 `In Progress`，后续继续补齐 SSE 事件细项与错误态。
 - `QA-003`：前端关键路径已新增“提交消息后消费 SSE 并刷新 bootstrap”的构建验证基线，状态调整为 `In Progress`，后续补手测清单与联调截图。
+- `QA-004`：联调检查单已补齐到 [loom-phase1-joint-debug-checklist.md](./loom-phase1-joint-debug-checklist.md)，状态调整为 `In Progress`，后续需要真实联调记录回填。
+- `QA-005`：发布前 `go / no-go` 检查单已补齐到 [loom-phase1-go-no-go-checklist.md](./loom-phase1-go-no-go-checklist.md)，状态调整为 `In Progress`，后续需要实际放行记录。
 - `PM-001`、`PM-003`、`PM-004`：文档、风险台账、分支恢复与集成分支编排持续维护中，生产服务器尚未进入使用窗口。

@@ -156,3 +156,11 @@
 - 前端：关键页面截图或录屏、构建成功记录、主流程冒烟结论、SSE 接线结果。
 - 后端：接口测试结果、集成测试结果、SSE / Trace 事件样例、错误态样例。
 - 联调：字段对齐表、问题列表、修复回归记录、最终通过结论。
+
+## 9. 当前可用证据快照
+
+- `BE-002`：`687d57d` 已落地，`apps/server` 集成测试覆盖 `/api/projects`、`/conversations`、`/messages`、`/context`、`/trace`、`/settings/overview`、`/stream`，`./mvnw -q test` 通过。
+- `BE-003`：`0fdb1e9` 已落地，SSE 事件样例覆盖 `thinking.summary.delta`、`thinking.summary.done`、`message.delta`、`message.done`、`trace.step.created`、`trace.step.completed`、`context.updated`、`run.completed`。
+- `FE-002`：`80a5084` 已落地，composer 提交消息已接通真实 workspace API，并在提交后触发 bootstrap 刷新。
+- `FE-003`：`d5a748f` 已落地，会话页已可消费 workspace stream 事件，更新消息、Trace 和 Context 的当前视图。
+- 当前仍缺的证据：`FE-004 / FE-005` 的真实数据页面验证、`QA-004` 联调完整记录、`QA-005` 发布前 go/no-go 签字。
