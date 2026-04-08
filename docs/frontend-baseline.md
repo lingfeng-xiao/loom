@@ -1,15 +1,9 @@
-# Frontend Baseline
+# 前端基线
 
-The default web shell is intentionally small. It should:
+已于 2026-04-08 清空。
 
-- load `/api/bootstrap`
-- load `/api/nodes`
-- present release metadata, setup tasks, extension points, and node inventory
-- degrade gracefully when the API is unavailable
+原因：旧前端基线基于上一版设计，不再有效。
 
-## Customization Guidelines
-
-- Replace the placeholder dashboard before shipping a product.
-- Keep `/api/bootstrap` aligned with what the UI expects to render.
-- Prefer plain, dependency-light patterns unless your product genuinely needs more.
-- Preserve mobile readability and a fast first load.
+当前状态：
+- 本文件仅保留占位
+- 待新设计确定后重建前端基线
