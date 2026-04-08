@@ -6,6 +6,8 @@ import type { WorkbenchDomainState, ComposerDraftState } from '../domains/workbe
 import { createLoomSdk } from '../sdk/loomApiClient'
 import { createBrowserStreamClient } from '../services/streamClient'
 import type {
+  CapabilitiesOverview,
+  CapabilityOverviewView,
   ContextBlock,
   ContextPanelView,
   ConversationMessage,
@@ -13,7 +15,10 @@ import type {
   ConversationStreamEvent,
   LoomBootstrapPayload,
   MessageView,
+  SettingsOverview,
+  SettingsOverviewView,
   RunStepView,
+  StatusItem,
   TraceStep,
   WorkspacePageId,
 } from '../types'
@@ -103,6 +108,52 @@ function toContextBlocks(context: ContextPanelView): ContextBlock[] {
     { id: 'context-files', label: '参考输入', value: context.references[0]?.summary ?? '暂无引用输入' },
     { id: 'context-open', label: '未闭环事项', value: context.openLoops.join(' | ') || '暂无未闭环事项' },
   ]
+}
+
+function toSettingsOverview(settings: SettingsOverviewView): SettingsOverview {
+  const activeModel = settings.modelProfiles[0]
+
+  return {
+    summary: '设置页已切到真实读模型，展示当前作用域的模型、Skills、MCP、Memory 与 Routing 概览。',
+    tabs: settings.tabs,
+    profile: activeModel
+      ? [
+          { label: '配置名称', value: activeModel.name },
+          { label: '提供方', value: activeModel.provider },
+          { label: '模型 ID', value: activeModel.modelId },
+          {
+            label: '能力',
+            value: [
+              activeModel.supportsStreaming ? 'Streaming' : null,
+              activeModel.supportsImages ? 'Images' : null,
+              activeModel.supportsTools ? 'Tools' : null,
+              activeModel.supportsLongContext ? 'Long Context' : null,
+            ]
+              .filter(Boolean)
+              .join(' | '),
+          },
+          { label: '超时', value: `${activeModel.timeoutMs} ms` },
+        ]
+      : [],
+    guidance: [
+      `当前作用域：${settings.activeScope}`,
+      `启用 Skills：${settings.skills.filter((skill) => skill.enabled).map((skill) => skill.name).join(' / ') || '无'}`,
+      `默认运行时：${settings.routingPolicy?.defaultRuntime ?? 'internal'}`,
+    ],
+    riskNotes: [
+      settings.routingPolicy?.allowExternalExecutors ? '外部执行器仍需受控开启。' : '当前未开放外部执行器直连。',
+      settings.memoryPolicy?.allowSystemWrites ? 'System 写入已开启，变更前需要同步测试记录。' : 'System 写入未开启。',
+      '任何配置变更都必须同步到运行和测试文档里。',
+    ],
+  }
+}
+
+function toCapabilitiesOverview(capabilities: CapabilityOverviewView): CapabilitiesOverview {
+  return {
+    summary: capabilities.summary,
+    cards: capabilities.cards,
+    bindingRules: capabilities.bindingRules as StatusItem[],
+  }
 }
 
 interface StreamOverlayState {
@@ -196,23 +247,72 @@ export function LoomWorkbenchProvider({
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [streamOverlay, setStreamOverlay] = useState<StreamOverlayState | null>(null)
+  const [remoteContext, setRemoteContext] = useState<ContextPanelView | null>(null)
+  const [remoteSettings, setRemoteSettings] = useState<SettingsOverviewView | null>(null)
+  const [remoteCapabilities, setRemoteCapabilities] = useState<CapabilityOverviewView | null>(null)
   const [draftsByConversation, setDraftsByConversation] = useState<Record<string, ComposerDraftState>>({})
   const [scrollPositions, setScrollPositions] = useState<Record<string, number>>({})
   const streamUnsubscribeRef = useRef<null | (() => void)>(null)
   const combinedError = runtimeError ?? error
-  const effectivePayload =
-    streamOverlay && streamOverlay.conversationId === (route.conversationId ?? defaultConversationId(payload))
-      ? {
-          ...payload,
-          messages: streamOverlay.messages,
-          traceSteps: streamOverlay.traceSteps,
-          contextBlocks: streamOverlay.contextBlocks,
-        }
-      : payload
+
+  const effectivePayload = useMemo(() => {
+    const nextPayload =
+      streamOverlay && streamOverlay.conversationId === (route.conversationId ?? defaultConversationId(payload))
+        ? {
+            ...payload,
+            messages: streamOverlay.messages,
+            traceSteps: streamOverlay.traceSteps,
+            contextBlocks: streamOverlay.contextBlocks,
+          }
+        : payload
+
+    return {
+      ...nextPayload,
+      contextBlocks: remoteContext ? toContextBlocks(remoteContext) : nextPayload.contextBlocks,
+      settings: remoteSettings ? toSettingsOverview(remoteSettings) : nextPayload.settings,
+      capabilities: remoteCapabilities ? toCapabilitiesOverview(remoteCapabilities) : nextPayload.capabilities,
+    }
+  }, [payload, remoteCapabilities, remoteContext, remoteSettings, route.conversationId, streamOverlay])
 
   useEffect(() => {
     setStreamOverlay(null)
   }, [payload, route.conversationId])
+
+  useEffect(() => {
+    const conversationId = route.conversationId ?? defaultConversationId(payload)
+    if (!payload.project.id || !conversationId) {
+      setRemoteContext(null)
+      return
+    }
+
+    const controller = new AbortController()
+    sdk.workspace
+      .getContext(payload.project.id, conversationId, controller.signal)
+      .then((context) => setRemoteContext(context))
+      .catch(() => undefined)
+
+    return () => controller.abort()
+  }, [payload.project.id, payload.messages, route.conversationId, sdk])
+
+  useEffect(() => {
+    if (!payload.project.id) {
+      setRemoteSettings(null)
+      setRemoteCapabilities(null)
+      return
+    }
+
+    const controller = new AbortController()
+    sdk.workspace
+      .getSettingsOverview('project', controller.signal)
+      .then((settings) => setRemoteSettings(settings))
+      .catch(() => undefined)
+    sdk.workspace
+      .getCapabilitiesOverview('project', controller.signal)
+      .then((capabilities) => setRemoteCapabilities(capabilities))
+      .catch(() => undefined)
+
+    return () => controller.abort()
+  }, [payload.project.id, payload.messages, sdk])
 
   useEffect(() => () => {
     streamUnsubscribeRef.current?.()

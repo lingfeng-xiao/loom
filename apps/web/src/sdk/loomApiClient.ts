@@ -1,4 +1,12 @@
-import type { ApiEnvelope, LoomBootstrapPayload, SubmitMessageRequest, SubmitMessageResponse } from '../types'
+import type {
+  ApiEnvelope,
+  CapabilityOverviewView,
+  ContextPanelView,
+  LoomBootstrapPayload,
+  SettingsOverviewView,
+  SubmitMessageRequest,
+  SubmitMessageResponse,
+} from '../types'
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
 
@@ -86,6 +94,18 @@ export class ShellApi {
 
 export class WorkspaceApi {
   constructor(private readonly http: LoomHttpClient) {}
+
+  getContext(projectId: string, conversationId: string, signal?: AbortSignal) {
+    return this.http.get<ContextPanelView>(`/api/projects/${projectId}/conversations/${conversationId}/context`, signal)
+  }
+
+  getSettingsOverview(scope = 'project', signal?: AbortSignal) {
+    return this.http.get<SettingsOverviewView>(`/api/settings/overview?scope=${encodeURIComponent(scope)}`, signal)
+  }
+
+  getCapabilitiesOverview(scope = 'project', signal?: AbortSignal) {
+    return this.http.get<CapabilityOverviewView>(`/api/capabilities/overview?scope=${encodeURIComponent(scope)}`, signal)
+  }
 
   submitMessage(projectId: string, conversationId: string, request: SubmitMessageRequest, signal?: AbortSignal) {
     return this.http.post<SubmitMessageResponse>(
