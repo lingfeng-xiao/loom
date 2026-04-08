@@ -120,6 +120,36 @@
 - 下一步动作：补联调清单执行记录，并推进 `FE-004 / BE-004`
 - 是否允许进入下一阶段：允许继续推进 Context 真数据接线
 
+### TR-2026-04-08-05
+
+- 日期：2026-04-08
+- 阶段：并发开发
+- 覆盖需求：`BE-004`、`BE-005`
+- 环境：本地 / `codex/integration-phase1-delivery`
+- 执行人：后端 / PM
+- 结论：通过
+- 问题：当前 capability overview 仍由 `workspace` 过渡聚合模块装配，后续可继续下沉到独立 capability 模块。
+- 修复：已提交 `13143aa` `BE-004 feat: add context refresh and capability overview`
+- 回退：未执行
+- 附件：`apps/server` 下执行 `./mvnw -q test` 通过；测试覆盖 `POST /context/refresh` 与 `GET /api/capabilities/overview`
+- 下一步动作：继续推进 `BE-006` 或拆出独立 capability / action 模块
+- 是否允许进入下一阶段：允许进入前端真数据接线与联调阶段
+
+### TR-2026-04-08-06
+
+- 日期：2026-04-08
+- 阶段：并发开发
+- 覆盖需求：`FE-004`、`FE-005`
+- 环境：本地 / `codex/integration-phase1-delivery`
+- 执行人：前端 / PM
+- 结论：通过
+- 问题：Capabilities / Settings 目前通过 provider 层的远端读模型覆盖现有 payload，仍需补页面级联调证据确认展示口径。
+- 修复：已提交 `44c6c1f` `FE-004 feat: source context and settings panels from workspace apis`
+- 回退：未执行
+- 附件：`apps/web` 下执行 `npm run build` 通过
+- 下一步动作：补 `FE-005` 联调证据并推进 `FE-006`
+- 是否允许进入下一阶段：允许继续推进文件池与内存页首版
+
 ## 6. 证据回填摘要
 
 ### 后端证据
@@ -151,4 +181,5 @@
 
 - `QA-004` 仍缺一份实际联调执行记录
 - `QA-005` 仍缺发布前 go/no-go 签字和回退确认
-- `FE-004 / FE-005` 仍缺真实数据渲染证据
+- `FE-005` 仍缺页面级联调证据
+- `BE-006 / FE-006` 尚未开始

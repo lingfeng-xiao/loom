@@ -65,8 +65,8 @@
 | FE-001 | P0 | In Progress | 将现有三栏壳层从纯 fallback/bootstrap 展示升级为“可切换真实数据源”的工作台，保留加载态、错态和空态。 | 当前 `apps/web` 实现现状 | ARC-002 | 本地无后端时可回退，有后端时优先读真实接口，状态表现完整。 |
 | FE-002 | P0 | In Progress | 接入项目与会话基础能力：项目摘要、会话列表、消息列表、模式切换、草稿输入。 | 架构设计、第 7/8/18 节 | ARC-002, BE-002 | 会话页不再只消费静态 bootstrap，主链路基于真实接口渲染。 |
 | FE-003 | P0 | In Progress | 接入消息流式输出与 Trace 面板实时更新，完成 message stream、thinking summary、run step 的前端订阅与渲染。 | 架构设计、第 14/18 节；后端模块设计、第 10 节 | ARC-002, BE-003 | 会话回复、思考摘要、Trace 状态变化通过统一 SSE 合同实时更新。 |
-| FE-004 | P1 | Ready | 将 Context 右侧面板升级为真实数据面板，展示目标、约束、摘要、引用文件、未闭环事项。 | 架构设计、第 7/10 节 | ARC-002, BE-004 | Context 面板支持读真实上下文快照，字段命名和排序一致。 |
-| FE-005 | P1 | Ready | 将 Capabilities 与 Settings 页面改为真实读模型，并支持分区切换、配置摘要、风险提示。 | 架构设计、第 13/15 节 | ARC-002, BE-005 | 页面数据来自服务端，不再完全依赖静态 overview。 |
+| FE-004 | P1 | Done | 将 Context 右侧面板升级为真实数据面板，展示目标、约束、摘要、引用文件、未闭环事项。 | 架构设计、第 7/10 节 | ARC-002, BE-004 | Context 面板支持读真实上下文快照，字段命名和排序一致。 |
+| FE-005 | P1 | In Progress | 将 Capabilities 与 Settings 页面改为真实读模型，并支持分区切换、配置摘要、风险提示。 | 架构设计、第 13/15 节 | ARC-002, BE-005 | 页面数据来自服务端，不再完全依赖静态 overview。 |
 | FE-006 | P2 | Ready | 落地 Files / Memory 页面首版壳层，支持列表、空态、入口联动，为后续 Phase 1.5 做准备。 | 架构设计、第 9/11 节 | ARC-002, BE-006 | Files / Memory 不再是纯占位页，具备最小浏览能力。 |
 
 ### 3.3 后端开发
@@ -76,8 +76,8 @@
 | BE-001 | P0 | In Progress | 完成服务端命名与骨架迁移：从 template 命名迁到 loom 领域命名，并建立模块化包结构。 | 当前 `apps/server` 现状；Java 包结构文档 | ARC-003 | 根包、配置、启动类、合同命名对齐 loom，迁移后测试仍可运行。 |
 | BE-002 | P0 | In Progress | 实现 Project / Conversation / Message 最小可用读写接口，形成“提交消息前”的真实主数据基础。 | 架构设计、第 6/16/18/19 节 | ARC-001, ARC-002, ARC-005 | 至少支持项目详情、会话列表、消息列表、创建会话、提交用户消息。 |
 | BE-003 | P0 | In Progress | 实现 stream 模块和 SSE 事件合同，支持 `message.delta`、`message.done`、`thinking.summary.*`、`trace.step.*` 等事件。 | 后端模块设计、第 9/10 节 | ARC-002, BE-002 | 前端可稳定订阅单一流入口，断开重连和完成态口径一致。 |
-| BE-004 | P1 | Ready | 实现 context 模块首版：上下文组装、摘要刷新、决策与 open loops 快照查询。 | 架构设计、第 10/18 节；后端模块设计、第 4.3 节 | ARC-001, ARC-002, ARC-005 | 提供 Context 面板读接口和刷新接口，结构与文档一致。 |
-| BE-005 | P1 | Ready | 实现 settings / capability 最小读接口，包含 model profiles、skills、MCP、routing、memory policy 的读取视图。 | 架构设计、第 13/15 节；后端模块设计、第 4.6/4.8 节 | ARC-002, ARC-005 | Capabilities / Settings 页面可读取真实摘要数据。 |
+| BE-004 | P1 | Done | 实现 context 模块首版：上下文组装、摘要刷新、决策与 open loops 快照查询。 | 架构设计、第 10/18 节；后端模块设计、第 4.3 节 | ARC-001, ARC-002, ARC-005 | 提供 Context 面板读接口和刷新接口，结构与文档一致。 |
+| BE-005 | P1 | Done | 实现 settings / capability 最小读接口，包含 model profiles、skills、MCP、routing、memory policy 的读取视图。 | 架构设计、第 13/15 节；后端模块设计、第 4.6/4.8 节 | ARC-002, ARC-005 | Capabilities / Settings 页面可读取真实摘要数据。 |
 | BE-006 | P1 | Ready | 实现 action / trace 最小链路，支持创建 action、run、run_step 并对外查询。 | 架构设计、第 12/14 节；后端模块设计、第 4.5 节 | ARC-001, ARC-002, BE-003 | Trace 面板有真实 run step 数据来源，失败和等待态可区分。 |
 | BE-007 | P2 | Ready | 实现 file / memory 首版数据模块，支持项目文件元数据与分层 memory 列表。 | 架构设计、第 9/11 节 | ARC-001, ARC-002, ARC-005 | Files / Memory 页面具备真实列表读取能力。 |
 
@@ -119,13 +119,18 @@
 - `BE-001`：已在 `codex/backend-be-core-phase1` 形成独立提交 `282a2f8`，完成 loom 根包迁移与基础测试回归，状态维持 `In Progress`，等待架构合同冻结后一起验收。
 - `BE-002`：已在 `codex/integration-phase1-delivery` 提交 `687d57d`，补齐 `project / conversation / message / context / trace / settings / stream` 的 Phase 1 最小接口与错误口径，当前进入 `In Progress`。
 - `BE-003`：已在 `codex/integration-phase1-delivery` 提交 `0fdb1e9`，SSE 事件补齐 `thinking.summary.*`、`message.*`、`trace.step.*`、`context.updated`、`run.completed`，并用集成测试锁定事件名。
+- `BE-004`：已在 `codex/integration-phase1-delivery` 提交 `13143aa`，Context 读模型改为真实会话上下文状态，`context/refresh` 具备可回归的刷新行为与快照更新，状态更新为 `Done`。
+- `BE-005`：已通过 `13143aa` 一并补齐 `/api/capabilities/overview`，形成 Settings / Capabilities 的最小真实读接口，状态更新为 `Done`。
 - `ARC-001` ~ `ARC-005`：已通过 `de52aa5` 与 `82877a7` 形成领域、合同、模块边界、迁移顺序与 OpenClaw 范围冻结基线，状态更新为 `Done`。
 - `FE-001`：保留远端 / fallback 双源切换能力，并保持构建通过，继续作为前端主链路接线基线。
 - `FE-002`：当前已接通 composer 提交消息到后端并触发 bootstrap 刷新，状态调整为 `In Progress`，后续继续把更多页面读取从静态 bootstrap 平滑迁出。
 - `FE-003`：已在 `codex/integration-phase1-delivery` 提交 `d5a748f`，会话页已开始消费 workspace stream 事件，把消息、Trace、Context 的实时变化覆盖到当前壳层视图。
+- `FE-004`：已在 `codex/integration-phase1-delivery` 提交 `44c6c1f`，右侧 Context 面板开始优先读取真实 `/context` 数据，状态更新为 `Done`。
+- `FE-005`：已通过 `44c6c1f` 先接通 Settings / Capabilities 的真实读模型覆盖，但当前仍等待页面级联调证据后再决定是否转为 `Done`。
 - `QA-001`：测试计划与记录模板已形成独立提交 `2c69dd3`，状态更新为 `Done`。
 - `QA-002`：`apps/server/src/test/java/com/loom/server/LoomApiIntegrationTest.java` 已新增 workspace 主链路覆盖，状态调整为 `In Progress`，后续继续补齐 SSE 事件细项与错误态。
 - `QA-003`：前端关键路径已新增“提交消息后消费 SSE 并刷新 bootstrap”的构建验证基线，状态调整为 `In Progress`，后续补手测清单与联调截图。
 - `QA-004`：联调检查单与当前联调基线已补齐，状态更新为 `Done`。
 - `QA-005`：发布前 `go / no-go` 检查单已补齐，状态更新为 `Done`。
 - `PM-001`、`PM-003`、`PM-004`：文档、风险台账、分支恢复与集成分支编排持续维护中，生产服务器尚未进入使用窗口。
+- 当前下一批待推进需求：`BE-006`、`FE-006`，以及 `FE-005 / QA-004 / QA-005` 的联调和放行证据补齐。

@@ -83,13 +83,14 @@
 - 已新增架构提交：`82877a7` `ARC-002 docs: freeze phase1 contract baseline`
 - 新增后端提交：`687d57d` `BE-002 feat: add phase1 workspace api`
 - 新增后端提交：`0fdb1e9` `BE-003 feat: expand workspace stream events`
+- 新增后端提交：`13143aa` `BE-004 feat: add context refresh and capability overview`
 - 已新增测试提交：`9947eb7` `QA-004 docs: add debug and smoke records`
-- 当前前端状态：已完成消息提交到真实后端、SSE 事件消费与 bootstrap 刷新对账，尚未补齐断线重试
+- 当前前端状态：已完成消息提交到真实后端、SSE 事件消费、Context 真数据读取，以及 Settings / Capabilities 远端读模型覆盖；仍需补联调证据
 - 本地验证：
   - `apps/server` `./mvnw -q test` 通过
   - `apps/web` `npm run build` 通过
 - 生产机状态：未使用 `ssh jd`，无只读检查、无写操作、无回退动作
-- 发布门禁结论：仍未达到生产验证窗口，原因是 `BE-004 / FE-004 / BE-005 / FE-005` 仍未完成，且生产机只读检查尚未开始
+- 发布门禁结论：仍未达到生产验证窗口，原因是 `BE-006 / FE-006` 尚未完成，且 `FE-005 / QA-004 / QA-005` 仍缺最终联调与放行证据
 
 ## 9. 当前并发风险控制（2026-04-08）
 
@@ -102,8 +103,8 @@
 - 当前新增风险：
   - R-007：ARC 文档与 BE/FE 现有实现可能存在轻微偏差，需由 PM 在集成时校准
   - R-008：FE 与 BE 在 Context / Settings 的字段命名上可能产生时间差，需以 ARC lane 的冻结结果为最终口径
-  - R-009：BE / FE 代码角色在 Context 与 Settings 真数据接线尚未回传新提交，当前并发轮次存在“文档已冻结、代码仍待追平”的时间差
+  - R-009：Capabilities / Settings 当前通过 provider 覆盖读模型接入，仍需页面级联调确认展示口径和降级策略
 - 当前缓解措施：
   - PM 在合入前统一复核 contracts / docs / apps 的一致性
   - 所有 lane 完成后必须再次执行 `apps/server` 测试和 `apps/web` 构建
-  - 若代码角色在本轮未继续产出，PM 将重新收口为下一批次单线程集成
+  - 若 `FE-005 / QA-004 / QA-005` 仍无联调证据，PM 不开启生产机只读检查窗口
