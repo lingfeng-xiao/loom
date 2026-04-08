@@ -57,3 +57,35 @@
 - 问题
 - 下一步动作
 - 是否允许进入下一阶段
+
+## 5. 最新记录
+
+### TR-2026-04-08-01
+
+- 日期：2026-04-08
+- 阶段：并发开发
+- 覆盖需求：`BE-001`、`BE-002`、`QA-002`
+- 环境：本地 / `codex/integration-phase1-delivery`
+- 执行人：后端 / PM
+- 结论：通过
+- 问题：未发现阻塞当前提交的后端测试问题；`service` 健康探针仍保留 `template-server` 文案，暂未纳入本轮改名范围。
+- 修复：后端已提交 `687d57d` `BE-002 feat: add phase1 workspace api`
+- 回退：未执行
+- 附件：`apps/server` 下执行 `./mvnw -q test` 通过；覆盖 `/api/projects`、`/conversations`、`/messages`、`/context`、`/trace`、`/settings/overview`、`/stream`
+- 下一步动作：继续补 `BE-003` 的 SSE 事件细化与 `QA-002` 的错误态回归
+- 是否允许进入下一阶段：允许继续推进前端接线
+
+### TR-2026-04-08-02
+
+- 日期：2026-04-08
+- 阶段：并发开发
+- 覆盖需求：`FE-001`、`FE-002`、`QA-003`
+- 环境：本地 / `codex/integration-phase1-delivery`
+- 执行人：前端 / PM
+- 结论：通过
+- 问题：当前前端仍以 bootstrap 负载为主视图模型，消息提交后通过刷新 bootstrap 回填最新状态，尚未进入 SSE 实时渲染阶段。
+- 修复：当前工作区已补齐 composer 提交消息、bootstrap 手动刷新和提交中状态透传，待前端提交落盘
+- 回退：未执行
+- 附件：`apps/web` 下执行 `npm run build` 通过
+- 下一步动作：把前端接线提交为独立需求提交，并继续推进 `FE-003`
+- 是否允许进入下一阶段：允许继续推进联调前置开发

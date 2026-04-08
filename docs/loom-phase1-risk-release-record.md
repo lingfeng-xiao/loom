@@ -75,3 +75,14 @@
 - 已保留 QA lane 分支：`codex/qa-phase1-validation`
 - 已新增恢复快照分支：`codex/recovery-phase1-mixed-state`
 - 在完成提交审计和择取前，不再开启新的并发智能体
+
+## 8. 最新 PM 记录（2026-04-08）
+
+- 当前执行分支：`codex/integration-phase1-delivery`
+- 新增后端提交：`687d57d` `BE-002 feat: add phase1 workspace api`
+- 当前前端状态：已完成消息提交到真实后端与 bootstrap 刷新接线，尚未进入 SSE 实时事件渲染
+- 本地验证：
+  - `apps/server` `./mvnw -q test` 通过
+  - `apps/web` `npm run build` 通过
+- 生产机状态：未使用 `ssh jd`，无只读检查、无写操作、无回退动作
+- 发布门禁结论：仍未达到生产验证窗口，原因是 `ARC-001 ~ ARC-005` 尚未单线程冻结，`BE-003 / FE-003` 仍未完成

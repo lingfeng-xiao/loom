@@ -63,6 +63,7 @@
 | `codex/frontend-fe-shell-integration` | 前端 lane | `d7cb1e4` | 未形成独立提交，当前需从恢复快照中择取 |
 | `codex/architect-arc-contract-freeze` | 架构 lane | `d7cb1e4` | 未形成独立提交，当前需从恢复快照中择取 |
 | `codex/recovery-phase1-mixed-state` | 恢复快照 | `facff60` | 保存了并发执行期间的混合工作树，禁止直接合并 |
+| `codex/integration-phase1-delivery` | 单线程集成交付分支 | `687d57d` | 当前主执行分支，已合入 PM 基线并完成 `BE-002`，正承接前端接线与文档回填 |
 
 ## 3. Iteration Order
 
@@ -84,7 +85,7 @@
 - 后端启动 `BE-001`、`BE-002`、`BE-003`
 - 前端启动 `FE-001`、`FE-002`
 - 测试启动 `QA-003`、`QA-004`
-- 实际结果：`BE-001` 已形成独立提交并通过本地测试；`FE` lane 仅保留在恢复快照中，暂不继续
+- 实际结果：`BE-001` 已形成独立提交并通过本地测试；`BE-002` 已在 `codex/integration-phase1-delivery` 形成提交 `687d57d`；`FE-001 / FE-002` 已恢复到单线程集成交付分支并通过前端构建
 
 ### Wave 3
 
@@ -143,3 +144,16 @@ PM 每轮至少回填以下内容：
 - 先以 `codex/pm-phase1-baseline` 作为 PM 主控制分支
 - 以 `codex/backend-be-core-phase1` 和 `codex/qa-phase1-validation` 保留已验证提交
 - 以 `codex/recovery-phase1-mixed-state` 保存前端、contracts、文档的混合草稿，后续按需择取
+
+## 8. 最新执行快照（2026-04-08）
+
+- 当前活跃分支：`codex/integration-phase1-delivery`
+- 已完成的可追踪提交：
+  - `282a2f8` `BE-001 refactor: migrate server package root to loom`
+  - `687d57d` `BE-002 feat: add phase1 workspace api`
+  - `2c69dd3` `QA-001 docs: add phase1 test matrix`
+- 当前未进入生产机窗口；`ssh jd` 仍未执行
+- 本地验证结果：
+  - `apps/server`：`./mvnw -q test` 通过
+  - `apps/web`：`npm run build` 通过
+- 当前下一顺位目标：提交前端 `FE-002` 接线改动，并继续推进 `BE-003 / FE-003`

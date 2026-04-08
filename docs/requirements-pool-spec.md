@@ -63,7 +63,7 @@
 | 需求 ID | 优先级 | 状态 | 需求项 | 来源 | 依赖 | 验收标准 |
 | --- | --- | --- | --- | --- | --- | --- |
 | FE-001 | P0 | In Progress | 将现有三栏壳层从纯 fallback/bootstrap 展示升级为“可切换真实数据源”的工作台，保留加载态、错态和空态。 | 当前 `apps/web` 实现现状 | ARC-002 | 本地无后端时可回退，有后端时优先读真实接口，状态表现完整。 |
-| FE-002 | P0 | Ready | 接入项目与会话基础能力：项目摘要、会话列表、消息列表、模式切换、草稿输入。 | 架构设计、第 7/8/18 节 | ARC-002, BE-002 | 会话页不再只消费静态 bootstrap，主链路基于真实接口渲染。 |
+| FE-002 | P0 | In Progress | 接入项目与会话基础能力：项目摘要、会话列表、消息列表、模式切换、草稿输入。 | 架构设计、第 7/8/18 节 | ARC-002, BE-002 | 会话页不再只消费静态 bootstrap，主链路基于真实接口渲染。 |
 | FE-003 | P0 | Ready | 接入消息流式输出与 Trace 面板实时更新，完成 message stream、thinking summary、run step 的前端订阅与渲染。 | 架构设计、第 14/18 节；后端模块设计、第 10 节 | ARC-002, BE-003 | 会话回复、思考摘要、Trace 状态变化通过统一 SSE 合同实时更新。 |
 | FE-004 | P1 | Ready | 将 Context 右侧面板升级为真实数据面板，展示目标、约束、摘要、引用文件、未闭环事项。 | 架构设计、第 7/10 节 | ARC-002, BE-004 | Context 面板支持读真实上下文快照，字段命名和排序一致。 |
 | FE-005 | P1 | Ready | 将 Capabilities 与 Settings 页面改为真实读模型，并支持分区切换、配置摘要、风险提示。 | 架构设计、第 13/15 节 | ARC-002, BE-005 | 页面数据来自服务端，不再完全依赖静态 overview。 |
@@ -74,7 +74,7 @@
 | 需求 ID | 优先级 | 状态 | 需求项 | 来源 | 依赖 | 验收标准 |
 | --- | --- | --- | --- | --- | --- | --- |
 | BE-001 | P0 | In Progress | 完成服务端命名与骨架迁移：从 template 命名迁到 loom 领域命名，并建立模块化包结构。 | 当前 `apps/server` 现状；Java 包结构文档 | ARC-003 | 根包、配置、启动类、合同命名对齐 loom，迁移后测试仍可运行。 |
-| BE-002 | P0 | Ready | 实现 Project / Conversation / Message 最小可用读写接口，形成“提交消息前”的真实主数据基础。 | 架构设计、第 6/16/18/19 节 | ARC-001, ARC-002, ARC-005 | 至少支持项目详情、会话列表、消息列表、创建会话、提交用户消息。 |
+| BE-002 | P0 | In Progress | 实现 Project / Conversation / Message 最小可用读写接口，形成“提交消息前”的真实主数据基础。 | 架构设计、第 6/16/18/19 节 | ARC-001, ARC-002, ARC-005 | 至少支持项目详情、会话列表、消息列表、创建会话、提交用户消息。 |
 | BE-003 | P0 | Ready | 实现 stream 模块和 SSE 事件合同，支持 `message.delta`、`message.done`、`thinking.summary.*`、`trace.step.*` 等事件。 | 后端模块设计、第 9/10 节 | ARC-002, BE-002 | 前端可稳定订阅单一流入口，断开重连和完成态口径一致。 |
 | BE-004 | P1 | Ready | 实现 context 模块首版：上下文组装、摘要刷新、决策与 open loops 快照查询。 | 架构设计、第 10/18 节；后端模块设计、第 4.3 节 | ARC-001, ARC-002, ARC-005 | 提供 Context 面板读接口和刷新接口，结构与文档一致。 |
 | BE-005 | P1 | Ready | 实现 settings / capability 最小读接口，包含 model profiles、skills、MCP、routing、memory policy 的读取视图。 | 架构设计、第 13/15 节；后端模块设计、第 4.6/4.8 节 | ARC-002, ARC-005 | Capabilities / Settings 页面可读取真实摘要数据。 |
@@ -95,8 +95,8 @@
 
 | 需求 ID | 优先级 | 状态 | 需求项 | 来源 | 依赖 | 验收标准 |
 | --- | --- | --- | --- | --- | --- | --- |
-| QA-001 | P0 | In Progress | 基于新架构补 Phase 1 测试计划，覆盖会话主链路、Trace、Context、Settings、降级策略。 | 开发规范、第 9 节；当前测试文档缺位 | ARC-002, PM-001 | 输出测试范围、环境、入口数据、回归清单和发布建议口径。 |
-| QA-002 | P0 | Ready | 扩展后端集成测试，覆盖 project / conversation / message / stream / settings 新接口。 | 当前 `apps/server` 测试现状 | BE-002, BE-003, BE-005 | 新接口具备 MockMvc 或集成测试，关键错误态可回归。 |
+| QA-001 | P0 | Done | 基于新架构补 Phase 1 测试计划，覆盖会话主链路、Trace、Context、Settings、降级策略。 | 开发规范、第 9 节；当前测试文档缺位 | ARC-002, PM-001 | 输出测试范围、环境、入口数据、回归清单和发布建议口径。 |
+| QA-002 | P0 | In Progress | 扩展后端集成测试，覆盖 project / conversation / message / stream / settings 新接口。 | 当前 `apps/server` 测试现状 | BE-002, BE-003, BE-005 | 新接口具备 MockMvc 或集成测试，关键错误态可回归。 |
 | QA-003 | P0 | Ready | 建立前端冒烟与关键路径验证，覆盖欢迎页进入、会话切换、模式切换、流式回复、右侧面板切换。 | 当前 `apps/web` 实现现状 | FE-002, FE-003, FE-004 | 主链路有自动化或明确手测清单，可在每次合并前执行。 |
 | QA-004 | P1 | Ready | 建立前后端联调检查单，明确契约字段、事件顺序、断线重连、空态和错态。 | 开发规范、第 4.5 节 | ARC-002, FE-003, BE-003 | 联调结果可回填到需求条目，不再只留口头结论。 |
 | QA-005 | P1 | Ready | 建立发布前验收与回归建议，区分 P0 主链路、P1 配置面、P2 占位能力。 | 开发规范、第 4.6/4.7 节 | PM-005 | 发布前有一份明确的 go / no-go 检查清单。 |
@@ -113,3 +113,13 @@
 - 本文档从 2026-04-08 起重新启用，旧需求池内容不再恢复。
 - 后续新增需求必须以本需求池为唯一入口，并同步回填状态、阻塞项、文档影响和测试结果。
 - 如果设计边界发生变化，先更新架构文档和本需求池，再进入实现。
+
+## 6. PM 进展回填（2026-04-08）
+
+- `BE-001`：已在 `codex/backend-be-core-phase1` 形成独立提交 `282a2f8`，完成 loom 根包迁移与基础测试回归，状态维持 `In Progress`，等待架构合同冻结后一起验收。
+- `BE-002`：已在 `codex/integration-phase1-delivery` 提交 `687d57d`，补齐 `project / conversation / message / context / trace / settings / stream` 的 Phase 1 最小接口与错误口径，当前进入 `In Progress`。
+- `FE-001`：保留远端 / fallback 双源切换能力，并保持构建通过，继续作为前端主链路接线基线。
+- `FE-002`：当前已接通 composer 提交消息到后端并触发 bootstrap 刷新，状态调整为 `In Progress`，后续继续把更多页面读取从静态 bootstrap 平滑迁出。
+- `QA-001`：测试计划与记录模板已形成独立提交 `2c69dd3`，状态更新为 `Done`。
+- `QA-002`：`apps/server/src/test/java/com/loom/server/LoomApiIntegrationTest.java` 已新增 workspace 主链路覆盖，状态调整为 `In Progress`，后续继续补齐 SSE 事件细项与错误态。
+- `PM-001`、`PM-003`、`PM-004`：文档、风险台账、分支恢复与集成分支编排持续维护中，生产服务器尚未进入使用窗口。
