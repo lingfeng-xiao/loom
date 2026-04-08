@@ -5,20 +5,8 @@ import { useWorkbenchRouter } from './app/useWorkbenchRouter'
 import { DEFAULT_LOOM_ERROR, loomShellData } from './loomShellData'
 import { PlaceholderPage } from './pages/PlaceholderPage'
 import { WelcomePage } from './pages/WelcomePage'
-import { createLoomSdk } from './sdk/loomApiClient'
-import type { ConversationMode } from './types'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
-const loomSdk = createLoomSdk({ baseUrl: API_BASE })
-
-interface SubmitDraftInput {
-  projectId: string
-  conversationId: string
-  body: string
-  requestedMode: ConversationMode
-  allowActions: boolean
-  allowMemory: boolean
-}
 
 function defaultConversationId() {
   return loomShellData.pinnedConversations[0]?.id ?? loomShellData.recentConversations[0]?.id ?? null
@@ -32,16 +20,6 @@ export default function App() {
     fallbackMode: bootstrapSource.payload.activeMode,
     fallbackSettingsSection: bootstrapSource.payload.settings.tabs[0] ?? 'Models',
   })
-
-  const handleSubmitDraft = async (input: SubmitDraftInput) => {
-    await loomSdk.workspace.submitMessage(input.projectId, input.conversationId, {
-      body: input.body,
-      requestedMode: input.requestedMode,
-      allowActions: input.allowActions,
-      allowMemory: input.allowMemory,
-    })
-    bootstrapSource.refresh()
-  }
 
   if (router.route.layout === 'welcome') {
     return (
@@ -77,11 +55,12 @@ export default function App() {
   return (
     <div className="appViewport">
       <LoomWorkbenchProvider
+        apiBaseUrl={API_BASE}
         bootstrapSource={bootstrapSource.source}
         error={bootstrapSource.error}
         loading={bootstrapSource.loading}
         onCycleBootstrapSource={bootstrapSource.cycleMode}
-        onSubmitDraft={handleSubmitDraft}
+        onRefreshPayload={bootstrapSource.refresh}
         navigate={router.navigate}
         payload={bootstrapSource.payload}
         route={router.route}
