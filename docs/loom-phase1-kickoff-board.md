@@ -57,7 +57,7 @@
 
 | 分支 | 当前定位 | 当前提交 | 备注 |
 | --- | --- | --- | --- |
-| `codex/pm-phase1-baseline` | PM 基线 | `d7cb1e4` | 已落地需求池、kickoff、测试/风险/发布基线 |
+| `codex/pm-phase1-baseline` | PM 基线 | `7228556` | 已落地需求池、kickoff、测试/风险/发布基线 |
 | `codex/backend-be-core-phase1` | 后端 lane | `282a2f8` | 已落地 `BE-001` 命名迁移与测试通过 |
 | `codex/qa-phase1-validation` | QA lane | `2c69dd3` | 已落地 `QA-001` 测试矩阵与记录模板 |
 | `codex/frontend-fe-shell-integration` | 前端 lane | `d7cb1e4` | 未形成独立提交，当前需从恢复快照中择取 |
