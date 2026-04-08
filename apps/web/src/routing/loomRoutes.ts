@@ -37,12 +37,12 @@ export function parseLoomLocation(
 
   if (segments.length === 0) {
     return {
-      layout: 'app',
-      page: 'conversation',
-      projectId: fallbackProjectId,
-      conversationId: fallbackConversationId,
-      mode: normalizeMode(params.get('mode')),
-      traceTab: normalizeTraceTab(params.get('traceTab')),
+      layout: 'welcome',
+      page: 'welcome',
+      projectId: null,
+      conversationId: null,
+      mode: null,
+      traceTab: 'tasks',
       settingsSection: null,
       callbackKind: null,
     }

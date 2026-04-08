@@ -46,24 +46,6 @@ export function useWorkbenchRouter(options: UseWorkbenchRouterOptions) {
     setRoute(next)
   }
 
-  useEffect(() => {
-    if (window.location.pathname === '/') {
-      navigate(
-        {
-          layout: 'app',
-          page: 'conversation',
-          projectId: normalizedOptions.fallbackProjectId,
-          conversationId: normalizedOptions.fallbackConversationId,
-          mode: (normalizedOptions.fallbackMode as LoomRouteState['mode']) ?? null,
-          traceTab: 'tasks',
-          settingsSection: normalizedOptions.fallbackSettingsSection,
-          callbackKind: null,
-        },
-        true,
-      )
-    }
-  }, [normalizedOptions])
-
   return {
     route,
     navigate,
