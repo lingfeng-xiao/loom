@@ -41,10 +41,10 @@
 | Lane | 角色 | 智能体名称 | 主要需求 | 建议分支 | 状态 | 启动条件 | 写入范围 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | PM | PM / Orchestrator | 当前主线程 | `PM-001` ~ `PM-005` | `codex/pm-phase1-baseline` | In Progress | 已启动 | `docs/requirements-pool-spec.md`、本文档、测试/发布文档 |
-| ARC | webAI 架构师 | `architect-agent` | `ARC-001` ~ `ARC-005` | `codex/architect-arc-contract-freeze` | Paused | 基线冻结完成 | 架构文档、契约文档、`packages/contracts` |
+| ARC | webAI 架构师 | `architect-agent` | `ARC-001` ~ `ARC-005` | `codex/architect-arc-contract-freeze` | Done | 基线冻结完成 | 架构文档、契约文档、`packages/contracts` |
 | BE | 后端开发 | `backend-agent` | `BE-001` ~ `BE-006` | `codex/backend-be-core-phase1` | In Progress | `ARC-002`、`ARC-003` 冻结 | `apps/server` 与后端测试 |
 | FE | 前端开发 | `frontend-agent` | `FE-001` ~ `FE-005` | `codex/frontend-fe-shell-integration` | Paused | `ARC-002` 冻结 | `apps/web` |
-| QA | 测试 | `qa-agent` | `QA-001` ~ `QA-005` | `codex/qa-phase1-validation` | In Progress | 基线冻结完成 | 测试计划、测试记录、必要测试文件 |
+| QA | 测试 | `qa-agent` | `QA-001` ~ `QA-005` | `codex/qa-phase1-validation` | Done | 基线冻结完成 | 测试计划、测试记录、必要测试文件 |
 
 状态口径：
 
@@ -63,7 +63,7 @@
 | `codex/frontend-fe-shell-integration` | 前端 lane | `d7cb1e4` | 未形成独立提交，当前需从恢复快照中择取 |
 | `codex/architect-arc-contract-freeze` | 架构 lane | `d7cb1e4` | 未形成独立提交，当前需从恢复快照中择取 |
 | `codex/recovery-phase1-mixed-state` | 恢复快照 | `facff60` | 保存了并发执行期间的混合工作树，禁止直接合并 |
-| `codex/integration-phase1-delivery` | 单线程集成交付分支 | `d5a748f` | 当前主执行分支，已连续落地 `BE-002`、`BE-003`、`FE-002`、`FE-003`，正继续推进 Context / Settings |
+| `codex/integration-phase1-delivery` | 单线程集成交付分支 | `82877a7` | 当前主执行分支，已连续落地 ARC、BE、FE、QA 本轮基线产物，正继续推进 Context / Settings |
 
 ## 3. Iteration Order
 
@@ -155,6 +155,9 @@ PM 每轮至少回填以下内容：
 
 - 当前活跃分支：`codex/integration-phase1-delivery`
 - 已完成的可追踪提交：
+  - `de52aa5` `ARC-002 docs: freeze phase1 contracts and module boundaries`
+  - `82877a7` `ARC-002 docs: freeze phase1 contract baseline`
+  - `9947eb7` `QA-004 docs: add debug and smoke records`
   - `282a2f8` `BE-001 refactor: migrate server package root to loom`
   - `687d57d` `BE-002 feat: add phase1 workspace api`
   - `0fdb1e9` `BE-003 feat: expand workspace stream events`
@@ -165,16 +168,16 @@ PM 每轮至少回填以下内容：
 - 本地验证结果：
   - `apps/server`：`./mvnw -q test` 通过
   - `apps/web`：`npm run build` 通过
-- 当前下一顺位目标：继续推进 `BE-004 / FE-004` 的 Context 真数据读写
+- 当前下一顺位目标：继续推进 `BE-004 / FE-004 / BE-005 / FE-005` 的 Context 与 Settings 真数据读写
 
 ## 9. 当前并发轮次（2026-04-08）
 
 | Lane | 当前目标 | 写入范围 | 当前状态 |
 | --- | --- | --- | --- |
-| ARC | `ARC-001` ~ `ARC-005` 合同冻结、模块边界、迁移顺序、OpenClaw 范围说明 | `docs`、`packages/contracts` | In Progress |
+| ARC | `ARC-001` ~ `ARC-005` 合同冻结、模块边界、迁移顺序、OpenClaw 范围说明 | `docs`、`packages/contracts` | Done |
 | BE | `BE-004`、`BE-005`，并为 `BE-006` 打基础 | `apps/server` | In Progress |
 | FE | `FE-004`、`FE-005`，在现有 `FE-002/003` 上接 Context / Capabilities / Settings 真数据 | `apps/web` | In Progress |
-| QA | `QA-004`、`QA-005`，并补 `QA-003` 可执行验证记录 | `docs` | In Progress |
+| QA | `QA-004`、`QA-005`，并补 `QA-003` 可执行验证记录 | `docs` | Done |
 | PM | 维护需求池、kickoff、风险台账、测试记录和集成门禁 | `docs` | In Progress |
 
 本轮集成顺序：

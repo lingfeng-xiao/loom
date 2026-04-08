@@ -52,11 +52,11 @@
 
 | 需求 ID | 优先级 | 状态 | 需求项 | 来源 | 依赖 | 验收标准 |
 | --- | --- | --- | --- | --- | --- | --- |
-| ARC-001 | P0 | Ready | 冻结 Phase 1 领域边界，明确 Project、Conversation、Message、Context Snapshot、Memory、Action、Run、File Asset 的最小定义与状态枚举。 | 架构设计、第 6/8/9/12/17 节 | 无 | 输出统一术语、对象定义、状态口径，供前后端和测试直接引用。 |
-| ARC-002 | P0 | Ready | 冻结前后端最小合同：bootstrap 之后新增 project、conversation、message、context、trace、settings 的 REST 结构和 SSE 事件结构。 | 架构设计、第 16/18 节；后端模块设计、第 8/10/11 节 | ARC-001 | 形成 API / event 契约基线，包含字段、错误口径、时间字段和分页约定。 |
-| ARC-003 | P0 | Ready | 冻结 Phase 1 模块化单体边界和包结构迁移策略，确认从 `com.template.server` 向 loom 领域包迁移的顺序。 | 后端模块设计、第 3/5/7 节；Java 包结构文档 | ARC-001 | 产出模块边界和迁移顺序，禁止跨模块直连仓储。 |
-| ARC-004 | P1 | Ready | 冻结内部执行与 OpenClaw 的阶段边界，明确 Phase 1 中哪些能力保留可见入口、哪些不进入真实执行链路。 | 架构设计、第 4/13/20/21 节 | ARC-002 | 输出一份范围说明，避免前后端把 OpenClaw 误接入主链路。 |
-| ARC-005 | P1 | Ready | 制定 Phase 1 数据模型和迁移清单，覆盖 `project` 到 `run_step` 的首批表结构。 | 架构设计、第 17 节；后端模块设计、第 9/12 节 | ARC-001, ARC-003 | 表结构、迁移顺序、主外键关系和审计字段口径明确。 |
+| ARC-001 | P0 | Done | 冻结 Phase 1 领域边界，明确 Project、Conversation、Message、Context Snapshot、Memory、Action、Run、File Asset 的最小定义与状态枚举。 | 架构设计、第 6/8/9/12/17 节 | 无 | 输出统一术语、对象定义、状态口径，供前后端和测试直接引用。 |
+| ARC-002 | P0 | Done | 冻结前后端最小合同：bootstrap 之后新增 project、conversation、message、context、trace、settings 的 REST 结构和 SSE 事件结构。 | 架构设计、第 16/18 节；后端模块设计、第 8/10/11 节 | ARC-001 | 形成 API / event 契约基线，包含字段、错误口径、时间字段和分页约定。 |
+| ARC-003 | P0 | Done | 冻结 Phase 1 模块化单体边界和包结构迁移策略，确认从 `com.template.server` 向 loom 领域包迁移的顺序。 | 后端模块设计、第 3/5/7 节；Java 包结构文档 | ARC-001 | 产出模块边界和迁移顺序，禁止跨模块直连仓储。 |
+| ARC-004 | P1 | Done | 冻结内部执行与 OpenClaw 的阶段边界，明确 Phase 1 中哪些能力保留可见入口、哪些不进入真实执行链路。 | 架构设计、第 4/13/20/21 节 | ARC-002 | 输出一份范围说明，避免前后端把 OpenClaw 误接入主链路。 |
+| ARC-005 | P1 | Done | 制定 Phase 1 数据模型和迁移清单，覆盖 `project` 到 `run_step` 的首批表结构。 | 架构设计、第 17 节；后端模块设计、第 9/12 节 | ARC-001, ARC-003 | 表结构、迁移顺序、主外键关系和审计字段口径明确。 |
 
 ### 3.2 前端开发
 
@@ -98,8 +98,8 @@
 | QA-001 | P0 | Done | 基于新架构补 Phase 1 测试计划，覆盖会话主链路、Trace、Context、Settings、降级策略。 | 开发规范、第 9 节；当前测试文档缺位 | ARC-002, PM-001 | 输出测试范围、环境、入口数据、回归清单和发布建议口径。 |
 | QA-002 | P0 | In Progress | 扩展后端集成测试，覆盖 project / conversation / message / stream / settings 新接口。 | 当前 `apps/server` 测试现状 | BE-002, BE-003, BE-005 | 新接口具备 MockMvc 或集成测试，关键错误态可回归。 |
 | QA-003 | P0 | In Progress | 建立前端冒烟与关键路径验证，覆盖欢迎页进入、会话切换、模式切换、流式回复、右侧面板切换。 | 当前 `apps/web` 实现现状 | FE-002, FE-003, FE-004 | 主链路有自动化或明确手测清单，可在每次合并前执行。 |
-| QA-004 | P1 | In Progress | 建立前后端联调检查单，明确契约字段、事件顺序、断线重连、空态和错态。 | 开发规范、第 4.5 节 | ARC-002, FE-003, BE-003 | 联调结果可回填到需求条目，不再只留口头结论。 |
-| QA-005 | P1 | In Progress | 建立发布前验收与回归建议，区分 P0 主链路、P1 配置面、P2 占位能力。 | 开发规范、第 4.6/4.7 节 | PM-005 | 发布前有一份明确的 go / no-go 检查清单。 |
+| QA-004 | P1 | Done | 建立前后端联调检查单，明确契约字段、事件顺序、断线重连、空态和错态。 | 开发规范、第 4.5 节 | ARC-002, FE-003, BE-003 | 联调结果可回填到需求条目，不再只留口头结论。 |
+| QA-005 | P1 | Done | 建立发布前验收与回归建议，区分 P0 主链路、P1 配置面、P2 占位能力。 | 开发规范、第 4.6/4.7 节 | PM-005 | 发布前有一份明确的 go / no-go 检查清单。 |
 
 ## 4. 当前执行顺序建议
 
@@ -119,12 +119,13 @@
 - `BE-001`：已在 `codex/backend-be-core-phase1` 形成独立提交 `282a2f8`，完成 loom 根包迁移与基础测试回归，状态维持 `In Progress`，等待架构合同冻结后一起验收。
 - `BE-002`：已在 `codex/integration-phase1-delivery` 提交 `687d57d`，补齐 `project / conversation / message / context / trace / settings / stream` 的 Phase 1 最小接口与错误口径，当前进入 `In Progress`。
 - `BE-003`：已在 `codex/integration-phase1-delivery` 提交 `0fdb1e9`，SSE 事件补齐 `thinking.summary.*`、`message.*`、`trace.step.*`、`context.updated`、`run.completed`，并用集成测试锁定事件名。
+- `ARC-001` ~ `ARC-005`：已通过 `de52aa5` 与 `82877a7` 形成领域、合同、模块边界、迁移顺序与 OpenClaw 范围冻结基线，状态更新为 `Done`。
 - `FE-001`：保留远端 / fallback 双源切换能力，并保持构建通过，继续作为前端主链路接线基线。
 - `FE-002`：当前已接通 composer 提交消息到后端并触发 bootstrap 刷新，状态调整为 `In Progress`，后续继续把更多页面读取从静态 bootstrap 平滑迁出。
 - `FE-003`：已在 `codex/integration-phase1-delivery` 提交 `d5a748f`，会话页已开始消费 workspace stream 事件，把消息、Trace、Context 的实时变化覆盖到当前壳层视图。
 - `QA-001`：测试计划与记录模板已形成独立提交 `2c69dd3`，状态更新为 `Done`。
 - `QA-002`：`apps/server/src/test/java/com/loom/server/LoomApiIntegrationTest.java` 已新增 workspace 主链路覆盖，状态调整为 `In Progress`，后续继续补齐 SSE 事件细项与错误态。
 - `QA-003`：前端关键路径已新增“提交消息后消费 SSE 并刷新 bootstrap”的构建验证基线，状态调整为 `In Progress`，后续补手测清单与联调截图。
-- `QA-004`：联调检查单已补齐到 [loom-phase1-joint-debug-checklist.md](./loom-phase1-joint-debug-checklist.md)，状态调整为 `In Progress`，后续需要真实联调记录回填。
-- `QA-005`：发布前 `go / no-go` 检查单已补齐到 [loom-phase1-go-no-go-checklist.md](./loom-phase1-go-no-go-checklist.md)，状态调整为 `In Progress`，后续需要实际放行记录。
+- `QA-004`：联调检查单与当前联调基线已补齐，状态更新为 `Done`。
+- `QA-005`：发布前 `go / no-go` 检查单已补齐，状态更新为 `Done`。
 - `PM-001`、`PM-003`、`PM-004`：文档、风险台账、分支恢复与集成分支编排持续维护中，生产服务器尚未进入使用窗口。
