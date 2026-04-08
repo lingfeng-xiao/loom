@@ -2,7 +2,10 @@ import type {
   ApiEnvelope,
   CapabilityOverviewView,
   ContextPanelView,
+  CursorPage,
+  FileAssetSummary,
   LoomBootstrapPayload,
+  MemoryItemView,
   SettingsOverviewView,
   SubmitMessageRequest,
   SubmitMessageResponse,
@@ -105,6 +108,14 @@ export class WorkspaceApi {
 
   getCapabilitiesOverview(scope = 'project', signal?: AbortSignal) {
     return this.http.get<CapabilityOverviewView>(`/api/capabilities/overview?scope=${encodeURIComponent(scope)}`, signal)
+  }
+
+  getFiles(projectId: string, signal?: AbortSignal) {
+    return this.http.get<CursorPage<FileAssetSummary>>(`/api/projects/${projectId}/files`, signal)
+  }
+
+  getMemory(projectId: string, signal?: AbortSignal) {
+    return this.http.get<CursorPage<MemoryItemView>>(`/api/projects/${projectId}/memory`, signal)
   }
 
   submitMessage(projectId: string, conversationId: string, request: SubmitMessageRequest, signal?: AbortSignal) {

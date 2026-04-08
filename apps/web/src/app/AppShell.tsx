@@ -9,6 +9,8 @@ import { useTraceStore } from '../domains/trace/useTraceStore'
 import { useUiStore } from '../domains/ui/useUiStore'
 import { CapabilitiesPage } from '../pages/CapabilitiesPage'
 import { ConversationWorkspacePage } from '../pages/ConversationWorkspacePage'
+import { FilesPage } from '../pages/FilesPage'
+import { MemoryPage } from '../pages/MemoryPage'
 import { OpenClawPage } from '../pages/OpenClawPage'
 import { PlaceholderPage } from '../pages/PlaceholderPage'
 import { SettingsPage } from '../pages/SettingsPage'
@@ -71,8 +73,8 @@ export function AppShell() {
           {!projectCreationOpen && conversation.currentPage === 'capabilities' ? <CapabilitiesPage /> : null}
           {!projectCreationOpen && conversation.currentPage === 'openclaw' ? <OpenClawPage /> : null}
           {!projectCreationOpen && conversation.currentPage === 'settings' ? <SettingsPage /> : null}
-          {!projectCreationOpen && conversation.currentPage === 'files' ? <PlaceholderPage description="项目文件池与引用资产。" title="Files" /> : null}
-          {!projectCreationOpen && conversation.currentPage === 'memory' ? <PlaceholderPage description="分层 Memory 工作区。" title="Memory" /> : null}
+          {!projectCreationOpen && conversation.currentPage === 'files' ? <FilesPage /> : null}
+          {!projectCreationOpen && conversation.currentPage === 'memory' ? <MemoryPage /> : null}
         </main>
 
         <WorkspaceRightRail
