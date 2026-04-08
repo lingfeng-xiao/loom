@@ -34,7 +34,7 @@ class LoomApiIntegrationTest {
                 .andExpect(jsonPath("$.data.pages[3].id").value("files"))
                 .andExpect(jsonPath("$.data.pages[3].available").value(false))
                 .andExpect(jsonPath("$.data.messages[1].kind").value("thinking_summary"))
-                .andExpect(jsonPath("$.data.traceSteps[2].status").value("running"))
+                .andExpect(jsonPath("$.data.traceSteps[2].status").value("pending"))
                 .andExpect(jsonPath("$.data.settings.tabs[0]").value("Models"));
     }
 
@@ -103,5 +103,56 @@ class LoomApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("up"))
                 .andExpect(jsonPath("$.data.probes[0].name").value("template-server"));
+    }
+
+    @Test
+    void workspaceEndpointsExposePhase1ReadModels() throws Exception {
+        mockMvc.perform(get("/api/projects"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].id").value("project-loom"));
+
+        mockMvc.perform(get("/api/projects/project-loom/conversations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].projectId").value("project-loom"));
+
+        mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/messages"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].conversationId").value("conversation-v1"));
+
+        mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/context"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeGoals[0]").value("推进真实主链路"));
+
+        mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/trace"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.steps[0].title").value("读取上下文"));
+
+        mockMvc.perform(get("/api/settings/overview").queryParam("scope", "project"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.tabs[0]").value("Models"))
+                .andExpect(jsonPath("$.data.modelProfiles[0].name").value("GPT-5.4 Thinking"));
+    }
+
+    @Test
+    void messageSubmissionUpdatesConversationAndReturnsStreamPath() throws Exception {
+        mockMvc.perform(post("/api/projects/project-loom/conversations/conversation-v1/messages")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "body": "请继续推进真实接口和前端接线"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.conversationId").value("conversation-v1"))
+                .andExpect(jsonPath("$.data.acceptedRunId").exists())
+                .andExpect(jsonPath("$.data.streamPath").value("/api/projects/project-loom/conversations/conversation-v1/stream"));
+
+        mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeRunId").exists())
+                .andExpect(jsonPath("$.data.status").value("active"));
+
+        mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/stream"))
+                .andExpect(status().isOk());
     }
 }
