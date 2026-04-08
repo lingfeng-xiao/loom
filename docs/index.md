@@ -19,6 +19,8 @@
 - [loom Phase 1 architecture design](./loom-phase1-architecture-design.md)
 - [loom Phase 1 kickoff board](./loom-phase1-kickoff-board.md)
 - [loom Phase 1 test plan](./loom-phase1-test-plan.md)
+- [loom Phase 1 test record](./loom-phase1-test-record.md)
+- [loom Phase 1 joint debug checklist](./loom-phase1-joint-debug-checklist.md)
 - [loom Phase 1 risk and release record](./loom-phase1-risk-release-record.md)
 - [loom Spring Boot backend module design](./loom-springboot-backend-module-design.md)
 - [loom Java package structure](./loom-java-package-structure.md)
