@@ -1,0 +1,119 @@
+# loom Phase 1 Kickoff Board
+
+生效日期：2026-04-08
+
+上游依据：
+
+- `docs/requirements-pool-spec.md`
+- `docs/loom-v1-role-breakdown.md`
+- `docs/loom-phase1-architecture-design.md`
+- `docs/loom-springboot-backend-module-design.md`
+- `docs/development-spec.md`
+
+当前编排策略：
+
+- 采用“先冻结再并发”
+- 当前工作基线分支：`codex/pm-phase1-baseline`
+- PM 负责总调度、文档维护、风险控制和生产机窗口
+- 并发工作智能体共 4 个：架构师、前端开发、后端开发、测试
+
+## 1. Baseline Freeze
+
+基线目标：
+
+- 冻结当前 shell / docs / contracts 的起始状态
+- 禁止后续智能体直接从脏 `main` 工作树起分支
+- 先明确需求池、任务板、测试计划和风险/发布边界
+
+基线检查项：
+
+| 项目 | 当前状态 | 说明 |
+| --- | --- | --- |
+| 分支隔离 | 已完成 | 当前工作迁移到 `codex/pm-phase1-baseline` |
+| 需求池 | 已完成 | 需求已按 `ARC / FE / BE / PM / QA` 建模 |
+| Kickoff 板 | 进行中 | 本文档为当前执行面板 |
+| 测试计划 | 进行中 | 需与合同冻结结果联动更新 |
+| 风险/发布记录 | 进行中 | 需纳入生产机使用边界 |
+
+## 2. Agent Board
+
+| Lane | 角色 | 智能体名称 | 主要需求 | 建议分支 | 状态 | 启动条件 | 写入范围 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| PM | PM / Orchestrator | 当前主线程 | `PM-001` ~ `PM-005` | `codex/pm-phase1-baseline` | In Progress | 已启动 | `docs/requirements-pool-spec.md`、本文档、测试/发布文档 |
+| ARC | webAI 架构师 | `architect-agent` | `ARC-001` ~ `ARC-005` | `codex/architect-arc-contract-freeze` | Ready | 基线冻结完成 | 架构文档、契约文档、`packages/contracts` |
+| BE | 后端开发 | `backend-agent` | `BE-001` ~ `BE-006` | `codex/backend-be-core-phase1` | Blocked | `ARC-002`、`ARC-003` 冻结 | `apps/server` 与后端测试 |
+| FE | 前端开发 | `frontend-agent` | `FE-001` ~ `FE-005` | `codex/frontend-fe-shell-integration` | Blocked | `ARC-002` 冻结 | `apps/web` |
+| QA | 测试 | `qa-agent` | `QA-001` ~ `QA-005` | `codex/qa-phase1-validation` | Ready | 基线冻结完成 | 测试计划、测试记录、必要测试文件 |
+
+状态口径：
+
+- `Ready`：可立即启动
+- `Blocked`：等待上游冻结或集成基线
+- `In Progress`：已开始产出
+
+## 3. Iteration Order
+
+### Wave 0
+
+- PM 完成基线冻结与文档恢复
+- 补齐 kickoff board、测试计划、风险/发布记录
+- 锁定 git、PR、生产机使用规则
+
+### Wave 1
+
+- 架构师完成 `ARC-001`、`ARC-002`、`ARC-003`
+- 测试同步起草 `QA-001`，但不对未冻结接口做硬断言
+
+### Wave 2
+
+- 后端启动 `BE-001`、`BE-002`、`BE-003`
+- 前端启动 `FE-001`、`FE-002`
+- 测试启动 `QA-003`、`QA-004`
+
+### Wave 3
+
+- 后端推进 `BE-004`、`BE-005`、`BE-006`
+- 前端推进 `FE-003`、`FE-004`、`FE-005`
+- 测试补齐联调和发布前回归结论
+
+### Wave 4
+
+- PM 组织联调、生产验证、验收和合并
+- `FE-006`、`BE-007` 作为后续 Phase 1.5 入口保留在 Backlog
+
+## 4. Merge Gates
+
+每条分支进入可合并状态前必须满足：
+
+- 关联需求 ID
+- 说明影响范围
+- 列出文档更新清单
+- 附测试结果或豁免说明
+- 附风险与回退说明
+
+固定合并顺序：
+
+1. 基线
+2. 架构 / 合同
+3. 后端主数据
+4. 前端接线
+5. SSE / Trace
+6. Context / Settings
+7. QA 结论
+
+## 5. Production Window Rule
+
+- `ssh jd` 仅允许 PM 操作
+- 开发期上生产机优先做只读检查：容器状态、日志、健康检查、配置路径
+- 任何写操作必须在本地验证通过后进入受控窗口执行
+- 写操作前必须确认 `/opt/template/scripts/remote-rollback.sh` 可用，且最近一次成功快照存在
+
+## 6. Daily Maintenance
+
+PM 每轮至少回填以下内容：
+
+- 当前活跃分支
+- 各 lane 状态变化
+- 新阻塞项和风险项
+- 文档是否已同步
+- 是否满足进入联调或生产验证的条件
