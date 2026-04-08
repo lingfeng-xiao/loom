@@ -2,8 +2,10 @@
 
 ### Root Package
 
+当前仓库过渡实现以 `com.loom.server` 为准。本文档的模块切分建议也应落在 `com.loom.server.<module>`，而不是另起新的根包。
+
 ```text
-com.loom.backend
+com.loom.server
 ```
 
 ---
@@ -11,8 +13,8 @@ com.loom.backend
 ### Top-level Structure
 
 ```text
-com.loom.backend
-├── LoomApplication.java
+com.loom.server
+├── LoomServerApplication.java
 ├── common
 ├── project
 ├── conversation
@@ -367,6 +369,16 @@ Use these patterns consistently:
 - `SubmitMessageRequest`
 
 ---
+
+### Current Transition Note
+
+当前集成分支中存在一个过渡聚合模块 `workspace`，它临时承接了 `project / conversation / context / trace / settings / stream` 的组合读模型。
+
+冻结口径：
+
+- `workspace` 可以作为 Phase 1 过渡实现保留
+- 但不得成为长期根模块
+- 后续应按本文件模块边界逐步下沉到独立领域模块
 
 ### Final Recommendation
 

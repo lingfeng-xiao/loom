@@ -4,7 +4,9 @@ export type IsoTimestamp = string
 export interface ApiMeta {
   traceId?: string
   requestId?: string
+  // Returned only by cursor-based list endpoints.
   nextCursor?: string | null
+  // Returned only by cursor-based list endpoints.
   hasMore?: boolean
 }
 
@@ -26,6 +28,8 @@ export interface ApiError {
 }
 
 export interface ApiErrorEnvelope {
+  // Error responses may explicitly include `data: null` for transport symmetry.
+  data?: null
   error: ApiError
   meta?: ApiMeta
 }
@@ -54,6 +58,9 @@ export type StreamEventName =
   | 'memory.suggested'
   | 'run.completed'
   | 'run.failed'
+
+// Phase 1 keeps a single cursor pagination shape across project, conversation, message,
+// context snapshot, run step, file, and memory list endpoints.
 
 export interface CursorPage<T> {
   items: T[]
@@ -159,6 +166,7 @@ export interface SubmitMessageResponse {
   conversationId: LoomId
   userMessage: MessageView
   acceptedRunId: LoomId | null
+  // Frontend must subscribe to this path for the canonical stream of message/trace/context events.
   streamPath: string
 }
 
@@ -313,6 +321,7 @@ export interface ConversationStreamEventBase {
   eventId: string
   projectId: LoomId
   conversationId: LoomId
+  // ISO 8601 UTC timestamp.
   emittedAt: IsoTimestamp
 }
 
