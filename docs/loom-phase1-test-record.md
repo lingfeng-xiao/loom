@@ -150,6 +150,36 @@
 - 下一步动作：补 `FE-005` 联调证据并推进 `FE-006`
 - 是否允许进入下一阶段：允许继续推进文件池与内存页首版
 
+### TR-2026-04-08-07
+
+- 日期：2026-04-08
+- 阶段：并发开发
+- 覆盖需求：`BE-006`、`BE-007`
+- 环境：本地 / `codex/integration-phase1-delivery`
+- 执行人：后端 / PM
+- 结论：通过
+- 问题：`action` 的显式建模仍未拆出，当前 `run steps` 查询仍由 workspace 过渡聚合模块提供。
+- 修复：已提交 `ebbc1a6` `BE-006 feat: add run steps and workspace asset feeds`
+- 回退：未执行
+- 附件：`apps/server` 下执行 `./mvnw -q test` 通过；新增覆盖 `GET /runs/{runId}/steps`、`GET /files`、`GET /memory`
+- 下一步动作：视验收需要决定是否继续显式拆出 action / run 模块
+- 是否允许进入下一阶段：允许 Files / Memory 前端页面接线
+
+### TR-2026-04-08-08
+
+- 日期：2026-04-08
+- 阶段：并发开发
+- 覆盖需求：`FE-006`
+- 环境：本地 / `codex/integration-phase1-delivery`
+- 执行人：前端 / PM
+- 结论：通过
+- 问题：Files / Memory 目前仍以 page-local 读取逻辑接 API，后续若范围继续扩大，可再收敛进统一 provider 层。
+- 修复：已提交 `1a92569` `FE-006 feat: add files and memory workspace pages`
+- 回退：未执行
+- 附件：`apps/web` 下执行 `npm run build` 通过
+- 下一步动作：补 `FE-005` 页面级联调证据
+- 是否允许进入下一阶段：允许进入最终联调与验收收口
+
 ## 6. 证据回填摘要
 
 ### 后端证据
@@ -182,4 +212,5 @@
 - `QA-004` 仍缺一份实际联调执行记录
 - `QA-005` 仍缺发布前 go/no-go 签字和回退确认
 - `FE-005` 仍缺页面级联调证据
-- `BE-006 / FE-006` 尚未开始
+- `BE-006` 仍缺更完整的 action / run 显式建模证据
+- `QA-004 / QA-005` 仍缺最终执行/签字证据
