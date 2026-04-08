@@ -26,6 +26,7 @@ function readBootstrapMode(): BootstrapSourceMode {
 
 export function useBootstrapSource(baseUrl: string, fallbackPayload: LoomBootstrapPayload, fallbackError: string) {
   const [mode, setMode] = useState<BootstrapSourceMode>(() => readBootstrapMode())
+  const [refreshKey, setRefreshKey] = useState(0)
   const [state, setState] = useState<BootstrapSourceState>({
     payload: fallbackPayload,
     loading: true,
@@ -72,12 +73,13 @@ export function useBootstrapSource(baseUrl: string, fallbackPayload: LoomBootstr
       cancelled = true
       controller.abort()
     }
-  }, [baseUrl, fallbackError, fallbackPayload, mode])
+  }, [baseUrl, fallbackError, fallbackPayload, mode, refreshKey])
 
   return {
     ...state,
     mode,
     setMode,
     cycleMode: () => setMode((current) => cycleBootstrapSourceMode(current)),
+    refresh: () => setRefreshKey((current) => current + 1),
   }
 }

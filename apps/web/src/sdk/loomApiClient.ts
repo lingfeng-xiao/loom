@@ -1,4 +1,4 @@
-import type { ApiEnvelope, LoomBootstrapPayload } from '../types'
+import type { ApiEnvelope, LoomBootstrapPayload, SubmitMessageRequest, SubmitMessageResponse } from '../types'
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
 
@@ -70,6 +70,10 @@ export class LoomHttpClient {
   get<T>(path: string, signal?: AbortSignal) {
     return this.request<T>(path, 'GET', undefined, signal)
   }
+
+  post<T>(path: string, body?: unknown, signal?: AbortSignal) {
+    return this.request<T>(path, 'POST', body, signal)
+  }
 }
 
 export class ShellApi {
@@ -80,9 +84,22 @@ export class ShellApi {
   }
 }
 
+export class WorkspaceApi {
+  constructor(private readonly http: LoomHttpClient) {}
+
+  submitMessage(projectId: string, conversationId: string, request: SubmitMessageRequest, signal?: AbortSignal) {
+    return this.http.post<SubmitMessageResponse>(
+      `/api/projects/${projectId}/conversations/${conversationId}/messages`,
+      request,
+      signal,
+    )
+  }
+}
+
 export function createLoomSdk(options: HttpClientOptions) {
   const http = new LoomHttpClient(options)
   return {
     shell: new ShellApi(http),
+    workspace: new WorkspaceApi(http),
   }
 }

@@ -7,6 +7,7 @@ interface ComposerDockProps {
   composer: ComposerState
   draft: ComposerDraftState
   onDraftChange: (text: string) => void
+  onSubmit: () => void | Promise<void>
 }
 
 interface ComposerIconAction {
@@ -33,8 +34,9 @@ function toggleIcon(label: string): WorkbenchIconName {
   return 'bolt'
 }
 
-export function ComposerDock({ composer, draft, onDraftChange }: ComposerDockProps) {
+export function ComposerDock({ composer, draft, onDraftChange, onSubmit }: ComposerDockProps) {
   const showSlashMenu = draft.draftText.trimStart().startsWith('/')
+  const submitDisabled = draft.submitting || draft.draftText.trim().length === 0
 
   return (
     <footer className="composerDock">
@@ -51,6 +53,12 @@ export function ComposerDock({ composer, draft, onDraftChange }: ComposerDockPro
           <textarea
             className="composerInput"
             onChange={(event) => onDraftChange(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && !submitDisabled) {
+                event.preventDefault()
+                void onSubmit()
+              }
+            }}
             placeholder={composer.placeholder}
             rows={3}
             value={draft.draftText}
@@ -81,7 +89,13 @@ export function ComposerDock({ composer, draft, onDraftChange }: ComposerDockPro
             ))}
           </div>
 
-          <button aria-label={composer.primaryActionLabel} className="composerSendButton" type="button">
+          <button
+            aria-label={draft.submitting ? 'Sending message' : composer.primaryActionLabel}
+            className="composerSendButton"
+            disabled={submitDisabled}
+            onClick={() => void onSubmit()}
+            type="button"
+          >
             <WorkbenchIcon name="send" />
           </button>
         </div>

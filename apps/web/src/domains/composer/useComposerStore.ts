@@ -5,5 +5,6 @@ export function useComposerStore() {
   return {
     ...state.composer,
     updateDraft: actions.updateDraft,
+    submitDraft: actions.submitDraft,
   }
 }

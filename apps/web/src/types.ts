@@ -14,6 +14,8 @@ export type {
   ProjectSummary,
   SettingsOverview,
   StatusItem,
+  SubmitMessageRequest,
+  SubmitMessageResponse,
   SurfaceTone,
   TimelineStatus,
   TraceStep,

@@ -12,6 +12,14 @@ interface LoomWorkbenchProviderProps {
   error: string | null
   bootstrapSource: BootstrapSourceViewModel
   onCycleBootstrapSource: () => void
+  onSubmitDraft: (input: {
+    projectId: string
+    conversationId: string
+    body: string
+    requestedMode: ConversationMode
+    allowActions: boolean
+    allowMemory: boolean
+  }) => Promise<void>
   navigate: (next: LoomRouteState, replace?: boolean) => void
   children: ReactNode
 }
@@ -23,6 +31,7 @@ interface WorkbenchActions {
   setRightPanelTab: (tab: UiRightPanelTab) => void
   setSettingsSection: (section: string) => void
   updateDraft: (text: string) => void
+  submitDraft: () => Promise<void>
   setScrollPosition: (conversationId: string, scrollTop: number) => void
   openGlobalSearch: () => void
   closeGlobalSearch: () => void
@@ -55,14 +64,17 @@ export function LoomWorkbenchProvider({
   error,
   bootstrapSource,
   onCycleBootstrapSource,
+  onSubmitDraft,
   navigate,
   children,
 }: LoomWorkbenchProviderProps) {
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
   const [commandPaletteOpen] = useState(false)
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
+  const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [draftsByConversation, setDraftsByConversation] = useState<Record<string, ComposerDraftState>>({})
   const [scrollPositions, setScrollPositions] = useState<Record<string, number>>({})
+  const combinedError = runtimeError ?? error
 
   const openConversation = (conversationId: string) => {
     navigate({
@@ -131,10 +143,68 @@ export function LoomWorkbenchProvider({
             attachments: existing?.attachments ?? [],
             allowActions: existing?.allowActions ?? true,
             allowMemory: existing?.allowMemory ?? true,
-            submitting: false,
+            submitting: existing?.submitting ?? false,
           },
         }
       })
+    },
+    async submitDraft() {
+      const conversationId = route.conversationId ?? defaultConversationId(payload)
+      if (!conversationId) {
+        return
+      }
+
+      const key = conversationId
+      const fallbackDraft: ComposerDraftState = draftsByConversation[key] ?? {
+        draftText: '',
+        attachments: [],
+        allowActions: true,
+        allowMemory: true,
+        submitting: false,
+      }
+      const draft = draftsByConversation[key] ?? fallbackDraft
+      const body = draft.draftText.trim()
+      if (!body) {
+        return
+      }
+
+      setRuntimeError(null)
+      setDraftsByConversation((current) => ({
+        ...current,
+        [key]: {
+          ...(current[key] ?? fallbackDraft),
+          submitting: true,
+        },
+      }))
+
+      try {
+        await onSubmitDraft({
+          projectId: payload.project.id,
+          conversationId,
+          body,
+          requestedMode: route.mode ?? findConversationMode(payload, conversationId),
+          allowActions: draft.allowActions,
+          allowMemory: draft.allowMemory,
+        })
+
+        setDraftsByConversation((current) => ({
+          ...current,
+          [key]: {
+            ...(current[key] ?? fallbackDraft),
+            draftText: '',
+            submitting: false,
+          },
+        }))
+      } catch (submitError) {
+        setRuntimeError(submitError instanceof Error ? submitError.message : 'Failed to submit message')
+        setDraftsByConversation((current) => ({
+          ...current,
+          [key]: {
+            ...(current[key] ?? fallbackDraft),
+            submitting: false,
+          },
+        }))
+      }
     },
     setScrollPosition(conversationId, scrollTop) {
       setScrollPositions((current) => ({
@@ -213,7 +283,7 @@ export function LoomWorkbenchProvider({
       adaptBootstrapToWorkbench(payload, {
         route,
         loading,
-        error,
+        error: combinedError,
         bootstrapSource,
         draftsByConversation,
         scrollPositions,
@@ -221,7 +291,7 @@ export function LoomWorkbenchProvider({
         commandPaletteOpen,
         leftSidebarCollapsed,
       }),
-    [bootstrapSource, commandPaletteOpen, draftsByConversation, error, globalSearchOpen, leftSidebarCollapsed, loading, payload, route, scrollPositions],
+    [bootstrapSource, combinedError, commandPaletteOpen, draftsByConversation, globalSearchOpen, leftSidebarCollapsed, loading, payload, route, scrollPositions],
   )
 
   return <WorkbenchContext.Provider value={{ state, actions }}>{children}</WorkbenchContext.Provider>

@@ -24,7 +24,12 @@ export function ConversationWorkspacePage() {
         onScrollPositionChange={ui.setScrollPosition}
         restoredScrollTop={conversation.activeConversationId ? ui.scrollPositions[conversation.activeConversationId] : undefined}
       />
-      <ComposerDock composer={composer.snapshot} draft={composer.currentDraft} onDraftChange={composer.updateDraft} />
+      <ComposerDock
+        composer={composer.snapshot}
+        draft={composer.currentDraft}
+        onDraftChange={composer.updateDraft}
+        onSubmit={composer.submitDraft}
+      />
     </section>
   )
 }
