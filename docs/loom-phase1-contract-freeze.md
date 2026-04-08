@@ -303,6 +303,22 @@ Phase 1 落地优先级：
   返回：与 `SettingsOverviewView` 同源的 capability summary
   说明：当前集成分支仍通过 bootstrap 提供壳层 overview，后续由 FE/BE lane 接管
 
+### 3.8 当前实现对齐表
+
+| 合同项 | 冻结状态 | 当前集成分支状态 | 备注 |
+| --- | --- | --- | --- |
+| `GET /api/projects` | 已冻结 | 已实现 | `BE-002` 已覆盖 |
+| `GET /api/projects/{projectId}/conversations` | 已冻结 | 已实现 | `BE-002` 已覆盖 |
+| `GET /api/projects/{projectId}/conversations/{conversationId}/messages` | 已冻结 | 已实现 | `BE-002` 已覆盖 |
+| `POST /api/projects/{projectId}/conversations/{conversationId}/messages` | 已冻结 | 已实现 | `FE-002` 已接线 |
+| `GET /api/projects/{projectId}/conversations/{conversationId}/context` | 已冻结 | 已实现 | 当前由 `workspace` 聚合模块提供 |
+| `POST /api/projects/{projectId}/conversations/{conversationId}/context/refresh` | 已冻结 | 已实现 | `BE-004` 需继续强化上下文生成质量 |
+| `GET /api/projects/{projectId}/conversations/{conversationId}/trace` | 已冻结 | 已实现 | `BE-003` 已提供 stream 相关配套 |
+| `GET /api/settings/overview` | 已冻结 | 已实现 | `BE-005` / `FE-005` 需补页面真数据消费 |
+| `GET /api/capabilities/overview` | 已冻结 | 预留 | 当前仍由 bootstrap overview 承接 |
+| `GET /context/snapshots` | 已冻结 | 预留 | 后续 `BE-004` 可补独立接口 |
+| `GET /runs/{runId}/steps` | 已冻结 | 预留 | 后续 `BE-006` 可补独立接口 |
+
 ## 4. SSE 合同冻结
 
 流入口冻结为：
@@ -357,6 +373,8 @@ Phase 1 落地优先级：
 
 - 前端只认合同内事件名，不自行发明 `action.*` 私有事件。
 - 同一 `conversationId` 的事件必须在单流入口内消费。
+- 当前 Phase 1 允许 stream 以“短时事件快照 + 结束后 bootstrap 对账”的方式实现，但事件名和载荷必须继续遵守本节合同。
+- `trace.step.updated`、`run.failed`、`memory.suggested` 即使当前实现未完整产出，也不得改名或替换语义。
 
 ## 5. 错误、时间与分页口径
 
@@ -406,6 +424,15 @@ Phase 1 落地优先级：
 - `settings`
 - `stream`
 - `common`
+
+当前代码级映射说明：
+
+- `workspace` 是 Phase 1 过渡聚合模块，不是最终领域边界。
+- `workspace` 当前可承接：
+  - `project / conversation / message`
+  - `context / trace / settings`
+  - `stream` 的只读事件装配
+- 一旦 `context`、`settings`、`action` 形成独立模块，`workspace` 只保留聚合查询，不保留长期业务规则。
 
 Phase 1 允许的当前过渡实现：
 
@@ -478,6 +505,7 @@ Phase 1 中 OpenClaw 的边界冻结如下：
 - `run steps` 独立列表查询
 - `settings / capability` 页面从壳层 bootstrap 完全迁移到真实读模型
 - `memory.suggested` 的真实写入链路
+- `OpenClaw` 保持可见入口但未进入 Phase 1 主执行链路，这一点在联调和验收时不得被视为缺陷
 
 ## 10. 解锁条件
 

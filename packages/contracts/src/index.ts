@@ -187,6 +187,7 @@ export interface ContextSnapshotView {
 }
 
 export interface ContextPanelView {
+  // Used by the right-side Context panel as the canonical assembled snapshot.
   conversationSummary: string
   decisions: string[]
   openLoops: string[]
@@ -279,6 +280,7 @@ export interface RoutingPolicyView {
 }
 
 export interface SettingsOverviewView {
+  // Phase 1 keeps Capabilities and Settings sourced from the same underlying view model.
   activeScope: SettingScope
   tabs: Array<'Models' | 'Skills' | 'MCP' | 'Memory' | 'Routing'>
   modelProfiles: ModelProfileView[]
@@ -400,6 +402,10 @@ export type ConversationStreamEvent =
   | MemorySuggestedEvent
   | RunCompletedEvent
   | RunFailedEvent
+
+// Canonical stream order for a successful Phase 1 response:
+// thinking.summary.delta* -> thinking.summary.done -> message.delta* -> message.done
+// -> trace.step.created/updated/completed -> context.updated -> run.completed
 
 export interface ProjectSummary {
   id: string

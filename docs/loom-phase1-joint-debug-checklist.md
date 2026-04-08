@@ -80,6 +80,24 @@
 | 修复计划 | 下一步动作与 owner |
 | 回退状态 | 是否需要回退、是否已验证可回退 |
 
+## 4.1 当前已知联调基线（2026-04-08）
+
+| 项目 | 当前状态 | 证据 |
+| --- | --- | --- |
+| Message 提交主链路 | 已打通 | `FE-002` `80a5084` + `BE-002` `687d57d` |
+| SSE 事件名对齐 | 已打通首版 | `BE-003` `0fdb1e9` |
+| 会话页消费 stream | 已打通首版 | `FE-003` `d5a748f` |
+| Context 真数据面板 | 待补齐 | 当前仍以 bootstrap/stream 映射为主 |
+| Settings / Capabilities 真数据页面 | 待补齐 | 当前仍有壳层 overview 依赖 |
+| 生产机验证 | 未开始 | `ssh jd` 未执行 |
+
+## 4.2 本轮联调建议顺序
+
+1. 先验证 `message -> stream -> bootstrap refresh` 主链路。
+2. 再验证 Context 面板字段是否与合同冻结文档一致。
+3. 再验证 Settings / Capabilities 的 scope 与摘要字段。
+4. 最后验证 fallback、4xx/5xx 和 SSE 中断表现。
+
 ## 5. 通过判定
 
 联调通过需要同时满足：
