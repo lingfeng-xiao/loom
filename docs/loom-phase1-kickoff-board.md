@@ -43,7 +43,7 @@
 | ARC | webAI 架构师 | `architect-agent` | `ARC-001` ~ `ARC-005` | `codex/architect-arc-contract-freeze` | Ready | 基线冻结完成 | 架构文档、契约文档、`packages/contracts` |
 | BE | 后端开发 | `backend-agent` | `BE-001` ~ `BE-006` | `codex/backend-be-core-phase1` | Blocked | `ARC-002`、`ARC-003` 冻结 | `apps/server` 与后端测试 |
 | FE | 前端开发 | `frontend-agent` | `FE-001` ~ `FE-005` | `codex/frontend-fe-shell-integration` | Blocked | `ARC-002` 冻结 | `apps/web` |
-| QA | 测试 | `qa-agent` | `QA-001` ~ `QA-005` | `codex/qa-phase1-validation` | Ready | 基线冻结完成 | 测试计划、测试记录、必要测试文件 |
+| QA | 测试 | `qa-agent` | `QA-001` ~ `QA-005` | `codex/qa-phase1-validation` | In Progress | 基线冻结完成 | 测试计划、测试记录、必要测试文件 |
 
 状态口径：
 
