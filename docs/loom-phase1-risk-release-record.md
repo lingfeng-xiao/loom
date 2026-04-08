@@ -15,6 +15,7 @@
 | R-003 | 前端当前主要依赖 bootstrap 和 fallback 数据，接线真实接口时容易漂移 | 高 | 先冻结 contracts，再允许前端接线；`packages/contracts` 在冻结后默认只读 | 架构师 / 前端 |
 | R-004 | SSE 合同未冻结前，前后端容易各自发明事件格式 | 高 | `ARC-002` 完成前，前端只可预留适配层，不可私定事件协议 | 架构师 / 前后端 |
 | R-005 | 开发期可直连生产机调试，若无门禁容易造成线上污染 | 高 | 仅 PM 可执行 `ssh jd`；先只读后写；写操作必须可回退且有记录 | PM |
+| R-006 | 并发子智能体共享同一工作区时发生分支串扰，导致 lane 提交和未提交草稿混在一起 | 高 | 已关闭全部子智能体，保留 `codex/recovery-phase1-mixed-state` 恢复快照，改为单线程继续清理 | PM |
 
 ## 3. 生产机使用策略
 
@@ -66,3 +67,11 @@
 - 每次进入生产机窗口前更新本文件
 - 每次新增高风险变更时补充风险项
 - 发布完成后补最终结论：成功 / 回退 / 待重试
+
+## 7. 当前恢复结论
+
+- 已保留 PM 基线分支：`codex/pm-phase1-baseline`
+- 已保留后端 lane 分支：`codex/backend-be-core-phase1`
+- 已保留 QA lane 分支：`codex/qa-phase1-validation`
+- 已新增恢复快照分支：`codex/recovery-phase1-mixed-state`
+- 在完成提交审计和择取前，不再开启新的并发智能体
