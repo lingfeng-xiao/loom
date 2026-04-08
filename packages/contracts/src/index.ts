@@ -170,6 +170,19 @@ export interface SubmitMessageResponse {
   streamPath: string
 }
 
+export interface ActionView {
+  id: LoomId
+  projectId: LoomId
+  conversationId: LoomId
+  runId: LoomId
+  title: string
+  status: 'pending' | 'running' | 'waiting' | 'completed' | 'failed' | 'cancelled'
+  summary: string
+  startedAt: IsoTimestamp
+  completedAt?: IsoTimestamp | null
+  stepIds: LoomId[]
+}
+
 export interface ContextReferenceItem {
   id: LoomId
   label: string
@@ -226,6 +239,7 @@ export interface RunView {
 
 export interface TracePanelView {
   reasoningSummary: string
+  activeAction: ActionView | null
   activeRun: RunView | null
   steps: RunStepView[]
   updatedAt: IsoTimestamp

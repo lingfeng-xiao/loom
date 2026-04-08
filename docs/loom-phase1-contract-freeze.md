@@ -141,9 +141,19 @@ Context 面板读模型冻结为：
 Trace 面板读模型冻结为：
 
 - `reasoningSummary`
+- `activeAction`
 - `activeRun`
 - `steps`
 - `updatedAt`
+
+`Action.status` 冻结为：
+
+- `pending`
+- `running`
+- `waiting`
+- `completed`
+- `failed`
+- `cancelled`
 
 `Run.status` 冻结为：
 
@@ -166,6 +176,7 @@ Trace 面板读模型冻结为：
 冻结规则：
 
 - `Run` 代表一次可见执行实例。
+- `Action` 代表一次面向用户可见的执行意图，是 `Run` 的上层聚合读模型。
 - `RunStep` 是 Trace 面板的最小可视化单位。
 - 前端不得自己推导“是否完成”，应以 `status` 为准。
 
@@ -288,11 +299,13 @@ Phase 1 落地优先级：
 
 - `GET /api/projects/{projectId}/conversations/{conversationId}/trace`
   返回：`TracePanelView`
+- `GET /api/projects/{projectId}/conversations/{conversationId}/actions/{actionId}`
+  返回：`ActionView`
 - `GET /api/projects/{projectId}/conversations/{conversationId}/runs/{runId}`
   返回：`RunView`
 - `GET /api/projects/{projectId}/conversations/{conversationId}/runs/{runId}/steps`
   返回：`CursorPage<RunStepView>`
-  说明：当前集成分支尚未实现，但属于 ARC 冻结保留接口
+  说明：当前集成分支已实现
 
 ### 3.7 Settings / Capability
 
@@ -315,9 +328,10 @@ Phase 1 落地优先级：
 | `POST /api/projects/{projectId}/conversations/{conversationId}/context/refresh` | 已冻结 | 已实现 | `BE-004` 需继续强化上下文生成质量 |
 | `GET /api/projects/{projectId}/conversations/{conversationId}/trace` | 已冻结 | 已实现 | `BE-003` 已提供 stream 相关配套 |
 | `GET /api/settings/overview` | 已冻结 | 已实现 | `BE-005` / `FE-005` 需补页面真数据消费 |
-| `GET /api/capabilities/overview` | 已冻结 | 预留 | 当前仍由 bootstrap overview 承接 |
+| `GET /api/capabilities/overview` | 已冻结 | 已实现 | `BE-005` / `FE-005` 已接通真实读模型 |
 | `GET /context/snapshots` | 已冻结 | 预留 | 后续 `BE-004` 可补独立接口 |
-| `GET /runs/{runId}/steps` | 已冻结 | 预留 | 后续 `BE-006` 可补独立接口 |
+| `GET /api/projects/{projectId}/conversations/{conversationId}/actions/{actionId}` | 已冻结 | 已实现 | `BE-006` 已补 action 查询接口 |
+| `GET /runs/{runId}/steps` | 已冻结 | 已实现 | `BE-006` 已补独立查询接口 |
 
 ## 4. SSE 合同冻结
 
@@ -497,13 +511,13 @@ Phase 1 中 OpenClaw 的边界冻结如下：
 
 - `BE-002` 已落地 `project / conversation / message / context / trace / settings / stream` 的最小接口骨架
 - `BE-003` 已落地合同内 SSE 事件名
-- `FE-002`、`FE-003` 已开始消费这些接口与事件
+- `BE-006` 已补齐 `activeAction` 读模型、action 查询接口和 run steps 查询接口
+- `FE-002`、`FE-003`、`FE-005` 已开始消费这些接口与事件
 
 当前仍待补齐的实现项：
 
 - `context snapshots` 独立查询
-- `run steps` 独立列表查询
-- `settings / capability` 页面从壳层 bootstrap 完全迁移到真实读模型
+- `action / run / step` 从当前 `workspace` 过渡聚合进一步拆向独立模块
 - `memory.suggested` 的真实写入链路
 - `OpenClaw` 保持可见入口但未进入 Phase 1 主执行链路，这一点在联调和验收时不得被视为缺陷
 

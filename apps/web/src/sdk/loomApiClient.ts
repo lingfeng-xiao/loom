@@ -4,11 +4,16 @@ import type {
   ContextPanelView,
   CursorPage,
   FileAssetSummary,
+  ConversationListItem,
+  ConversationView,
   LoomBootstrapPayload,
   MemoryItemView,
+  MessageView,
+  ProjectView,
   SettingsOverviewView,
   SubmitMessageRequest,
   SubmitMessageResponse,
+  TracePanelView,
 } from '../types'
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
@@ -98,8 +103,28 @@ export class ShellApi {
 export class WorkspaceApi {
   constructor(private readonly http: LoomHttpClient) {}
 
+  getProject(projectId: string, signal?: AbortSignal) {
+    return this.http.get<ProjectView>(`/api/projects/${projectId}`, signal)
+  }
+
+  listConversations(projectId: string, signal?: AbortSignal) {
+    return this.http.get<CursorPage<ConversationListItem>>(`/api/projects/${projectId}/conversations`, signal)
+  }
+
+  getConversation(projectId: string, conversationId: string, signal?: AbortSignal) {
+    return this.http.get<ConversationView>(`/api/projects/${projectId}/conversations/${conversationId}`, signal)
+  }
+
+  listMessages(projectId: string, conversationId: string, signal?: AbortSignal) {
+    return this.http.get<CursorPage<MessageView>>(`/api/projects/${projectId}/conversations/${conversationId}/messages`, signal)
+  }
+
   getContext(projectId: string, conversationId: string, signal?: AbortSignal) {
     return this.http.get<ContextPanelView>(`/api/projects/${projectId}/conversations/${conversationId}/context`, signal)
+  }
+
+  getTrace(projectId: string, conversationId: string, signal?: AbortSignal) {
+    return this.http.get<TracePanelView>(`/api/projects/${projectId}/conversations/${conversationId}/trace`, signal)
   }
 
   getSettingsOverview(scope = 'project', signal?: AbortSignal) {

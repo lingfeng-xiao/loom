@@ -1,5 +1,7 @@
 package com.loom.server;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -21,6 +23,8 @@ class LoomApiIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
+    @Autowired
+    private ObjectMapper objectMapper;
 
     @Test
     void healthAndBootstrapEndpointsReturnLoomShellMetadata() throws Exception {
@@ -173,7 +177,8 @@ class LoomApiIntegrationTest {
                 .getResponse()
                 .getContentAsString();
 
-        String runId = response.replaceAll(".*\"acceptedRunId\":\"([^\"]+)\".*", "$1");
+        JsonNode submitPayload = objectMapper.readTree(response).path("data");
+        String runId = submitPayload.path("acceptedRunId").asText();
 
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1"))
                 .andExpect(status().isOk())
@@ -186,6 +191,23 @@ class LoomApiIntegrationTest {
                 .andExpect(jsonPath("$.data.items[0].runId").value(runId))
                 .andExpect(jsonPath("$.data.items[1].title").value("生成回复"));
 
+        String traceResponse = mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/trace"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeAction.id").exists())
+                .andExpect(jsonPath("$.data.activeAction.runId").value(runId))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode tracePayload = objectMapper.readTree(traceResponse).path("data");
+        String actionId = tracePayload.path("activeAction").path("id").asText();
+
+        mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/actions/" + actionId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.id").value(actionId))
+                .andExpect(jsonPath("$.data.runId").value(runId))
+                .andExpect(jsonPath("$.data.status").value("completed"));
+
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/stream"))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("event:thinking.summary.delta")))
@@ -196,5 +218,13 @@ class LoomApiIntegrationTest {
                 .andExpect(content().string(containsString("event:trace.step.completed")))
                 .andExpect(content().string(containsString("event:context.updated")))
                 .andExpect(content().string(containsString("event:run.completed")));
+    }
+
+    @Test
+    void actionLookupReturnsNotFoundForUnknownAction() throws Exception {
+        mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/actions/action-does-not-exist"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.error.code").value("ACTION_NOT_FOUND"))
+                .andExpect(jsonPath("$.error.message").value("Action does not exist"));
     }
 }

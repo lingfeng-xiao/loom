@@ -1,6 +1,7 @@
 package com.loom.server.workspace;
 
 import com.loom.server.api.ApiEnvelope;
+import com.loom.server.workspace.WorkspaceDtos.ActionView;
 import com.loom.server.workspace.WorkspaceDtos.ContextRefreshResponse;
 import com.loom.server.workspace.WorkspaceDtos.CreateConversationRequest;
 import com.loom.server.workspace.WorkspaceDtos.CursorPage;
@@ -90,6 +91,15 @@ public class WorkspaceController {
     @GetMapping("/api/projects/{projectId}/conversations/{conversationId}/trace")
     public ApiEnvelope<?> getTrace(@PathVariable String projectId, @PathVariable String conversationId) {
         return ApiEnvelope.of(workspaceStateService.getTrace(projectId, conversationId));
+    }
+
+    @GetMapping("/api/projects/{projectId}/conversations/{conversationId}/actions/{actionId}")
+    public ApiEnvelope<ActionView> getAction(
+            @PathVariable String projectId,
+            @PathVariable String conversationId,
+            @PathVariable String actionId
+    ) {
+        return ApiEnvelope.of(workspaceStateService.getAction(projectId, conversationId, actionId));
     }
 
     @GetMapping("/api/projects/{projectId}/conversations/{conversationId}/runs/{runId}")

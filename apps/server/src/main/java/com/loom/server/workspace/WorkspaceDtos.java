@@ -102,6 +102,20 @@ public final class WorkspaceDtos {
     public record SubmitMessageResponse(String conversationId, MessageView userMessage, String acceptedRunId, String streamPath) {
     }
 
+    public record ActionView(
+            String id,
+            String projectId,
+            String conversationId,
+            String runId,
+            String title,
+            String status,
+            String summary,
+            String startedAt,
+            String completedAt,
+            List<String> stepIds
+    ) {
+    }
+
     public record ContextReferenceItem(String id, String label, String kind, String summary) {
     }
 
@@ -147,7 +161,7 @@ public final class WorkspaceDtos {
     ) {
     }
 
-    public record TracePanelView(String reasoningSummary, RunView activeRun, List<RunStepView> steps, String updatedAt) {
+    public record TracePanelView(String reasoningSummary, ActionView activeAction, RunView activeRun, List<RunStepView> steps, String updatedAt) {
     }
 
     public record FileAssetSummaryView(

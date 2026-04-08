@@ -87,8 +87,8 @@
 | Message 提交主链路 | 已打通 | `FE-002` `80a5084` + `BE-002` `687d57d` |
 | SSE 事件名对齐 | 已打通首版 | `BE-003` `0fdb1e9` |
 | 会话页消费 stream | 已打通首版 | `FE-003` `d5a748f` |
-| Context 真数据面板 | 待补齐 | 当前仍以 bootstrap/stream 映射为主 |
-| Settings / Capabilities 真数据页面 | 待补齐 | 当前仍有壳层 overview 依赖 |
+| Context 真数据面板 | 已打通 | `FE-004` `44c6c1f` + `BE-004` `13143aa` |
+| Settings / Capabilities 真数据页面 | 已打通 | `FE-005` 当前集成工作树 + `BE-005` `13143aa` |
 | 生产机验证 | 未开始 | `ssh jd` 未执行 |
 
 ## 4.2 本轮联调建议顺序
@@ -107,3 +107,17 @@
 - 前端体验层通过
 - 异常层无阻塞问题
 - 联调记录完整可回看
+
+## 6. 本轮执行记录（2026-04-08）
+
+| 字段 | 内容 |
+| --- | --- |
+| 联调范围 | `BE-006`、`FE-005`、`QA-004` |
+| 环境 | 本地 / `codex/integration-phase1-delivery` |
+| 结论 | 通过 |
+| 接口层 | `project / conversation / message / context / trace / settings / capabilities` 已可读取；`actions/{actionId}` 已补最小查询接口 |
+| 流式层 | `message.*`、`thinking.summary.*`、`trace.step.*`、`context.updated`、`run.completed` 仍按冻结合同输出 |
+| 前端体验层 | 会话页已优先读取 workspace API 的 project / conversation / message / trace / context；Settings / Capabilities 已优先读取远端读模型 |
+| 异常层 | 后端新增 `ACTION_NOT_FOUND` 回归断言；前端仍保留 fallback/bootstrap 回退路径 |
+| 证据 | `apps/server` `./mvnw.cmd -q test` 通过；`apps/web` `npm run build` 通过；`packages/contracts` 类型检查通过 |
+| 备注 | 本记录仅覆盖本地与集成分支联调，不包含生产机 smoke |

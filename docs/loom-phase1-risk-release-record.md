@@ -90,8 +90,9 @@
 - 本地验证：
   - `apps/server` `./mvnw -q test` 通过
   - `apps/web` `npm run build` 通过
+  - 本地 acceptance smoke 通过：`http://127.0.0.1:4173`、`http://127.0.0.1:4173/api/health`、`http://127.0.0.1:8080/api/projects`
 - 生产机状态：未使用 `ssh jd`，无只读检查、无写操作、无回退动作
-- 发布门禁结论：仍未达到生产验证窗口，原因是 `FE-005 / QA-004 / QA-005` 仍缺最终联调与放行证据，且 `BE-006` 是否满足最终验收仍需 PM 复核
+- 发布门禁结论：已达到本地/集成验收门槛；仍未达到生产验证窗口，原因是 `ssh jd` 只读检查与生产 smoke/回退记录尚未执行
 
 ## 9. 当前并发风险控制（2026-04-08）
 
@@ -104,9 +105,9 @@
 - 当前新增风险：
   - R-007：ARC 文档与 BE/FE 现有实现可能存在轻微偏差，需由 PM 在集成时校准
   - R-008：FE 与 BE 在 Context / Settings 的字段命名上可能产生时间差，需以 ARC lane 的冻结结果为最终口径
-  - R-009：Capabilities / Settings 当前通过 provider 覆盖读模型接入，仍需页面级联调确认展示口径和降级策略
+  - R-009：Capabilities / Settings 已切到真实读模型，但当前仍需继续观察多作用域切换与降级策略
   - R-010：Files / Memory 当前是首版最小浏览能力，尚未覆盖上传、写入、审核和跨页联动
 - 当前缓解措施：
   - PM 在合入前统一复核 contracts / docs / apps 的一致性
   - 所有 lane 完成后必须再次执行 `apps/server` 测试和 `apps/web` 构建
-  - 若 `FE-005 / QA-004 / QA-005` 仍无联调证据，PM 不开启生产机只读检查窗口
+  - 若生产 smoke 与回退证据仍缺失，PM 不开启生产机写操作窗口

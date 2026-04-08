@@ -12,14 +12,20 @@ import type {
   ContextPanelView,
   ConversationMessage,
   ConversationMode,
+  ConversationListItem,
+  ConversationSummary,
+  ConversationView,
   ConversationStreamEvent,
   LoomBootstrapPayload,
   MessageView,
+  ProjectSummary,
+  ProjectView,
   SettingsOverview,
   SettingsOverviewView,
   RunStepView,
   StatusItem,
   TraceStep,
+  TracePanelView,
   WorkspacePageId,
 } from '../types'
 
@@ -90,12 +96,51 @@ function toConversationMessage(message: MessageView): ConversationMessage {
   }
 }
 
+function toConversationSummary(item: ConversationListItem | ConversationView): ConversationSummary {
+  return {
+    id: item.id,
+    title: item.title,
+    summary: 'contextSummary' in item && item.contextSummary ? item.contextSummary : item.summary,
+    lastUpdatedLabel: `最近更新 ${item.updatedAt}`,
+    mode: item.mode,
+    status: item.status,
+    pinned: item.pinned,
+  }
+}
+
+function toProjectSummary(base: ProjectSummary, project: ProjectView): ProjectSummary {
+  return {
+    ...base,
+    id: project.id,
+    name: project.name,
+    eyebrow: project.status === 'active' ? '远端项目' : `远端项目 · ${project.status}`,
+    description: project.description,
+    workspaceLabel: `项目：${project.name} · ${project.conversationCount} 个会话`,
+    lastUpdatedLabel: `最近更新 ${project.updatedAt}`,
+  }
+}
+
 function toTraceStep(step: RunStepView): TraceStep {
   return {
     id: step.id,
     label: step.title,
     detail: step.detail,
     status: step.status,
+  }
+}
+
+function sortByUpdatedAtDesc<T extends { updatedAt: string }>(items: T[]): T[] {
+  return [...items].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+}
+
+function partitionConversations(items: ConversationListItem[]): {
+  pinnedConversations: ConversationSummary[]
+  recentConversations: ConversationSummary[]
+} {
+  const summaries = items.map(toConversationSummary)
+  return {
+    pinnedConversations: sortByUpdatedAtDesc(summaries.filter((item) => item.pinned)),
+    recentConversations: sortByUpdatedAtDesc(summaries.filter((item) => !item.pinned)),
   }
 }
 
@@ -247,6 +292,11 @@ export function LoomWorkbenchProvider({
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [streamOverlay, setStreamOverlay] = useState<StreamOverlayState | null>(null)
+  const [remoteProject, setRemoteProject] = useState<ProjectView | null>(null)
+  const [remoteConversations, setRemoteConversations] = useState<ConversationListItem[] | null>(null)
+  const [remoteConversation, setRemoteConversation] = useState<ConversationView | null>(null)
+  const [remoteMessages, setRemoteMessages] = useState<MessageView[] | null>(null)
+  const [remoteTrace, setRemoteTrace] = useState<TracePanelView | null>(null)
   const [remoteContext, setRemoteContext] = useState<ContextPanelView | null>(null)
   const [remoteSettings, setRemoteSettings] = useState<SettingsOverviewView | null>(null)
   const [remoteCapabilities, setRemoteCapabilities] = useState<CapabilityOverviewView | null>(null)
@@ -254,10 +304,11 @@ export function LoomWorkbenchProvider({
   const [scrollPositions, setScrollPositions] = useState<Record<string, number>>({})
   const streamUnsubscribeRef = useRef<null | (() => void)>(null)
   const combinedError = runtimeError ?? error
+  const activeConversationId = route.conversationId ?? defaultConversationId(payload)
 
   const effectivePayload = useMemo(() => {
     const nextPayload =
-      streamOverlay && streamOverlay.conversationId === (route.conversationId ?? defaultConversationId(payload))
+      streamOverlay && streamOverlay.conversationId === activeConversationId
         ? {
             ...payload,
             messages: streamOverlay.messages,
@@ -266,53 +317,130 @@ export function LoomWorkbenchProvider({
           }
         : payload
 
+    const remoteConversationGroups = remoteConversations ? partitionConversations(remoteConversations) : null
+    const pinnedConversations = remoteConversationGroups?.pinnedConversations ?? nextPayload.pinnedConversations
+    const recentConversations = remoteConversationGroups?.recentConversations ?? nextPayload.recentConversations
+    const activeConversation =
+      remoteConversation ?? [...pinnedConversations, ...recentConversations].find((item) => item.id === activeConversationId) ?? null
+    const nextProject = remoteProject ? toProjectSummary(nextPayload.project, remoteProject) : nextPayload.project
+    const nextMessages = remoteMessages ? remoteMessages.map(toConversationMessage) : nextPayload.messages
+    const nextTraceSteps = remoteTrace ? remoteTrace.steps.map(toTraceStep) : nextPayload.traceSteps
+    const nextContextBlocks = remoteContext ? toContextBlocks(remoteContext) : nextPayload.contextBlocks
+    const nextSettings = remoteSettings ? toSettingsOverview(remoteSettings) : nextPayload.settings
+    const nextCapabilities = remoteCapabilities ? toCapabilitiesOverview(remoteCapabilities) : nextPayload.capabilities
+    const conversationStatusLabel =
+      remoteConversation == null
+        ? ''
+        : remoteConversation.status === 'active'
+          ? '进行中'
+          : remoteConversation.status
+    const conversationSummary = remoteConversation?.contextSummary || remoteConversation?.summary || nextPayload.conversationMeta
+
     return {
       ...nextPayload,
-      contextBlocks: remoteContext ? toContextBlocks(remoteContext) : nextPayload.contextBlocks,
-      settings: remoteSettings ? toSettingsOverview(remoteSettings) : nextPayload.settings,
-      capabilities: remoteCapabilities ? toCapabilitiesOverview(remoteCapabilities) : nextPayload.capabilities,
+      project: nextProject,
+      pinnedConversations,
+      recentConversations,
+      activeMode: route.mode ?? activeConversation?.mode ?? nextPayload.activeMode,
+      conversationTitle: remoteConversation?.title ?? activeConversation?.title ?? nextPayload.conversationTitle,
+      conversationMeta: remoteConversation != null ? `${nextProject.name} · ${conversationStatusLabel} · ${conversationSummary}` : nextPayload.conversationMeta,
+      messages: nextMessages,
+      traceSummary: remoteTrace?.reasoningSummary ?? nextPayload.traceSummary,
+      traceSteps: nextTraceSteps,
+      contextBlocks: nextContextBlocks,
+      settings: nextSettings,
+      capabilities: nextCapabilities,
     }
-  }, [payload, remoteCapabilities, remoteContext, remoteSettings, route.conversationId, streamOverlay])
+  }, [
+    activeConversationId,
+    payload,
+    remoteCapabilities,
+    remoteContext,
+    remoteConversation,
+    remoteConversations,
+    remoteMessages,
+    remoteProject,
+    remoteSettings,
+    remoteTrace,
+    route.mode,
+    streamOverlay,
+  ])
 
   useEffect(() => {
     setStreamOverlay(null)
-  }, [payload, route.conversationId])
-
-  useEffect(() => {
-    const conversationId = route.conversationId ?? defaultConversationId(payload)
-    if (!payload.project.id || !conversationId) {
-      setRemoteContext(null)
-      return
-    }
-
-    const controller = new AbortController()
-    sdk.workspace
-      .getContext(payload.project.id, conversationId, controller.signal)
-      .then((context) => setRemoteContext(context))
-      .catch(() => undefined)
-
-    return () => controller.abort()
-  }, [payload.project.id, payload.messages, route.conversationId, sdk])
+  }, [activeConversationId, payload])
 
   useEffect(() => {
     if (!payload.project.id) {
+      setRemoteProject(null)
+      setRemoteConversations(null)
       setRemoteSettings(null)
       setRemoteCapabilities(null)
       return
     }
 
     const controller = new AbortController()
-    sdk.workspace
-      .getSettingsOverview('project', controller.signal)
-      .then((settings) => setRemoteSettings(settings))
-      .catch(() => undefined)
-    sdk.workspace
-      .getCapabilitiesOverview('project', controller.signal)
-      .then((capabilities) => setRemoteCapabilities(capabilities))
+    setRemoteProject(null)
+    setRemoteConversations(null)
+    setRemoteSettings(null)
+    setRemoteCapabilities(null)
+
+    void Promise.all([
+      sdk.workspace.getProject(payload.project.id, controller.signal),
+      sdk.workspace.listConversations(payload.project.id, controller.signal),
+      sdk.workspace.getSettingsOverview('project', controller.signal),
+      sdk.workspace.getCapabilitiesOverview('project', controller.signal),
+    ])
+      .then(([project, conversations, settings, capabilities]) => {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        setRemoteProject(project)
+        setRemoteConversations(conversations.items)
+        setRemoteSettings(settings)
+        setRemoteCapabilities(capabilities)
+      })
       .catch(() => undefined)
 
     return () => controller.abort()
-  }, [payload.project.id, payload.messages, sdk])
+  }, [payload.project.id, sdk])
+
+  useEffect(() => {
+    if (!payload.project.id || !activeConversationId) {
+      setRemoteConversation(null)
+      setRemoteMessages(null)
+      setRemoteTrace(null)
+      setRemoteContext(null)
+      return
+    }
+
+    const controller = new AbortController()
+    setRemoteConversation(null)
+    setRemoteMessages(null)
+    setRemoteTrace(null)
+    setRemoteContext(null)
+
+    void Promise.all([
+      sdk.workspace.getConversation(payload.project.id, activeConversationId, controller.signal),
+      sdk.workspace.listMessages(payload.project.id, activeConversationId, controller.signal),
+      sdk.workspace.getTrace(payload.project.id, activeConversationId, controller.signal),
+      sdk.workspace.getContext(payload.project.id, activeConversationId, controller.signal),
+    ])
+      .then(([conversation, messages, trace, context]) => {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        setRemoteConversation(conversation)
+        setRemoteMessages(messages.items)
+        setRemoteTrace(trace)
+        setRemoteContext(context)
+      })
+      .catch(() => undefined)
+
+    return () => controller.abort()
+  }, [activeConversationId, payload.messages, payload.project.id, payload.traceSteps, sdk])
 
   useEffect(() => () => {
     streamUnsubscribeRef.current?.()
@@ -323,9 +451,9 @@ export function LoomWorkbenchProvider({
       ...route,
       layout: 'app',
       page: 'conversation',
-      projectId: payload.project.id,
+      projectId: effectivePayload.project.id,
       conversationId,
-      mode: findConversationMode(payload, conversationId),
+      mode: findConversationMode(effectivePayload, conversationId),
       callbackKind: null,
     })
   }
@@ -335,9 +463,9 @@ export function LoomWorkbenchProvider({
       ...route,
       layout: 'app',
       page,
-      projectId: payload.project.id,
-      conversationId: page === 'conversation' ? route.conversationId ?? defaultConversationId(payload) : route.conversationId ?? defaultConversationId(payload),
-      settingsSection: page === 'settings' ? route.settingsSection ?? payload.settings.tabs[0] ?? 'Models' : route.settingsSection,
+      projectId: effectivePayload.project.id,
+      conversationId: activeConversationId,
+      settingsSection: page === 'settings' ? route.settingsSection ?? effectivePayload.settings.tabs[0] ?? 'Models' : route.settingsSection,
       callbackKind: null,
     })
   }
@@ -350,8 +478,8 @@ export function LoomWorkbenchProvider({
         ...route,
         layout: 'app',
         page: 'conversation',
-        projectId: payload.project.id,
-        conversationId: route.conversationId ?? defaultConversationId(payload),
+        projectId: effectivePayload.project.id,
+        conversationId: activeConversationId,
         mode,
         callbackKind: null,
       })
@@ -369,7 +497,7 @@ export function LoomWorkbenchProvider({
         ...route,
         layout: 'app',
         page: 'settings',
-        projectId: payload.project.id,
+        projectId: effectivePayload.project.id,
         settingsSection: section,
         callbackKind: null,
       })
@@ -391,7 +519,7 @@ export function LoomWorkbenchProvider({
       })
     },
     async submitDraft() {
-      const conversationId = route.conversationId ?? defaultConversationId(payload)
+      const conversationId = activeConversationId
       if (!conversationId) {
         return
       }
@@ -422,7 +550,7 @@ export function LoomWorkbenchProvider({
       try {
         const response = await sdk.workspace.submitMessage(payload.project.id, conversationId, {
           body,
-          requestedMode: route.mode ?? findConversationMode(payload, conversationId),
+          requestedMode: route.mode ?? findConversationMode(effectivePayload, conversationId),
           allowActions: draft.allowActions,
           allowMemory: draft.allowMemory,
         })
@@ -479,7 +607,7 @@ export function LoomWorkbenchProvider({
     },
     handlePrimaryAction(actionId) {
       if (actionId === 'new-thread') {
-        openConversation(defaultConversationId(payload) ?? 'conversation-shell')
+        openConversation(activeConversationId ?? 'conversation-shell')
         return
       }
 
@@ -493,11 +621,11 @@ export function LoomWorkbenchProvider({
         return
       }
 
-      openConversation(payload.recentConversations[2]?.id ?? defaultConversationId(payload) ?? 'conversation-shell')
+      openConversation(effectivePayload.recentConversations[2]?.id ?? activeConversationId ?? 'conversation-shell')
     },
     handleHeaderAction(actionId) {
       if (actionId === 'workspace') {
-        openConversation(defaultConversationId(payload) ?? 'conversation-shell')
+        openConversation(activeConversationId ?? 'conversation-shell')
         return
       }
 
@@ -506,8 +634,8 @@ export function LoomWorkbenchProvider({
           ...route,
           layout: 'app',
           page: 'conversation',
-          projectId: payload.project.id,
-          conversationId: route.conversationId ?? defaultConversationId(payload),
+          projectId: effectivePayload.project.id,
+          conversationId: activeConversationId,
           mode: 'action',
           callbackKind: null,
         })

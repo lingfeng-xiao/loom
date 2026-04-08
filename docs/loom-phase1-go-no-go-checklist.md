@@ -78,16 +78,16 @@
 
 | 门禁项 | 当前判断 | 说明 |
 | --- | --- | --- |
-| 合同冻结文档 | 部分 Go | `loom-phase1-contract-freeze.md` 已可用，但仍需结合本轮 ARC 结果最终校准 |
+| 合同冻结文档 | Go | `loom-phase1-contract-freeze.md`、`packages/contracts` 与当前集成实现已同步 |
 | 本地后端验证 | Go | `apps/server` `./mvnw -q test` 已通过 |
 | 本地前端验证 | Go | `apps/web` `npm run build` 已通过 |
 | P0 主链路 | Go | `FE-002/003` + `BE-002/003` 已打通首版 |
-| Context 真数据页面 | No-Go | `FE-004 / BE-004` 尚未完成 |
-| Settings / Capabilities 真数据页面 | No-Go | `FE-005 / BE-005` 尚未完成 |
-| 联调完整记录 | No-Go | `QA-004` 仍需补最终执行结论 |
+| Context 真数据页面 | Go | `FE-004 / BE-004` 已完成，联调记录已回填 |
+| Settings / Capabilities 真数据页面 | Go | `FE-005 / BE-005` 已完成真实读模型接线并通过本地验证 |
+| 联调完整记录 | Go | `QA-004` 已补执行记录与验证结果 |
 | 生产机窗口 | No-Go | `ssh jd` 尚未进入只读检查窗口 |
 
 结论：
 
-- 当前允许继续并发开发与本地集成验证。
-- 当前不允许进入生产机验证或最终发布候选。
+- 当前允许进入产品/研发验收与本地集成验收。
+- 当前不允许进入生产机验证或最终发布候选；如需继续推进，先开启 `ssh jd` 只读检查窗口并补 smoke/回退记录。

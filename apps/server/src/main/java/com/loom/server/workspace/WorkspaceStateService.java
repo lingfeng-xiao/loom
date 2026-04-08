@@ -6,6 +6,7 @@ import com.loom.server.workspace.WorkspaceDtos.CapabilityBindingSummary;
 import com.loom.server.workspace.WorkspaceDtos.CapabilityBindingRuleView;
 import com.loom.server.workspace.WorkspaceDtos.CapabilityCardView;
 import com.loom.server.workspace.WorkspaceDtos.CapabilityOverviewView;
+import com.loom.server.workspace.WorkspaceDtos.ActionView;
 import com.loom.server.workspace.WorkspaceDtos.ContextPanelView;
 import com.loom.server.workspace.WorkspaceDtos.ContextReferenceItem;
 import com.loom.server.workspace.WorkspaceDtos.ContextRefreshResponse;
@@ -50,6 +51,7 @@ public class WorkspaceStateService {
     private final AtomicInteger messageSeq = new AtomicInteger(10);
     private final ProjectState project = new ProjectState();
     private final LinkedHashMap<String, ConversationState> conversations = new LinkedHashMap<>();
+    private final LinkedHashMap<String, ActionState> actions = new LinkedHashMap<>();
     private final List<FileAssetSummaryView> fileAssets = List.of(
             new FileAssetSummaryView("file-prd", "project-loom", "loom-prd.md", "text/markdown", 18_240, "ready", now()),
             new FileAssetSummaryView("file-contract", "project-loom", "phase1-contract-freeze.md", "text/markdown", 24_512, "ready", now()),
@@ -139,6 +141,7 @@ public class WorkspaceStateService {
         MessageView user = newMessage(conversationId, "user", "user", request.body().trim(), null);
         MessageView thinking = newMessage(conversationId, "thinking_summary", "assistant", "正在整理目标、上下文和下一步动作。", "已根据最新消息刷新上下文和执行摘要。");
         MessageView assistant = newMessage(conversationId, "assistant", "assistant", "已收到你的最新需求，当前会优先刷新会话、Trace、Context 和设置面板对应的数据读取链路。", "真实主数据已更新，可继续进入下一步联调。");
+        ActionState action = newAction(state, request.body().trim(), assistant.completedAt());
         state.messages.add(user);
         state.messages.add(thinking);
         state.messages.add(assistant);
@@ -146,7 +149,8 @@ public class WorkspaceStateService {
         state.status = "active";
         state.updatedAt = assistant.completedAt();
         state.lastMessageAt = assistant.completedAt();
-        state.activeRunId = "run-" + UUID.randomUUID();
+        state.activeActionId = action.id;
+        state.activeRunId = action.runId;
         updateContextAfterMessage(state, request.body().trim(), assistant.completedAt());
         project.updatedAt = state.updatedAt;
         project.lastMessageAt = state.lastMessageAt;
@@ -199,19 +203,30 @@ public class WorkspaceStateService {
     public TracePanelView getTrace(String projectId, String conversationId) {
         requireProject(projectId);
         ConversationState state = requireConversation(conversationId);
-        RunView run = state.activeRunId == null ? null : new RunView(state.activeRunId, "action-" + state.activeRunId, projectId, conversationId, "success", state.updatedAt, state.updatedAt, null);
+        ActionView action = state.activeActionId == null ? null : actionView(state.activeActionId);
+        RunView run = state.activeRunId == null ? null : new RunView(state.activeRunId, action == null ? "action-" + state.activeRunId : action.id(), projectId, conversationId, "success", state.updatedAt, state.updatedAt, null);
         List<RunStepView> steps = List.of(
                 new RunStepView("trace-context-" + conversationId, state.activeRunId, "读取上下文", "读取会话、设置与目标摘要", "success", state.updatedAt, state.updatedAt, null),
                 new RunStepView("trace-reply-" + conversationId, state.activeRunId, "生成回复", "生成思考摘要与回复内容", state.activeRunId == null ? "running" : "success", state.updatedAt, state.activeRunId == null ? null : state.updatedAt, null),
                 new RunStepView("trace-followup-" + conversationId, state.activeRunId, "准备后续联调", "等待下一次主链路联调或刷新", state.activeRunId == null ? "pending" : "success", state.updatedAt, state.activeRunId == null ? null : state.updatedAt, null)
         );
-        return new TracePanelView("当前会先读取前端文档输入，再把 Phase 1 收敛到可接线状态。", run, steps, state.updatedAt);
+        return new TracePanelView("当前会先读取前端文档输入，再把 Phase 1 收敛到可接线状态。", action, run, steps, state.updatedAt);
     }
 
     public RunView getRun(String projectId, String conversationId, String runId) {
         TracePanelView trace = getTrace(projectId, conversationId);
         if (trace.activeRun() == null || !trace.activeRun().id().equals(runId)) throw new ApiException(HttpStatus.NOT_FOUND, "RUN_NOT_FOUND", "Run does not exist");
         return trace.activeRun();
+    }
+
+    public ActionView getAction(String projectId, String conversationId, String actionId) {
+        requireProject(projectId);
+        requireConversation(conversationId);
+        ActionView action = actionView(actionId);
+        if (!action.projectId().equals(projectId) || !action.conversationId().equals(conversationId)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "ACTION_NOT_FOUND", "Action does not exist");
+        }
+        return action;
     }
 
     public CursorPage<RunStepView> listRunSteps(String projectId, String conversationId, String runId) {
@@ -405,6 +420,37 @@ public class WorkspaceStateService {
         conversations.put(id, state);
     }
 
+    private ActionState newAction(ConversationState conversation, String summary, String completedAt) {
+        String id = "action-" + UUID.randomUUID();
+        String runId = "run-" + UUID.randomUUID();
+        ActionState state = new ActionState(
+                id,
+                project.id,
+                conversation.id,
+                runId,
+                "message-response",
+                "completed",
+                summary,
+                completedAt,
+                completedAt,
+                List.of(
+                        "trace-context-" + conversation.id,
+                        "trace-reply-" + conversation.id,
+                        "trace-followup-" + conversation.id
+                )
+        );
+        actions.put(id, state);
+        return state;
+    }
+
+    private ActionView actionView(String actionId) {
+        ActionState state = actions.get(actionId);
+        if (state == null) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "ACTION_NOT_FOUND", "Action does not exist");
+        }
+        return state.toView();
+    }
+
     private ConversationListItem toConversationListItem(ConversationState state) {
         return new ConversationListItem(state.id, state.projectId, state.title, state.summary, state.mode, state.status, state.pinned, state.updatedAt, state.lastMessageAt);
     }
@@ -578,6 +624,7 @@ public class WorkspaceStateService {
         private boolean pinned;
         private String updatedAt = now();
         private String lastMessageAt = now();
+        private String activeActionId;
         private String activeRunId;
         private final ContextState context = new ContextState();
         private final List<MessageView> messages = new ArrayList<>();
@@ -588,6 +635,47 @@ public class WorkspaceStateService {
             this.title = title;
             this.mode = mode;
             this.pinned = pinned;
+        }
+    }
+
+    private static final class ActionState {
+        private final String id;
+        private final String projectId;
+        private final String conversationId;
+        private final String runId;
+        private final String title;
+        private final String status;
+        private final String summary;
+        private final String startedAt;
+        private final String completedAt;
+        private final List<String> stepIds;
+
+        private ActionState(
+                String id,
+                String projectId,
+                String conversationId,
+                String runId,
+                String title,
+                String status,
+                String summary,
+                String startedAt,
+                String completedAt,
+                List<String> stepIds
+        ) {
+            this.id = id;
+            this.projectId = projectId;
+            this.conversationId = conversationId;
+            this.runId = runId;
+            this.title = title;
+            this.status = status;
+            this.summary = summary;
+            this.startedAt = startedAt;
+            this.completedAt = completedAt;
+            this.stepIds = List.copyOf(stepIds);
+        }
+
+        private ActionView toView() {
+            return new ActionView(id, projectId, conversationId, runId, title, status, summary, startedAt, completedAt, stepIds);
         }
     }
 

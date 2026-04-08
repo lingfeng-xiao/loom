@@ -172,22 +172,22 @@ PM 每轮至少回填以下内容：
 - 本地验证结果：
   - `apps/server`：`./mvnw -q test` 通过
   - `apps/web`：`npm run build` 通过
-- 当前下一顺位目标：补齐 `FE-005 / QA-004 / QA-005` 联调与放行证据，并评估 `BE-006` 是否还需进一步显式拆模
+- 当前下一顺位目标：进入产品/研发验收，并在需要时开启 `ssh jd` 只读检查窗口补齐生产 smoke 与回退证据
 
 ## 9. 当前并发轮次（2026-04-08）
 
 | Lane | 当前目标 | 写入范围 | 当前状态 |
 | --- | --- | --- | --- |
 | ARC | `ARC-001` ~ `ARC-005` 合同冻结、模块边界、迁移顺序、OpenClaw 范围说明 | `docs`、`packages/contracts` | Done |
-| BE | `BE-004`、`BE-005` 已完成，`BE-006` / `BE-007` 已落首版 | `apps/server` | In Progress |
-| FE | `FE-004`、`FE-006` 已完成，`FE-005` 进入联调收口 | `apps/web` | In Progress |
-| QA | `QA-004`、`QA-005`，并补 `QA-003` 可执行验证记录 | `docs` | Done |
+| BE | `BE-004`、`BE-005`、`BE-006`、`BE-007` 已形成可验收基线 | `apps/server` | In Progress |
+| FE | `FE-004`、`FE-005`、`FE-006` 已形成可验收基线 | `apps/web` | In Progress |
+| QA | `QA-002`、`QA-004`、`QA-005` 已回填，继续补 `QA-003` 可执行验证记录 | `docs` | In Progress |
 | PM | 维护需求池、kickoff、风险台账、测试记录和集成门禁 | `docs` | In Progress |
 
 本轮集成顺序：
 
 1. ARC 合同冻结结果
 2. BE Context / Settings / Capabilities 读接口
-3. FE Context / Settings 真数据接线
+3. FE Context / Settings / Conversation 真数据接线
 4. QA 联调与 go / no-go 文档
 5. PM 统一验证、回填和决定是否进入生产机只读检查窗口
