@@ -73,7 +73,7 @@
 
 | 需求 ID | 优先级 | 状态 | 需求项 | 来源 | 依赖 | 验收标准 |
 | --- | --- | --- | --- | --- | --- | --- |
-| BE-001 | P0 | Ready | 完成服务端命名与骨架迁移：从 template 命名迁到 loom 领域命名，并建立模块化包结构。 | 当前 `apps/server` 现状；Java 包结构文档 | ARC-003 | 根包、配置、启动类、合同命名对齐 loom，迁移后测试仍可运行。 |
+| BE-001 | P0 | In Progress | 完成服务端命名与骨架迁移：从 template 命名迁到 loom 领域命名，并建立模块化包结构。 | 当前 `apps/server` 现状；Java 包结构文档 | ARC-003 | 根包、配置、启动类、合同命名对齐 loom，迁移后测试仍可运行。 |
 | BE-002 | P0 | Ready | 实现 Project / Conversation / Message 最小可用读写接口，形成“提交消息前”的真实主数据基础。 | 架构设计、第 6/16/18/19 节 | ARC-001, ARC-002, ARC-005 | 至少支持项目详情、会话列表、消息列表、创建会话、提交用户消息。 |
 | BE-003 | P0 | Ready | 实现 stream 模块和 SSE 事件合同，支持 `message.delta`、`message.done`、`thinking.summary.*`、`trace.step.*` 等事件。 | 后端模块设计、第 9/10 节 | ARC-002, BE-002 | 前端可稳定订阅单一流入口，断开重连和完成态口径一致。 |
 | BE-004 | P1 | Ready | 实现 context 模块首版：上下文组装、摘要刷新、决策与 open loops 快照查询。 | 架构设计、第 10/18 节；后端模块设计、第 4.3 节 | ARC-001, ARC-002, ARC-005 | 提供 Context 面板读接口和刷新接口，结构与文档一致。 |

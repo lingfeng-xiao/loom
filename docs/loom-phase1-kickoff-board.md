@@ -14,6 +14,7 @@
 
 - 采用“先冻结再并发”
 - 当前工作基线分支：`codex/pm-phase1-baseline`
+- 当前恢复快照分支：`codex/recovery-phase1-mixed-state`
 - PM 负责总调度、文档维护、风险控制和生产机窗口
 - 并发工作智能体共 4 个：架构师、前端开发、后端开发、测试
 
@@ -40,16 +41,28 @@
 | Lane | 角色 | 智能体名称 | 主要需求 | 建议分支 | 状态 | 启动条件 | 写入范围 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | PM | PM / Orchestrator | 当前主线程 | `PM-001` ~ `PM-005` | `codex/pm-phase1-baseline` | In Progress | 已启动 | `docs/requirements-pool-spec.md`、本文档、测试/发布文档 |
-| ARC | webAI 架构师 | `architect-agent` | `ARC-001` ~ `ARC-005` | `codex/architect-arc-contract-freeze` | Ready | 基线冻结完成 | 架构文档、契约文档、`packages/contracts` |
-| BE | 后端开发 | `backend-agent` | `BE-001` ~ `BE-006` | `codex/backend-be-core-phase1` | Blocked | `ARC-002`、`ARC-003` 冻结 | `apps/server` 与后端测试 |
-| FE | 前端开发 | `frontend-agent` | `FE-001` ~ `FE-005` | `codex/frontend-fe-shell-integration` | Blocked | `ARC-002` 冻结 | `apps/web` |
-| QA | 测试 | `qa-agent` | `QA-001` ~ `QA-005` | `codex/qa-phase1-validation` | Ready | 基线冻结完成 | 测试计划、测试记录、必要测试文件 |
+| ARC | webAI 架构师 | `architect-agent` | `ARC-001` ~ `ARC-005` | `codex/architect-arc-contract-freeze` | Paused | 基线冻结完成 | 架构文档、契约文档、`packages/contracts` |
+| BE | 后端开发 | `backend-agent` | `BE-001` ~ `BE-006` | `codex/backend-be-core-phase1` | In Progress | `ARC-002`、`ARC-003` 冻结 | `apps/server` 与后端测试 |
+| FE | 前端开发 | `frontend-agent` | `FE-001` ~ `FE-005` | `codex/frontend-fe-shell-integration` | Paused | `ARC-002` 冻结 | `apps/web` |
+| QA | 测试 | `qa-agent` | `QA-001` ~ `QA-005` | `codex/qa-phase1-validation` | In Progress | 基线冻结完成 | 测试计划、测试记录、必要测试文件 |
 
 状态口径：
 
 - `Ready`：可立即启动
 - `Blocked`：等待上游冻结或集成基线
 - `In Progress`：已开始产出
+- `Paused`：已有尝试产出，但因工作区串扰暂停继续写入
+
+## 2.1 Current Branch Map
+
+| 分支 | 当前定位 | 当前提交 | 备注 |
+| --- | --- | --- | --- |
+| `codex/pm-phase1-baseline` | PM 基线 | `d7cb1e4` | 已落地需求池、kickoff、测试/风险/发布基线 |
+| `codex/backend-be-core-phase1` | 后端 lane | `282a2f8` | 已落地 `BE-001` 命名迁移与测试通过 |
+| `codex/qa-phase1-validation` | QA lane | `2c69dd3` | 已落地 `QA-001` 测试矩阵与记录模板 |
+| `codex/frontend-fe-shell-integration` | 前端 lane | `d7cb1e4` | 未形成独立提交，当前需从恢复快照中择取 |
+| `codex/architect-arc-contract-freeze` | 架构 lane | `d7cb1e4` | 未形成独立提交，当前需从恢复快照中择取 |
+| `codex/recovery-phase1-mixed-state` | 恢复快照 | `facff60` | 保存了并发执行期间的混合工作树，禁止直接合并 |
 
 ## 3. Iteration Order
 
@@ -58,17 +71,20 @@
 - PM 完成基线冻结与文档恢复
 - 补齐 kickoff board、测试计划、风险/发布记录
 - 锁定 git、PR、生产机使用规则
+- 已补充恢复快照分支，保全并发执行期间的混合工作区
 
 ### Wave 1
 
 - 架构师完成 `ARC-001`、`ARC-002`、`ARC-003`
 - 测试同步起草 `QA-001`，但不对未冻结接口做硬断言
+- 实际结果：`QA-001` 已形成独立提交；`ARC` lane 暂停，待单线程审计恢复
 
 ### Wave 2
 
 - 后端启动 `BE-001`、`BE-002`、`BE-003`
 - 前端启动 `FE-001`、`FE-002`
 - 测试启动 `QA-003`、`QA-004`
+- 实际结果：`BE-001` 已形成独立提交并通过本地测试；`FE` lane 仅保留在恢复快照中，暂不继续
 
 ### Wave 3
 
@@ -117,3 +133,13 @@ PM 每轮至少回填以下内容：
 - 新阻塞项和风险项
 - 文档是否已同步
 - 是否满足进入联调或生产验证的条件
+
+## 7. Recovery Note
+
+当前恢复策略：
+
+- 所有并发子智能体已关闭
+- 单线程继续推进
+- 先以 `codex/pm-phase1-baseline` 作为 PM 主控制分支
+- 以 `codex/backend-be-core-phase1` 和 `codex/qa-phase1-validation` 保留已验证提交
+- 以 `codex/recovery-phase1-mixed-state` 保存前端、contracts、文档的混合草稿，后续按需择取
