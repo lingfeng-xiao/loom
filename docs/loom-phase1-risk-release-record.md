@@ -87,3 +87,18 @@
   - `apps/web` `npm run build` 通过
 - 生产机状态：未使用 `ssh jd`，无只读检查、无写操作、无回退动作
 - 发布门禁结论：仍未达到生产验证窗口，原因是 `ARC-001 ~ ARC-005` 尚未单线程冻结，`BE-004 / FE-004 / BE-005 / FE-005` 仍未完成
+
+## 9. 当前并发风险控制（2026-04-08）
+
+- 已重新开启角色并发，但执行方式从“共享脏工作区并发”调整为“按目录隔离的独立写入责任”
+- 当前并发门禁：
+  - ARC 不得修改 `apps/web`、`apps/server`
+  - BE 不得修改 `apps/web`、`docs`
+  - FE 不得修改 `apps/server`、`docs`
+  - QA 不得修改业务代码
+- 当前新增风险：
+  - R-007：ARC 文档与 BE/FE 现有实现可能存在轻微偏差，需由 PM 在集成时校准
+  - R-008：FE 与 BE 在 Context / Settings 的字段命名上可能产生时间差，需以 ARC lane 的冻结结果为最终口径
+- 当前缓解措施：
+  - PM 在合入前统一复核 contracts / docs / apps 的一致性
+  - 所有 lane 完成后必须再次执行 `apps/server` 测试和 `apps/web` 构建
