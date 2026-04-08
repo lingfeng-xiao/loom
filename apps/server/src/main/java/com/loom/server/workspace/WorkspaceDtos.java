@@ -187,4 +187,18 @@ public final class WorkspaceDtos {
             RoutingPolicyView routingPolicy
     ) {
     }
+
+    public record CapabilityOverviewView(
+            String activeScope,
+            String summary,
+            List<CapabilityCardView> cards,
+            List<CapabilityBindingRuleView> bindingRules
+    ) {
+    }
+
+    public record CapabilityCardView(String id, String title, String summary, List<String> items) {
+    }
+
+    public record CapabilityBindingRuleView(String label, String value, String tone) {
+    }
 }

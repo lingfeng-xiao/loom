@@ -98,4 +98,9 @@ public class WorkspaceController {
     public ApiEnvelope<?> getSettingsOverview(@RequestParam(defaultValue = "project") String scope) {
         return ApiEnvelope.of(workspaceStateService.getSettingsOverview(scope));
     }
+
+    @GetMapping("/api/capabilities/overview")
+    public ApiEnvelope<?> getCapabilitiesOverview(@RequestParam(defaultValue = "project") String scope) {
+        return ApiEnvelope.of(workspaceStateService.getCapabilitiesOverview(scope));
+    }
 }

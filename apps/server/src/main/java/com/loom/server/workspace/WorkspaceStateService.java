@@ -3,6 +3,9 @@ package com.loom.server.workspace;
 import com.loom.server.api.ApiException;
 import com.loom.server.model.BootstrapPayload;
 import com.loom.server.workspace.WorkspaceDtos.CapabilityBindingSummary;
+import com.loom.server.workspace.WorkspaceDtos.CapabilityBindingRuleView;
+import com.loom.server.workspace.WorkspaceDtos.CapabilityCardView;
+import com.loom.server.workspace.WorkspaceDtos.CapabilityOverviewView;
 import com.loom.server.workspace.WorkspaceDtos.ContextPanelView;
 import com.loom.server.workspace.WorkspaceDtos.ContextReferenceItem;
 import com.loom.server.workspace.WorkspaceDtos.ContextRefreshResponse;
@@ -89,6 +92,7 @@ public class WorkspaceStateService {
         requireProject(projectId);
         String id = "conversation-" + conversationSeq.incrementAndGet();
         ConversationState state = new ConversationState(id, projectId, blankTo(request == null ? null : request.title(), "新会话"), blankTo(request == null ? null : request.mode(), "chat"), false);
+        initializeContext(state);
         conversations.put(id, state);
         return toConversationView(state);
     }
@@ -131,6 +135,7 @@ public class WorkspaceStateService {
         state.updatedAt = assistant.completedAt();
         state.lastMessageAt = assistant.completedAt();
         state.activeRunId = "run-" + UUID.randomUUID();
+        updateContextAfterMessage(state, request.body().trim(), assistant.completedAt());
         project.updatedAt = state.updatedAt;
         project.lastMessageAt = state.lastMessageAt;
         return new SubmitMessageResponse(conversationId, user, state.activeRunId, "/api/projects/" + projectId + "/conversations/" + conversationId + "/stream");
@@ -143,7 +148,40 @@ public class WorkspaceStateService {
     }
 
     public ContextRefreshResponse refreshContext(String projectId, String conversationId) {
-        return new ContextRefreshResponse(getContext(projectId, conversationId));
+        requireProject(projectId);
+        ConversationState state = requireConversation(conversationId);
+        String refreshedAt = now();
+        state.context.refreshCount++;
+        state.context.updatedAt = refreshedAt;
+        state.context.conversationSummary = "已基于最新会话与项目绑定信息刷新上下文，准备进入下一轮实现与联调。";
+        state.context.decisions = List.of(
+                "优先保持会话主链路可用",
+                "Context 优先输出对当前开发最有价值的摘要",
+                "刷新结果 v" + state.context.refreshCount + " 已覆盖目标与风险"
+        );
+        state.context.openLoops = List.of(
+                "补齐 Context 页面真数据接线",
+                "补齐 Settings / Capabilities 页面真数据读取",
+                "形成联调记录与 go / no-go 结论"
+        );
+        state.context.activeGoals = List.of(
+                "推进真实主链路",
+                "完成第 " + state.context.refreshCount + " 次上下文刷新"
+        );
+        state.context.references = List.of(
+                new ContextReferenceItem("ref-contract-freeze", "合同冻结", "file", "Phase 1 合同冻结、事件名和模块边界"),
+                new ContextReferenceItem("ref-recent-message", "最新用户消息", "conversation", latestUserSummary(state))
+        );
+        state.context.snapshots = appendSnapshot(state.context.snapshots, new ContextSnapshotView(
+                "snapshot-active-context-" + UUID.randomUUID(),
+                project.id,
+                conversationId,
+                "active_context",
+                state.context.conversationSummary,
+                refreshedAt
+        ));
+        state.updatedAt = refreshedAt;
+        return new ContextRefreshResponse(contextFor(state));
     }
 
     public TracePanelView getTrace(String projectId, String conversationId) {
@@ -167,6 +205,25 @@ public class WorkspaceStateService {
     public SettingsOverviewView getSettingsOverview(String scope) {
         if (scope == null || scope.isBlank() || scope.equals(settings.activeScope())) return settings;
         return new SettingsOverviewView(scope, settings.tabs(), settings.modelProfiles(), settings.skills(), settings.mcpServers(), settings.memoryPolicy(), settings.routingPolicy());
+    }
+
+    public CapabilityOverviewView getCapabilitiesOverview(String scope) {
+        SettingsOverviewView scopedSettings = getSettingsOverview(scope);
+        return new CapabilityOverviewView(
+                scopedSettings.activeScope(),
+                "通过统一能力摘要展示当前模型、Skills、MCP 与执行策略绑定关系。",
+                List.of(
+                        new CapabilityCardView("cap-models", "Models", "当前作用域默认模型与能力支持。", scopedSettings.modelProfiles().stream().map(ModelProfileView::name).toList()),
+                        new CapabilityCardView("cap-skills", "Skills", "当前作用域启用的技能。", scopedSettings.skills().stream().map(SkillView::name).toList()),
+                        new CapabilityCardView("cap-mcp", "MCP Servers", "当前作用域已连接的资源与工具提供方。", scopedSettings.mcpServers().stream().map(McpServerView::name).toList()),
+                        new CapabilityCardView("cap-executors", "Executors", "执行运行时与外部执行器入口。", List.of(scopedSettings.routingPolicy().defaultRuntime(), blankTo(scopedSettings.routingPolicy().externalExecutorLabel(), "none")))
+                ),
+                List.of(
+                        new CapabilityBindingRuleView("默认聊天模型", project.bindings.defaultModelProfileId(), "accent"),
+                        new CapabilityBindingRuleView("启用技能数", String.valueOf(project.bindings.enabledSkillIds().size()), "good"),
+                        new CapabilityBindingRuleView("默认路由策略", project.bindings.defaultRoutingPolicyId(), "neutral")
+                )
+        );
     }
 
     public List<Map<String, Object>> getStreamEvents(String projectId, String conversationId) {
@@ -313,6 +370,7 @@ public class WorkspaceStateService {
         ConversationState state = new ConversationState(id, project.id, title, mode, pinned);
         state.summary = summary;
         state.status = status;
+        initializeContext(state);
         conversations.put(id, state);
     }
 
@@ -325,20 +383,75 @@ public class WorkspaceStateService {
     }
 
     private ConversationView toConversationView(ConversationState state) {
-        return new ConversationView(state.id, state.projectId, state.title, state.summary, state.mode, state.status, state.pinned, state.updatedAt, state.lastMessageAt, "当前会话围绕 Phase 1 壳层、合同和联调基线推进。", state.activeRunId);
+        return new ConversationView(state.id, state.projectId, state.title, state.summary, state.mode, state.status, state.pinned, state.updatedAt, state.lastMessageAt, state.context.conversationSummary, state.activeRunId);
     }
 
     private ContextPanelView contextFor(ConversationState state) {
         return new ContextPanelView(
-                "当前会话围绕 Phase 1 壳层、合同和联调基线推进。",
-                List.of("交付最小真实接口", "保持文档与代码同步"),
-                List.of("补齐 SSE 接线", "完成联调验证"),
-                List.of("推进真实主链路"),
-                List.of("保持会话优先", "保持 trace 可见"),
-                List.of(new ContextReferenceItem("ref-architecture", "架构设计", "file", "Phase 1 架构、后端模块设计与合同冻结文档")),
-                List.of(new ContextSnapshotView("snapshot-summary-" + state.id, project.id, state.id, "conversation_summary", state.summary, state.updatedAt)),
-                state.updatedAt
+                state.context.conversationSummary,
+                state.context.decisions,
+                state.context.openLoops,
+                state.context.activeGoals,
+                state.context.constraints,
+                state.context.references,
+                state.context.snapshots,
+                state.context.updatedAt
         );
+    }
+
+    private void initializeContext(ConversationState state) {
+        state.context.conversationSummary = "当前会话围绕 Phase 1 壳层、合同和联调基线推进。";
+        state.context.decisions = List.of("交付最小真实接口", "保持文档与代码同步");
+        state.context.openLoops = List.of("补齐 SSE 接线", "完成联调验证");
+        state.context.activeGoals = List.of("推进真实主链路");
+        state.context.constraints = List.of("保持会话优先", "保持 trace 可见");
+        state.context.references = List.of(new ContextReferenceItem("ref-architecture", "架构设计", "file", "Phase 1 架构、后端模块设计与合同冻结文档"));
+        state.context.snapshots = List.of(new ContextSnapshotView("snapshot-summary-" + state.id, project.id, state.id, "conversation_summary", state.summary, state.updatedAt));
+        state.context.updatedAt = state.updatedAt;
+    }
+
+    private void updateContextAfterMessage(ConversationState state, String latestUserInput, String updatedAt) {
+        state.context.updatedAt = updatedAt;
+        state.context.conversationSummary = "会话已吸收最新需求，当前优先推进 Context 与 Settings/Capabilities 的真实数据链路。";
+        state.context.decisions = List.of(
+                "优先提交可验证的后端读接口",
+                "保持前端 fallback 与远端双源能力",
+                "先本地验证，再进入联调与生产机窗口"
+        );
+        state.context.openLoops = List.of(
+                "Context 右侧面板消费真实接口",
+                "Capabilities / Settings 页面消费真实读模型",
+                "补全 go / no-go 结论"
+        );
+        state.context.activeGoals = List.of("推进真实主链路", abbreviate(latestUserInput));
+        state.context.references = List.of(
+                new ContextReferenceItem("ref-contract-freeze", "合同冻结", "file", "Phase 1 合同冻结、模块边界与错误口径"),
+                new ContextReferenceItem("ref-latest-message", "最新消息", "conversation", abbreviate(latestUserInput))
+        );
+        state.context.snapshots = appendSnapshot(state.context.snapshots, new ContextSnapshotView(
+                "snapshot-decision-" + UUID.randomUUID(),
+                project.id,
+                state.id,
+                "decisions",
+                String.join("；", state.context.decisions),
+                updatedAt
+        ));
+    }
+
+    private List<ContextSnapshotView> appendSnapshot(List<ContextSnapshotView> snapshots, ContextSnapshotView nextSnapshot) {
+        List<ContextSnapshotView> next = new ArrayList<>(snapshots);
+        next.add(0, nextSnapshot);
+        return next.stream().limit(4).toList();
+    }
+
+    private String latestUserSummary(ConversationState state) {
+        for (int index = state.messages.size() - 1; index >= 0; index--) {
+            MessageView message = state.messages.get(index);
+            if ("user".equals(message.role())) {
+                return abbreviate(message.body());
+            }
+        }
+        return "暂无用户输入";
     }
 
     private MessageView newMessage(String conversationId, String kind, String role, String body, String summary) {
@@ -435,6 +548,7 @@ public class WorkspaceStateService {
         private String updatedAt = now();
         private String lastMessageAt = now();
         private String activeRunId;
+        private final ContextState context = new ContextState();
         private final List<MessageView> messages = new ArrayList<>();
 
         private ConversationState(String id, String projectId, String title, String mode, boolean pinned) {
@@ -444,5 +558,17 @@ public class WorkspaceStateService {
             this.mode = mode;
             this.pinned = pinned;
         }
+    }
+
+    private static final class ContextState {
+        private String conversationSummary = "当前会话围绕 Phase 1 壳层、合同和联调基线推进。";
+        private List<String> decisions = List.of();
+        private List<String> openLoops = List.of();
+        private List<String> activeGoals = List.of();
+        private List<String> constraints = List.of();
+        private List<ContextReferenceItem> references = List.of();
+        private List<ContextSnapshotView> snapshots = List.of();
+        private String updatedAt = now();
+        private int refreshCount = 0;
     }
 }

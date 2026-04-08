@@ -125,6 +125,11 @@ class LoomApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.activeGoals[0]").value("推进真实主链路"));
 
+        mockMvc.perform(post("/api/projects/project-loom/conversations/conversation-v1/context/refresh"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.context.activeGoals[1]").value("完成第 1 次上下文刷新"))
+                .andExpect(jsonPath("$.data.context.references[1].kind").value("conversation"));
+
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/trace"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.steps[0].title").value("读取上下文"));
@@ -133,6 +138,12 @@ class LoomApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.tabs[0]").value("Models"))
                 .andExpect(jsonPath("$.data.modelProfiles[0].name").value("GPT-5.4 Thinking"));
+
+        mockMvc.perform(get("/api/capabilities/overview").queryParam("scope", "project"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeScope").value("project"))
+                .andExpect(jsonPath("$.data.cards[0].title").value("Models"))
+                .andExpect(jsonPath("$.data.bindingRules[0].label").value("默认聊天模型"));
     }
 
     @Test
@@ -152,7 +163,8 @@ class LoomApiIntegrationTest {
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.activeRunId").exists())
-                .andExpect(jsonPath("$.data.status").value("active"));
+                .andExpect(jsonPath("$.data.status").value("active"))
+                .andExpect(jsonPath("$.data.contextSummary").value("会话已吸收最新需求，当前优先推进 Context 与 Settings/Capabilities 的真实数据链路。"));
 
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/stream"))
                 .andExpect(status().isOk())
