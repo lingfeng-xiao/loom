@@ -89,3 +89,33 @@
 - 附件：`apps/web` 下执行 `npm run build` 通过
 - 下一步动作：把前端接线提交为独立需求提交，并继续推进 `FE-003`
 - 是否允许进入下一阶段：允许继续推进联调前置开发
+
+### TR-2026-04-08-03
+
+- 日期：2026-04-08
+- 阶段：并发开发
+- 覆盖需求：`BE-003`、`QA-002`
+- 环境：本地 / `codex/integration-phase1-delivery`
+- 执行人：后端 / PM
+- 结论：通过
+- 问题：当前 SSE 仍以单次提交后的短连接事件快照为主，尚未接入真正长时运行流。
+- 修复：已提交 `0fdb1e9` `BE-003 feat: expand workspace stream events`
+- 回退：未执行
+- 附件：`apps/server` 下执行 `./mvnw -q test` 通过；新增断言覆盖 `thinking.summary.delta`、`thinking.summary.done`、`message.delta`、`message.done`、`trace.step.created`、`trace.step.completed`、`context.updated`、`run.completed`
+- 下一步动作：继续把 FE 端实时渲染与 SSE 断线处理补齐
+- 是否允许进入下一阶段：允许继续推进 FE-003
+
+### TR-2026-04-08-04
+
+- 日期：2026-04-08
+- 阶段：并发开发
+- 覆盖需求：`FE-003`、`QA-003`
+- 环境：本地 / `codex/integration-phase1-delivery`
+- 执行人：前端 / PM
+- 结论：通过
+- 问题：当前前端通过 EventSource 消费短连接流事件，并在流关闭后刷新 bootstrap；尚未补齐断线重试和手动联调证据。
+- 修复：已提交 `d5a748f` `FE-003 feat: apply workspace stream events in conversation view`
+- 回退：未执行
+- 附件：`apps/web` 下执行 `npm run build` 通过
+- 下一步动作：补联调清单执行记录，并推进 `FE-004 / BE-004`
+- 是否允许进入下一阶段：允许继续推进 Context 真数据接线

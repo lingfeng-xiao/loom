@@ -63,7 +63,7 @@
 | `codex/frontend-fe-shell-integration` | 前端 lane | `d7cb1e4` | 未形成独立提交，当前需从恢复快照中择取 |
 | `codex/architect-arc-contract-freeze` | 架构 lane | `d7cb1e4` | 未形成独立提交，当前需从恢复快照中择取 |
 | `codex/recovery-phase1-mixed-state` | 恢复快照 | `facff60` | 保存了并发执行期间的混合工作树，禁止直接合并 |
-| `codex/integration-phase1-delivery` | 单线程集成交付分支 | `687d57d` | 当前主执行分支，已合入 PM 基线并完成 `BE-002`，正承接前端接线与文档回填 |
+| `codex/integration-phase1-delivery` | 单线程集成交付分支 | `d5a748f` | 当前主执行分支，已连续落地 `BE-002`、`BE-003`、`FE-002`、`FE-003`，正继续推进 Context / Settings |
 
 ## 3. Iteration Order
 
@@ -151,9 +151,12 @@ PM 每轮至少回填以下内容：
 - 已完成的可追踪提交：
   - `282a2f8` `BE-001 refactor: migrate server package root to loom`
   - `687d57d` `BE-002 feat: add phase1 workspace api`
+  - `0fdb1e9` `BE-003 feat: expand workspace stream events`
   - `2c69dd3` `QA-001 docs: add phase1 test matrix`
+  - `80a5084` `FE-002 feat: wire composer submission to workspace api`
+  - `d5a748f` `FE-003 feat: apply workspace stream events in conversation view`
 - 当前未进入生产机窗口；`ssh jd` 仍未执行
 - 本地验证结果：
   - `apps/server`：`./mvnw -q test` 通过
   - `apps/web`：`npm run build` 通过
-- 当前下一顺位目标：提交前端 `FE-002` 接线改动，并继续推进 `BE-003 / FE-003`
+- 当前下一顺位目标：继续推进 `BE-004 / FE-004` 的 Context 真数据读写
