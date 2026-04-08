@@ -173,11 +173,36 @@ public class WorkspaceStateService {
         requireProject(projectId);
         ConversationState state = requireConversation(conversationId);
         String emittedAt = now();
-        MessageView latest = state.messages.isEmpty() ? null : state.messages.get(state.messages.size() - 1);
         List<Map<String, Object>> events = new ArrayList<>();
-        if (latest != null) events.add(event("message.done", projectId, conversationId, emittedAt, Map.of("message", latest)));
-        if (state.activeRunId != null) events.add(event("run.completed", projectId, conversationId, emittedAt, Map.of("run", getRun(projectId, conversationId, state.activeRunId))));
+        MessageView thinking = latestMessageByKind(state, "thinking_summary");
+        MessageView assistant = latestMessageByKind(state, "assistant");
+        TracePanelView trace = getTrace(projectId, conversationId);
+
+        appendMessageDeltaEvents(events, "thinking.summary.delta", projectId, conversationId, emittedAt, thinking);
+        if (thinking != null) {
+            events.add(event("thinking.summary.done", projectId, conversationId, emittedAt, Map.of("message", thinking)));
+        }
+
+        appendMessageDeltaEvents(events, "message.delta", projectId, conversationId, emittedAt, assistant);
+        if (assistant != null) {
+            events.add(event("message.done", projectId, conversationId, emittedAt, Map.of("message", assistant)));
+        }
+
+        String runId = trace.activeRun() != null ? trace.activeRun().id() : "run-preview-" + conversationId;
+        for (RunStepView step : trace.steps()) {
+            events.add(event("trace.step.created", projectId, conversationId, emittedAt, Map.of("runId", runId, "step", step)));
+            String stepEvent = switch (step.status()) {
+                case "success", "failed", "skipped" -> "trace.step.completed";
+                default -> "trace.step.updated";
+            };
+            events.add(event(stepEvent, projectId, conversationId, emittedAt, Map.of("runId", runId, "step", step)));
+        }
+
         events.add(event("context.updated", projectId, conversationId, emittedAt, Map.of("context", getContext(projectId, conversationId))));
+        if (trace.activeRun() != null) {
+            String runEvent = "failed".equals(trace.activeRun().status()) ? "run.failed" : "run.completed";
+            events.add(event(runEvent, projectId, conversationId, emittedAt, Map.of("run", trace.activeRun())));
+        }
         return events;
     }
 
@@ -319,6 +344,47 @@ public class WorkspaceStateService {
     private MessageView newMessage(String conversationId, String kind, String role, String body, String summary) {
         String at = now();
         return new MessageView("message-" + UUID.randomUUID(), project.id, conversationId, kind, role, body, summary, "assistant".equals(role) ? "已完成" : null, messageSeq.incrementAndGet(), at, at, List.of());
+    }
+
+    private MessageView latestMessageByKind(ConversationState state, String kind) {
+        for (int index = state.messages.size() - 1; index >= 0; index--) {
+            MessageView message = state.messages.get(index);
+            if (kind.equals(message.kind())) {
+                return message;
+            }
+        }
+        return null;
+    }
+
+    private void appendMessageDeltaEvents(
+            List<Map<String, Object>> events,
+            String eventName,
+            String projectId,
+            String conversationId,
+            String emittedAt,
+            MessageView message
+    ) {
+        if (message == null || message.body() == null || message.body().isBlank()) {
+            return;
+        }
+
+        List<String> chunks = chunkText(message.body());
+        for (int index = 0; index < chunks.size(); index++) {
+            events.add(event(eventName, projectId, conversationId, emittedAt, Map.of(
+                    "messageId", message.id(),
+                    "chunk", chunks.get(index),
+                    "chunkIndex", index
+            )));
+        }
+    }
+
+    private List<String> chunkText(String value) {
+        if (value.length() <= 24) {
+            return List.of(value);
+        }
+
+        int middle = value.length() / 2;
+        return List.of(value.substring(0, middle), value.substring(middle));
     }
 
     private Map<String, Object> event(String name, String projectId, String conversationId, String emittedAt, Map<String, Object> payload) {
