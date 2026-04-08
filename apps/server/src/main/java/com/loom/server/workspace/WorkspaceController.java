@@ -4,8 +4,11 @@ import com.loom.server.api.ApiEnvelope;
 import com.loom.server.workspace.WorkspaceDtos.ContextRefreshResponse;
 import com.loom.server.workspace.WorkspaceDtos.CreateConversationRequest;
 import com.loom.server.workspace.WorkspaceDtos.CursorPage;
+import com.loom.server.workspace.WorkspaceDtos.FileAssetSummaryView;
+import com.loom.server.workspace.WorkspaceDtos.MemoryItemView;
 import com.loom.server.workspace.WorkspaceDtos.MessageView;
 import com.loom.server.workspace.WorkspaceDtos.ProjectListItem;
+import com.loom.server.workspace.WorkspaceDtos.RunStepView;
 import com.loom.server.workspace.WorkspaceDtos.SubmitMessageRequest;
 import com.loom.server.workspace.WorkspaceDtos.SubmitMessageResponse;
 import com.loom.server.workspace.WorkspaceDtos.UpdateConversationRequest;
@@ -92,6 +95,25 @@ public class WorkspaceController {
     @GetMapping("/api/projects/{projectId}/conversations/{conversationId}/runs/{runId}")
     public ApiEnvelope<?> getRun(@PathVariable String projectId, @PathVariable String conversationId, @PathVariable String runId) {
         return ApiEnvelope.of(workspaceStateService.getRun(projectId, conversationId, runId));
+    }
+
+    @GetMapping("/api/projects/{projectId}/conversations/{conversationId}/runs/{runId}/steps")
+    public ApiEnvelope<CursorPage<RunStepView>> listRunSteps(
+            @PathVariable String projectId,
+            @PathVariable String conversationId,
+            @PathVariable String runId
+    ) {
+        return ApiEnvelope.of(workspaceStateService.listRunSteps(projectId, conversationId, runId));
+    }
+
+    @GetMapping("/api/projects/{projectId}/files")
+    public ApiEnvelope<CursorPage<FileAssetSummaryView>> listFiles(@PathVariable String projectId) {
+        return ApiEnvelope.of(workspaceStateService.listFiles(projectId));
+    }
+
+    @GetMapping("/api/projects/{projectId}/memory")
+    public ApiEnvelope<CursorPage<MemoryItemView>> listMemory(@PathVariable String projectId) {
+        return ApiEnvelope.of(workspaceStateService.listMemory(projectId));
     }
 
     @GetMapping("/api/settings/overview")

@@ -150,6 +150,28 @@ public final class WorkspaceDtos {
     public record TracePanelView(String reasoningSummary, RunView activeRun, List<RunStepView> steps, String updatedAt) {
     }
 
+    public record FileAssetSummaryView(
+            String id,
+            String projectId,
+            String displayName,
+            String mimeType,
+            long sizeBytes,
+            String parseStatus,
+            String uploadedAt
+    ) {
+    }
+
+    public record MemoryItemView(
+            String id,
+            String scope,
+            String projectId,
+            String conversationId,
+            String content,
+            String source,
+            String updatedAt
+    ) {
+    }
+
     public record ModelProfileView(
             String id,
             String scope,

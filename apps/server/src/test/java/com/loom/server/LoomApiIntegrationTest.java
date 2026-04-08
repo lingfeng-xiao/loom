@@ -144,11 +144,21 @@ class LoomApiIntegrationTest {
                 .andExpect(jsonPath("$.data.activeScope").value("project"))
                 .andExpect(jsonPath("$.data.cards[0].title").value("Models"))
                 .andExpect(jsonPath("$.data.bindingRules[0].label").value("默认聊天模型"));
+
+        mockMvc.perform(get("/api/projects/project-loom/files"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].displayName").value("loom-prd.md"))
+                .andExpect(jsonPath("$.data.items[2].parseStatus").value("pending"));
+
+        mockMvc.perform(get("/api/projects/project-loom/memory"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].scope").value("project"))
+                .andExpect(jsonPath("$.data.items[2].conversationId").value("conversation-v1"));
     }
 
     @Test
     void messageSubmissionUpdatesConversationAndReturnsStreamPath() throws Exception {
-        mockMvc.perform(post("/api/projects/project-loom/conversations/conversation-v1/messages")
+        String response = mockMvc.perform(post("/api/projects/project-loom/conversations/conversation-v1/messages")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
@@ -158,13 +168,23 @@ class LoomApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.conversationId").value("conversation-v1"))
                 .andExpect(jsonPath("$.data.acceptedRunId").exists())
-                .andExpect(jsonPath("$.data.streamPath").value("/api/projects/project-loom/conversations/conversation-v1/stream"));
+                .andExpect(jsonPath("$.data.streamPath").value("/api/projects/project-loom/conversations/conversation-v1/stream"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String runId = response.replaceAll(".*\"acceptedRunId\":\"([^\"]+)\".*", "$1");
 
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.activeRunId").exists())
                 .andExpect(jsonPath("$.data.status").value("active"))
                 .andExpect(jsonPath("$.data.contextSummary").value("会话已吸收最新需求，当前优先推进 Context 与 Settings/Capabilities 的真实数据链路。"));
+
+        mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/runs/" + runId + "/steps"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].runId").value(runId))
+                .andExpect(jsonPath("$.data.items[1].title").value("生成回复"));
 
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/stream"))
                 .andExpect(status().isOk())

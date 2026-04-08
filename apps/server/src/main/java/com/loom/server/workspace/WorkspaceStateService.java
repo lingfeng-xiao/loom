@@ -14,7 +14,9 @@ import com.loom.server.workspace.WorkspaceDtos.ConversationListItem;
 import com.loom.server.workspace.WorkspaceDtos.ConversationView;
 import com.loom.server.workspace.WorkspaceDtos.CreateConversationRequest;
 import com.loom.server.workspace.WorkspaceDtos.CursorPage;
+import com.loom.server.workspace.WorkspaceDtos.FileAssetSummaryView;
 import com.loom.server.workspace.WorkspaceDtos.McpServerView;
+import com.loom.server.workspace.WorkspaceDtos.MemoryItemView;
 import com.loom.server.workspace.WorkspaceDtos.MemoryPolicyView;
 import com.loom.server.workspace.WorkspaceDtos.MessageView;
 import com.loom.server.workspace.WorkspaceDtos.ModelProfileView;
@@ -48,6 +50,16 @@ public class WorkspaceStateService {
     private final AtomicInteger messageSeq = new AtomicInteger(10);
     private final ProjectState project = new ProjectState();
     private final LinkedHashMap<String, ConversationState> conversations = new LinkedHashMap<>();
+    private final List<FileAssetSummaryView> fileAssets = List.of(
+            new FileAssetSummaryView("file-prd", "project-loom", "loom-prd.md", "text/markdown", 18_240, "ready", now()),
+            new FileAssetSummaryView("file-contract", "project-loom", "phase1-contract-freeze.md", "text/markdown", 24_512, "ready", now()),
+            new FileAssetSummaryView("file-smoke", "project-loom", "frontend-smoke-checklist.md", "text/markdown", 6_144, "pending", now())
+    );
+    private final List<MemoryItemView> memoryItems = List.of(
+            new MemoryItemView("memory-project-goal", "project", "project-loom", null, "保持会话优先、Trace 可见和文档先行。", "explicit", now()),
+            new MemoryItemView("memory-contract", "project", "project-loom", null, "合同冻结后优先保障 REST / SSE 字段口径不漂移。", "system", now()),
+            new MemoryItemView("memory-conversation-v1", "conversation", "project-loom", "conversation-v1", "当前会话聚焦 Context、Settings、Capabilities 与联调闭环。", "assisted", now())
+    );
     private final SettingsOverviewView settings = new SettingsOverviewView(
             "project",
             List.of("Models", "Skills", "MCP", "Memory", "Routing"),
@@ -200,6 +212,25 @@ public class WorkspaceStateService {
         TracePanelView trace = getTrace(projectId, conversationId);
         if (trace.activeRun() == null || !trace.activeRun().id().equals(runId)) throw new ApiException(HttpStatus.NOT_FOUND, "RUN_NOT_FOUND", "Run does not exist");
         return trace.activeRun();
+    }
+
+    public CursorPage<RunStepView> listRunSteps(String projectId, String conversationId, String runId) {
+        requireProject(projectId);
+        TracePanelView trace = getTrace(projectId, conversationId);
+        if (trace.activeRun() == null || !trace.activeRun().id().equals(runId)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "RUN_NOT_FOUND", "Run does not exist");
+        }
+        return new CursorPage<>(trace.steps(), null, false);
+    }
+
+    public CursorPage<FileAssetSummaryView> listFiles(String projectId) {
+        requireProject(projectId);
+        return new CursorPage<>(fileAssets, null, false);
+    }
+
+    public CursorPage<MemoryItemView> listMemory(String projectId) {
+        requireProject(projectId);
+        return new CursorPage<>(memoryItems, null, false);
     }
 
     public SettingsOverviewView getSettingsOverview(String scope) {
