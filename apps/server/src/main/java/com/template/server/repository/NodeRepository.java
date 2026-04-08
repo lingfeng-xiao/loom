@@ -1,14 +1,14 @@
-package com.template.server.repository;
+package com.loom.server.repository;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.template.server.dto.NodeHeartbeatProbeRequest;
-import com.template.server.dto.NodeHeartbeatRequest;
-import com.template.server.dto.NodeRegistrationRequest;
-import com.template.server.model.NodeRecord;
-import com.template.server.model.ProbeRecord;
-import com.template.server.model.ProbeStatus;
+import com.loom.server.dto.NodeHeartbeatProbeRequest;
+import com.loom.server.dto.NodeHeartbeatRequest;
+import com.loom.server.dto.NodeRegistrationRequest;
+import com.loom.server.model.NodeRecord;
+import com.loom.server.model.ProbeRecord;
+import com.loom.server.model.ProbeStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 

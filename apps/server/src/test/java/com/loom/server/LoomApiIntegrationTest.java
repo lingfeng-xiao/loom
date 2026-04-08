@@ -1,4 +1,4 @@
-package com.template.server;
+package com.loom.server;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,21 +15,27 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
-class TemplateApiIntegrationTest {
+class LoomApiIntegrationTest {
 
     @Autowired
     private MockMvc mockMvc;
 
     @Test
-    void healthAndBootstrapEndpointsReturnTemplateMetadata() throws Exception {
+    void healthAndBootstrapEndpointsReturnLoomShellMetadata() throws Exception {
         mockMvc.perform(get("/api/health"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("ok"));
 
         mockMvc.perform(get("/api/bootstrap"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.appName").value("Template Infrastructure Stack"))
-                .andExpect(jsonPath("$.data.setupTasks[0].id").value("env"));
+                .andExpect(jsonPath("$.data.appName").value("loom"))
+                .andExpect(jsonPath("$.data.project.name").value("loom"))
+                .andExpect(jsonPath("$.data.pages[0].id").value("conversation"))
+                .andExpect(jsonPath("$.data.pages[3].id").value("files"))
+                .andExpect(jsonPath("$.data.pages[3].available").value(false))
+                .andExpect(jsonPath("$.data.messages[1].kind").value("thinking_summary"))
+                .andExpect(jsonPath("$.data.traceSteps[2].status").value("running"))
+                .andExpect(jsonPath("$.data.settings.tabs[0]").value("Models"));
     }
 
     @Test

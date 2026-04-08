@@ -1,10 +1,10 @@
-package com.template.server;
+package com.loom.server;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest
-class TemplateServerApplicationTests {
+class LoomServerApplicationTests {
 
     @Test
     void contextLoads() {

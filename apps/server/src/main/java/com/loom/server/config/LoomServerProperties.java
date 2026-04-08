@@ -1,9 +1,9 @@
-package com.template.server.config;
+package com.loom.server.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties(prefix = "template")
-public class TemplateProperties {
+public class LoomServerProperties {
 
     private String appName;
     private String description;

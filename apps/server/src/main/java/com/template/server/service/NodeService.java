@@ -1,10 +1,10 @@
-package com.template.server.service;
+package com.loom.server.service;
 
-import com.template.server.config.TemplateProperties;
-import com.template.server.dto.NodeHeartbeatRequest;
-import com.template.server.dto.NodeRegistrationRequest;
-import com.template.server.model.NodeRecord;
-import com.template.server.repository.NodeRepository;
+import com.loom.server.config.LoomServerProperties;
+import com.loom.server.dto.NodeHeartbeatRequest;
+import com.loom.server.dto.NodeRegistrationRequest;
+import com.loom.server.model.NodeRecord;
+import com.loom.server.repository.NodeRepository;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -13,27 +13,27 @@ import java.util.List;
 public class NodeService {
 
     private final NodeRepository nodeRepository;
-    private final TemplateProperties templateProperties;
+    private final LoomServerProperties serverProperties;
 
-    public NodeService(NodeRepository nodeRepository, TemplateProperties templateProperties) {
+    public NodeService(NodeRepository nodeRepository, LoomServerProperties serverProperties) {
         this.nodeRepository = nodeRepository;
-        this.templateProperties = templateProperties;
+        this.serverProperties = serverProperties;
     }
 
     public List<NodeRecord> findAll() {
-        return nodeRepository.findAll(templateProperties.getNode().getHeartbeatTimeoutSeconds());
+        return nodeRepository.findAll(serverProperties.getNode().getHeartbeatTimeoutSeconds());
     }
 
     public NodeRecord findById(String nodeId) {
-        return nodeRepository.findById(nodeId, templateProperties.getNode().getHeartbeatTimeoutSeconds())
+        return nodeRepository.findById(nodeId, serverProperties.getNode().getHeartbeatTimeoutSeconds())
                 .orElseThrow(() -> new IllegalArgumentException("Unknown node id: " + nodeId));
     }
 
     public NodeRecord register(NodeRegistrationRequest request) {
-        return nodeRepository.register(request, templateProperties.getNode().getHeartbeatTimeoutSeconds());
+        return nodeRepository.register(request, serverProperties.getNode().getHeartbeatTimeoutSeconds());
     }
 
     public NodeRecord heartbeat(String nodeId, NodeHeartbeatRequest request) {
-        return nodeRepository.heartbeat(nodeId, request, templateProperties.getNode().getHeartbeatTimeoutSeconds());
+        return nodeRepository.heartbeat(nodeId, request, serverProperties.getNode().getHeartbeatTimeoutSeconds());
     }
 }

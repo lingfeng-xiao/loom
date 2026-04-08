@@ -1,6 +1,6 @@
-package com.template.server.dto;
+package com.loom.server.dto;
 
-import com.template.server.model.ProbeStatus;
+import com.loom.server.model.ProbeStatus;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 

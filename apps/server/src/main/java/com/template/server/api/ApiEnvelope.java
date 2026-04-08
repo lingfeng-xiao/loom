@@ -1,4 +1,4 @@
-package com.template.server.api;
+package com.loom.server.api;
 
 import java.util.Map;
 

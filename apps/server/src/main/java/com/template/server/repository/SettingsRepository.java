@@ -1,7 +1,7 @@
-package com.template.server.repository;
+package com.loom.server.repository;
 
-import com.template.server.dto.WorkspaceSettingsUpdateRequest;
-import com.template.server.model.WorkspaceSettings;
+import com.loom.server.dto.WorkspaceSettingsUpdateRequest;
+import com.loom.server.model.WorkspaceSettings;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
 

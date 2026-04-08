@@ -1,6 +1,6 @@
 spring:
   application:
-    name: template-server
+    name: loom-server
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/template?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
     username: ${SPRING_DATASOURCE_USERNAME:template}
@@ -13,10 +13,10 @@ server:
   port: ${TEMPLATE_SERVER_PORT:8080}
 
 template:
-  app-name: Template Infrastructure Stack
-  description: Generic three-app monorepo template with API, web shell, and node agent.
-  docs-url: https://github.com/lingfeng-xiao/template
-  support-email: team@example.com
+  app-name: loom
+  description: Projectized AI conversation workspace with a visible trace and configurable capability shell.
+  docs-url: https://github.com/lingfeng-xiao/loom
+  support-email: loom@example.com
   node:
     heartbeat-timeout-seconds: ${TEMPLATE_NODE_HEARTBEAT_TIMEOUT_SECONDS:90}
     server-token: ${TEMPLATE_SERVER_TOKEN:change-me}
