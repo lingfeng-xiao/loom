@@ -6,14 +6,14 @@ export function CapabilitiesPage() {
   return (
     <section className="toolSurface">
       <div className="toolPageHeader">
-        <h2>技能和应用</h2>
+        <h2>能力与应用</h2>
         <p>{capabilities.summary}</p>
       </div>
 
       <div className="toolPageGrid">
         <div className="toolPanel">
           <div className="toolPanelHeader">
-            <h3>能力面</h3>
+            <h3>能力面板</h3>
             <span>{capabilities.cards.length} 个区域</span>
           </div>
           <div className="toolMetricGrid">

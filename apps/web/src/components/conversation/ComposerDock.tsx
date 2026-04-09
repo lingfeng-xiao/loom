@@ -1,102 +1,63 @@
-import { WorkbenchIcon } from '../WorkbenchIcon'
+import { useEffect, useRef } from 'react'
 import type { ComposerDraftState } from '../../domains/workbenchTypes'
 import type { ComposerState } from '../../types'
-import type { WorkbenchIconName } from '../../frontendTypes'
+import { WorkbenchIcon } from '../WorkbenchIcon'
 
 interface ComposerDockProps {
   composer: ComposerState
   draft: ComposerDraftState
   onDraftChange: (text: string) => void
   onSubmit: () => void | Promise<void>
+  error: string | null
 }
 
-interface ComposerIconAction {
-  id: string
-  label: string
-  icon: WorkbenchIconName
-}
-
-const iconActions: ComposerIconAction[] = [
-  { id: 'context', label: '挂载 Context', icon: 'chat' },
-  { id: 'file', label: '挂载文件', icon: 'paperclip' },
-  { id: 'command', label: '命令面板', icon: 'slash' },
-]
-
-const slashCommands = ['/context', '/file', '/memory', '/action', '/plan']
-
-function toggleIcon(label: string): WorkbenchIconName {
-  if (label.toLowerCase().includes('memory')) {
-    return 'memory'
-  }
-  if (label.includes('上传')) {
-    return 'plus'
-  }
-  return 'bolt'
-}
-
-export function ComposerDock({ composer, draft, onDraftChange, onSubmit }: ComposerDockProps) {
-  const showSlashMenu = draft.draftText.trimStart().startsWith('/')
+export function ComposerDock({ composer, draft, onDraftChange, onSubmit, error }: ComposerDockProps) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
   const submitDisabled = draft.submitting || draft.draftText.trim().length === 0
+
+  useEffect(() => {
+    const textarea = textareaRef.current
+    if (!textarea) {
+      return
+    }
+
+    textarea.style.height = '0px'
+    textarea.style.height = `${Math.min(textarea.scrollHeight, 240)}px`
+  }, [draft.draftText])
 
   return (
     <footer className="composerDock">
-      <div className="composerCard">
-        <div className="composerActionRow">
-          {iconActions.map((action) => (
-            <button aria-label={action.label} className="composerIconButton" key={action.id} type="button">
-              <WorkbenchIcon name={action.icon} />
-            </button>
-          ))}
-        </div>
-
+      <div className={`uiSurface uiSurface-elevated composerCard ${draft.submitting ? 'isSubmitting' : ''} ${error ? 'hasError' : ''}`}>
         <label className="composerInputShell">
           <textarea
             className="composerInput"
             onChange={(event) => onDraftChange(event.target.value)}
             onKeyDown={(event) => {
-              if ((event.metaKey || event.ctrlKey) && event.key === 'Enter' && !submitDisabled) {
+              if (event.key === 'Enter' && !event.shiftKey && !submitDisabled) {
                 event.preventDefault()
                 void onSubmit()
               }
             }}
             placeholder={composer.placeholder}
-            rows={3}
+            ref={textareaRef}
+            rows={1}
             value={draft.draftText}
           />
         </label>
 
-        {showSlashMenu ? (
-          <div className="composerSlashMenu">
-            {slashCommands.map((command) => (
-              <button className="composerSlashItem" key={command} type="button">
-                <span>{command}</span>
-              </button>
-            ))}
-          </div>
-        ) : null}
-
         <div className="composerBottomRow">
-          <div className="composerToggleRow">
-            {composer.toggles.map((toggle) => (
-              <button
-                aria-label={toggle.label}
-                className={`composerToggleButton ${toggle.enabled ? 'enabled' : ''}`}
-                key={toggle.label}
-                type="button"
-              >
-                <WorkbenchIcon name={toggleIcon(toggle.label)} />
-              </button>
-            ))}
+          <div className="composerMetaBlock">
+            {error ? <p className="composerError">{error}</p> : <span>Enter 发送，Shift + Enter 换行</span>}
           </div>
 
           <button
-            aria-label={draft.submitting ? 'Sending message' : composer.primaryActionLabel}
-            className="composerSendButton"
+            aria-label={draft.submitting ? '发送中' : composer.primaryActionLabel}
+            className="uiButton uiButton-primary uiButton-icon composerSendButton"
             disabled={submitDisabled}
             onClick={() => void onSubmit()}
             type="button"
           >
-            <WorkbenchIcon name="send" />
+            <WorkbenchIcon name="arrowUp" size={16} />
           </button>
         </div>
       </div>

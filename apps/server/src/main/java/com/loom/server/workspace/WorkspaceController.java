@@ -3,15 +3,19 @@ package com.loom.server.workspace;
 import com.loom.server.api.ApiEnvelope;
 import com.loom.server.workspace.WorkspaceDtos.ActionView;
 import com.loom.server.workspace.WorkspaceDtos.ContextRefreshResponse;
+import com.loom.server.workspace.WorkspaceDtos.CreateProjectRequest;
 import com.loom.server.workspace.WorkspaceDtos.CreateConversationRequest;
 import com.loom.server.workspace.WorkspaceDtos.CursorPage;
 import com.loom.server.workspace.WorkspaceDtos.FileAssetSummaryView;
+import com.loom.server.workspace.WorkspaceDtos.LlmConnectionTestView;
 import com.loom.server.workspace.WorkspaceDtos.MemoryItemView;
 import com.loom.server.workspace.WorkspaceDtos.MessageView;
 import com.loom.server.workspace.WorkspaceDtos.ProjectListItem;
+import com.loom.server.workspace.WorkspaceDtos.ProjectView;
 import com.loom.server.workspace.WorkspaceDtos.RunStepView;
 import com.loom.server.workspace.WorkspaceDtos.SubmitMessageRequest;
 import com.loom.server.workspace.WorkspaceDtos.SubmitMessageResponse;
+import com.loom.server.workspace.WorkspaceDtos.UpdateLlmConfigRequest;
 import com.loom.server.workspace.WorkspaceDtos.UpdateConversationRequest;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -33,6 +37,11 @@ public class WorkspaceController {
     @GetMapping("/api/projects")
     public ApiEnvelope<CursorPage<ProjectListItem>> listProjects() {
         return ApiEnvelope.of(workspaceStateService.listProjects());
+    }
+
+    @PostMapping("/api/projects")
+    public ApiEnvelope<ProjectView> createProject(@RequestBody(required = false) CreateProjectRequest request) {
+        return ApiEnvelope.of(workspaceStateService.createProject(request));
     }
 
     @GetMapping("/api/projects/{projectId}")
@@ -134,5 +143,15 @@ public class WorkspaceController {
     @GetMapping("/api/capabilities/overview")
     public ApiEnvelope<?> getCapabilitiesOverview(@RequestParam(defaultValue = "project") String scope) {
         return ApiEnvelope.of(workspaceStateService.getCapabilitiesOverview(scope));
+    }
+
+    @PostMapping("/api/settings/llm/test")
+    public ApiEnvelope<LlmConnectionTestView> testLlmSettings(@RequestBody(required = false) UpdateLlmConfigRequest request) {
+        return ApiEnvelope.of(workspaceStateService.testLlmConfiguration(request));
+    }
+
+    @PostMapping("/api/settings/llm")
+    public ApiEnvelope<?> updateLlmSettings(@RequestBody UpdateLlmConfigRequest request) {
+        return ApiEnvelope.of(workspaceStateService.updateLlmConfiguration(request));
     }
 }

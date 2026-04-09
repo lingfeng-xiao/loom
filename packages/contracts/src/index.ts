@@ -91,7 +91,7 @@ export interface ProjectView extends ProjectListItem {
 }
 
 export interface CreateProjectRequest {
-  name: string
+  name?: string
   description?: string
   instructions?: string
 }
@@ -126,6 +126,7 @@ export interface CreateConversationRequest {
 }
 
 export interface UpdateConversationRequest {
+  projectId?: LoomId
   title?: string
   mode?: ConversationMode
   status?: ConversationStatus
@@ -147,6 +148,7 @@ export interface MessageView {
   body: string
   summary?: string
   statusLabel?: string
+  latencyMs?: number | null
   sequence: number
   createdAt: IsoTimestamp
   completedAt?: IsoTimestamp | null
@@ -247,10 +249,13 @@ export interface TracePanelView {
 
 export interface ModelProfileView {
   id: LoomId
+  presetId: LoomId
   scope: SettingScope
   name: string
   provider: string
   modelId: string
+  configured: boolean
+  active: boolean
   supportsStreaming: boolean
   supportsImages: boolean
   supportsTools: boolean
@@ -293,6 +298,66 @@ export interface RoutingPolicyView {
   externalExecutorLabel?: string | null
 }
 
+export interface LlmModelOptionView {
+  id: LoomId
+  label: string
+  description: string
+}
+
+export interface LlmProviderPresetView {
+  id: LoomId
+  label: string
+  provider: string
+  supported: boolean
+  recommended: boolean
+  apiBaseUrl: string
+  defaultModelId: string
+  description: string
+  modelOptions: LlmModelOptionView[]
+}
+
+export interface LlmConfigView {
+  id: LoomId
+  presetId: LoomId
+  provider: string
+  displayName: string
+  apiBaseUrl: string
+  modelId: string
+  configured: boolean
+  active: boolean
+  apiKeyHint: string
+  systemPrompt: string
+  temperature: number
+  maxTokens?: number | null
+  timeoutMs: number
+  updatedAt: IsoTimestamp
+}
+
+export interface UpdateLlmConfigRequest {
+  profileId?: LoomId
+  presetId?: LoomId
+  displayName?: string
+  apiBaseUrl?: string
+  modelId?: string
+  apiKey?: string
+  systemPrompt?: string
+  temperature?: number
+  maxTokens?: number | null
+  timeoutMs?: number
+  activate?: boolean
+}
+
+export interface LlmConnectionTestView {
+  success: boolean
+  provider: string
+  modelId: string
+  baseUrl: string
+  message: string
+  responsePreview: string
+  testedAt: IsoTimestamp
+  latencyMs?: number | null
+}
+
 export interface SettingsOverviewView {
   // Phase 1 keeps Capabilities and Settings sourced from the same underlying view model.
   activeScope: SettingScope
@@ -302,6 +367,10 @@ export interface SettingsOverviewView {
   mcpServers: McpServerView[]
   memoryPolicy: MemoryPolicyView | null
   routingPolicy: RoutingPolicyView | null
+  providerPresets: LlmProviderPresetView[]
+  llmConfigs: LlmConfigView[]
+  activeLlmConfig: LlmConfigView | null
+  lastConnectionTest: LlmConnectionTestView | null
 }
 
 export interface FileAssetSummary {
@@ -462,7 +531,10 @@ export interface ConversationMessage {
   body: string
   emphasis?: string
   statusLabel?: string
+  latencyMs?: number | null
   latencyLabel?: string
+  createdAt?: IsoTimestamp | null
+  completedAt?: IsoTimestamp | null
 }
 
 export interface ComposerToggle {
@@ -482,6 +554,9 @@ export interface TraceStep {
   label: string
   detail: string
   status: TimelineStatus
+  startedAt?: IsoTimestamp | null
+  completedAt?: IsoTimestamp | null
+  errorMessage?: string | null
 }
 
 export interface ContextBlock {
@@ -529,6 +604,10 @@ export interface SettingsOverview {
   profile: DetailItem[]
   guidance: string[]
   riskNotes: string[]
+  providerPresets?: LlmProviderPresetView[]
+  llmConfigs?: LlmConfigView[]
+  activeConfig?: LlmConfigView | null
+  lastConnectionTest?: LlmConnectionTestView | null
 }
 
 export interface LoomBootstrapPayload {

@@ -41,21 +41,20 @@ function toThreadViewModel(items: ConversationSummary[], activeConversationId: s
 
 function buildPrimaryActions(payload: LoomBootstrapPayload, page: WorkspacePageId, activeConversationId: string | null): SidebarPrimaryAction[] {
   const defaultConversationId = payload.pinnedConversations[0]?.id ?? payload.recentConversations[0]?.id ?? null
-  const projectStatusId = payload.recentConversations[2]?.id ?? payload.recentConversations[0]?.id ?? defaultConversationId
 
   return [
     {
       id: 'new-thread',
       label: '新会话',
-      hint: '开始新的协作会话',
+      hint: '立即开始新的会话',
       icon: 'compose',
       targetPage: 'conversation',
       active: page === 'conversation' && activeConversationId === defaultConversationId,
     },
     {
       id: 'capabilities',
-      label: '技能和应用',
-      hint: '模型、MCP、Skills',
+      label: '能力与应用',
+      hint: '模型、MCP 与工作流能力',
       icon: 'spark',
       targetPage: 'capabilities',
       active: page === 'capabilities',
@@ -74,7 +73,7 @@ function buildPrimaryActions(payload: LoomBootstrapPayload, page: WorkspacePageI
       hint: '当前进度与关键判断',
       icon: 'pulse',
       targetPage: 'conversation',
-      active: page === 'conversation' && activeConversationId === projectStatusId,
+      active: false,
     },
   ]
 }
@@ -83,14 +82,14 @@ function buildSystemEntries(payload: LoomBootstrapPayload, page: WorkspacePageId
   return [
     {
       id: 'files',
-      label: 'Files',
-      meta: '项目文件池',
+      label: '文件',
+      meta: '项目文件与引用材料',
       icon: 'files',
       active: page === 'files',
     },
     {
       id: 'memory',
-      label: 'Memory',
+      label: '记忆',
       meta: '分层长期记忆',
       icon: 'memory',
       active: page === 'memory',
@@ -100,7 +99,7 @@ function buildSystemEntries(payload: LoomBootstrapPayload, page: WorkspacePageId
       label: '设置',
       meta: `main · ${payload.project.openClawStatus}`,
       icon: 'settings',
-      active: page === 'settings',
+      active: false,
     },
   ]
 }
@@ -111,7 +110,7 @@ function buildSubbarMeta(payload: LoomBootstrapPayload, activeConversation: Conv
 }
 
 export function buildConversationState(payload: LoomBootstrapPayload, route: LoomRouteState): ConversationDomainState {
-  const currentPage = route.page === 'welcome' || route.page === 'callback' ? 'conversation' : route.page
+  const currentPage = route.page === 'callback' ? 'conversation' : route.page
   const defaultConversationId = payload.pinnedConversations[0]?.id ?? payload.recentConversations[0]?.id ?? null
   const activeConversationId = route.conversationId ?? defaultConversationId
   const activeConversation = findConversation(payload, activeConversationId)

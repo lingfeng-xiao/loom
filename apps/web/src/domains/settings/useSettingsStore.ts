@@ -5,5 +5,7 @@ export function useSettingsStore() {
   return {
     ...state.settings,
     setActiveSection: actions.setSettingsSection,
+    updateLlmSettings: actions.updateLlmSettings,
+    testLlmSettings: actions.testLlmSettings,
   }
 }

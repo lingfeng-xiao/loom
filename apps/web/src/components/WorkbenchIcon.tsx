@@ -103,6 +103,13 @@ export function WorkbenchIcon({ name, size = 16, className }: WorkbenchIconProps
           <path {...strokeProps} d="M3.75 7.5h12" />
         </>
       ) : null}
+      {name === 'project' ? (
+        <>
+          <rect {...strokeProps} height="11.5" rx="2.5" width="11.5" x="4.25" y="4.25" />
+          <path {...strokeProps} d="M10 4.75v10.5" />
+          <path {...strokeProps} d="M4.75 10h10.5" />
+        </>
+      ) : null}
       {name === 'memory' ? (
         <>
           <path {...strokeProps} d="M5 5.5A2.5 2.5 0 0 1 7.5 3h7.75v14H7.5A2.5 2.5 0 0 0 5 14.5Z" />
@@ -116,6 +123,12 @@ export function WorkbenchIcon({ name, size = 16, className }: WorkbenchIconProps
       ) : null}
       {name === 'chevronDown' ? <path {...strokeProps} d="m5.5 7.5 4.5 4.5 4.5-4.5" /> : null}
       {name === 'chevronRight' ? <path {...strokeProps} d="m7.5 5.5 4.5 4.5-4.5 4.5" /> : null}
+      {name === 'arrowUp' ? (
+        <>
+          <path {...strokeProps} d="M10 15V5.5" />
+          <path {...strokeProps} d="m6.5 9 3.5-3.5L13.5 9" />
+        </>
+      ) : null}
       {name === 'plus' ? (
         <>
           <path {...strokeProps} d="M10 4v12" />
@@ -162,6 +175,32 @@ export function WorkbenchIcon({ name, size = 16, className }: WorkbenchIconProps
           <rect {...strokeProps} height="12" rx="2" width="14" x="3" y="4" />
           <path {...strokeProps} d="M11.5 6.5v7" />
           <path {...strokeProps} d="m7.5 10 2-2v4z" fill="currentColor" stroke="none" />
+        </>
+      ) : null}
+      {name === 'sun' ? (
+        <>
+          <circle {...strokeProps} cx="10" cy="10" r="3.25" />
+          <path {...strokeProps} d="M10 2.75v2" />
+          <path {...strokeProps} d="M10 15.25v2" />
+          <path {...strokeProps} d="M2.75 10h2" />
+          <path {...strokeProps} d="M15.25 10h2" />
+          <path {...strokeProps} d="m4.85 4.85 1.45 1.45" />
+          <path {...strokeProps} d="m13.7 13.7 1.45 1.45" />
+          <path {...strokeProps} d="m15.15 4.85-1.45 1.45" />
+          <path {...strokeProps} d="m6.3 13.7-1.45 1.45" />
+        </>
+      ) : null}
+      {name === 'moon' ? (
+        <path
+          {...strokeProps}
+          d="M13.8 3.75a5.9 5.9 0 1 0 2.45 11.25A6.75 6.75 0 1 1 13.8 3.75Z"
+        />
+      ) : null}
+      {name === 'systemTheme' ? (
+        <>
+          <rect {...strokeProps} height="10.5" rx="2" width="14" x="3" y="4.25" />
+          <path {...strokeProps} d="M7.25 15.5h5.5" />
+          <path {...strokeProps} d="M10 12.75v2.75" />
         </>
       ) : null}
     </svg>

@@ -2,18 +2,24 @@ import type {
   ApiEnvelope,
   CapabilityOverviewView,
   ContextPanelView,
+  CreateConversationRequest,
+  CreateProjectRequest,
   CursorPage,
   FileAssetSummary,
   ConversationListItem,
   ConversationView,
+  LlmConnectionTestView,
   LoomBootstrapPayload,
   MemoryItemView,
   MessageView,
+  ProjectListItem,
   ProjectView,
   SettingsOverviewView,
   SubmitMessageRequest,
   SubmitMessageResponse,
+  UpdateConversationRequest,
   TracePanelView,
+  UpdateLlmConfigRequest,
 } from '../types'
 
 export type HttpMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE'
@@ -62,19 +68,30 @@ export class LoomHttpClient {
     const token = this.options.getAccessToken?.()
     const projectId = this.options.getProjectId?.()
 
-    const response = await fetch(`${this.options.baseUrl}${path}`, {
-      method,
-      headers: {
-        'Content-Type': 'application/json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-        ...(projectId ? { 'X-Project-Id': projectId } : {}),
-        ...(extraHeaders ?? {}),
-      },
-      body: body ? JSON.stringify(body) : undefined,
-      signal,
-    })
+    let response: Response
+    try {
+      response = await fetch(`${this.options.baseUrl}${path}`, {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          ...(projectId ? { 'X-Project-Id': projectId } : {}),
+          ...(extraHeaders ?? {}),
+        },
+        body: body ? JSON.stringify(body) : undefined,
+        signal,
+      })
+    } catch (error) {
+      throw new LoomApiError('NETWORK_ERROR', '无法连接 Loom API。请确认后端已经启动，并检查 API Base URL 是否正确。', error)
+    }
 
-    const json = (await response.json()) as ApiEnvelope<T> | ApiErrorEnvelope
+    let json: ApiEnvelope<T> | ApiErrorEnvelope
+    try {
+      json = (await response.json()) as ApiEnvelope<T> | ApiErrorEnvelope
+    } catch (error) {
+      throw new LoomApiError('INVALID_RESPONSE', 'Loom API 返回了无法识别的响应。如果你正在使用预览构建，请确认请求指向 8080 端口。', error)
+    }
+
     if (!response.ok || ('error' in json && json.error)) {
       const err = (json as ApiErrorEnvelope).error
       throw new LoomApiError(err.code, err.message, err.details)
@@ -90,6 +107,10 @@ export class LoomHttpClient {
   post<T>(path: string, body?: unknown, signal?: AbortSignal) {
     return this.request<T>(path, 'POST', body, signal)
   }
+
+  patch<T>(path: string, body?: unknown, signal?: AbortSignal) {
+    return this.request<T>(path, 'PATCH', body, signal)
+  }
 }
 
 export class ShellApi {
@@ -103,6 +124,14 @@ export class ShellApi {
 export class WorkspaceApi {
   constructor(private readonly http: LoomHttpClient) {}
 
+  listProjects(signal?: AbortSignal) {
+    return this.http.get<CursorPage<ProjectListItem>>('/api/projects', signal)
+  }
+
+  createProject(request?: CreateProjectRequest, signal?: AbortSignal) {
+    return this.http.post<ProjectView>('/api/projects', request, signal)
+  }
+
   getProject(projectId: string, signal?: AbortSignal) {
     return this.http.get<ProjectView>(`/api/projects/${projectId}`, signal)
   }
@@ -111,8 +140,16 @@ export class WorkspaceApi {
     return this.http.get<CursorPage<ConversationListItem>>(`/api/projects/${projectId}/conversations`, signal)
   }
 
+  createConversation(projectId: string, request?: CreateConversationRequest, signal?: AbortSignal) {
+    return this.http.post<ConversationView>(`/api/projects/${projectId}/conversations`, request, signal)
+  }
+
   getConversation(projectId: string, conversationId: string, signal?: AbortSignal) {
     return this.http.get<ConversationView>(`/api/projects/${projectId}/conversations/${conversationId}`, signal)
+  }
+
+  updateConversation(projectId: string, conversationId: string, request: UpdateConversationRequest, signal?: AbortSignal) {
+    return this.http.patch<ConversationView>(`/api/projects/${projectId}/conversations/${conversationId}`, request, signal)
   }
 
   listMessages(projectId: string, conversationId: string, signal?: AbortSignal) {
@@ -129,6 +166,14 @@ export class WorkspaceApi {
 
   getSettingsOverview(scope = 'project', signal?: AbortSignal) {
     return this.http.get<SettingsOverviewView>(`/api/settings/overview?scope=${encodeURIComponent(scope)}`, signal)
+  }
+
+  updateLlmSettings(request: UpdateLlmConfigRequest, signal?: AbortSignal) {
+    return this.http.post<SettingsOverviewView>('/api/settings/llm', request, signal)
+  }
+
+  testLlmSettings(request: UpdateLlmConfigRequest, signal?: AbortSignal) {
+    return this.http.post<LlmConnectionTestView>('/api/settings/llm/test', request, signal)
   }
 
   getCapabilitiesOverview(scope = 'project', signal?: AbortSignal) {

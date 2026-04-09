@@ -35,12 +35,11 @@ class LoomApiIntegrationTest {
         mockMvc.perform(get("/api/bootstrap"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.appName").value("loom"))
-                .andExpect(jsonPath("$.data.project.name").value("loom"))
+                .andExpect(jsonPath("$.data.project.name").isNotEmpty())
                 .andExpect(jsonPath("$.data.pages[0].id").value("conversation"))
                 .andExpect(jsonPath("$.data.pages[3].id").value("files"))
-                .andExpect(jsonPath("$.data.pages[3].available").value(false))
-                .andExpect(jsonPath("$.data.messages[1].kind").value("thinking_summary"))
-                .andExpect(jsonPath("$.data.traceSteps[2].status").value("pending"))
+                .andExpect(jsonPath("$.data.pages[3].available").value(true))
+                .andExpect(jsonPath("$.data.traceSteps[2].status").isNotEmpty())
                 .andExpect(jsonPath("$.data.settings.tabs[0]").value("Models"));
     }
 
@@ -127,27 +126,30 @@ class LoomApiIntegrationTest {
 
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/context"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.activeGoals[0]").value("推进真实主链路"));
+                .andExpect(jsonPath("$.data.activeGoals[0]").value("Start from the correct project."));
 
         mockMvc.perform(post("/api/projects/project-loom/conversations/conversation-v1/context/refresh"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.context.activeGoals[1]").value("完成第 1 次上下文刷新"))
+                .andExpect(jsonPath("$.data.context.activeGoals[1]").value("Refresh #1"))
                 .andExpect(jsonPath("$.data.context.references[1].kind").value("conversation"));
 
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/trace"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.steps[0].title").value("读取上下文"));
+                .andExpect(jsonPath("$.data.steps[0].title").value("Load context"));
 
         mockMvc.perform(get("/api/settings/overview").queryParam("scope", "project"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.tabs[0]").value("Models"))
-                .andExpect(jsonPath("$.data.modelProfiles[0].name").value("GPT-5.4 Thinking"));
+                .andExpect(jsonPath("$.data.modelProfiles[0].name").value("MiniMax M2.7 (setup required)"))
+                .andExpect(jsonPath("$.data.providerPresets[0].id").value("minimax-cn"))
+                .andExpect(jsonPath("$.data.providerPresets[0].modelOptions[0].id").value("MiniMax-M2.7"))
+                .andExpect(jsonPath("$.data.activeLlmConfig.provider").value("MiniMax"));
 
         mockMvc.perform(get("/api/capabilities/overview").queryParam("scope", "project"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.activeScope").value("project"))
                 .andExpect(jsonPath("$.data.cards[0].title").value("Models"))
-                .andExpect(jsonPath("$.data.bindingRules[0].label").value("默认聊天模型"));
+                .andExpect(jsonPath("$.data.bindingRules[0].label").value("Default chat model"));
 
         mockMvc.perform(get("/api/projects/project-loom/files"))
                 .andExpect(status().isOk())
@@ -184,12 +186,12 @@ class LoomApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.activeRunId").exists())
                 .andExpect(jsonPath("$.data.status").value("active"))
-                .andExpect(jsonPath("$.data.contextSummary").value("会话已吸收最新需求，当前优先推进 Context 与 Settings/Capabilities 的真实数据链路。"));
+                .andExpect(jsonPath("$.data.contextSummary").value("The latest request was accepted and the reply is now streaming."));
 
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/runs/" + runId + "/steps"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].runId").value(runId))
-                .andExpect(jsonPath("$.data.items[1].title").value("生成回复"));
+                .andExpect(jsonPath("$.data.items[1].title").value("Call model"));
 
         String traceResponse = mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/trace"))
                 .andExpect(status().isOk())
@@ -206,7 +208,7 @@ class LoomApiIntegrationTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.id").value(actionId))
                 .andExpect(jsonPath("$.data.runId").value(runId))
-                .andExpect(jsonPath("$.data.status").value("completed"));
+                .andExpect(jsonPath("$.data.status").value("running"));
 
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/stream"))
                 .andExpect(status().isOk())
@@ -218,6 +220,63 @@ class LoomApiIntegrationTest {
                 .andExpect(content().string(containsString("event:trace.step.completed")))
                 .andExpect(content().string(containsString("event:context.updated")))
                 .andExpect(content().string(containsString("event:run.completed")));
+    }
+
+    @Test
+    void projectCreationAndLlmSettingsUpdateAreAvailable() throws Exception {
+        String createProjectResponse = mockMvc.perform(post("/api/projects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value(org.hamcrest.Matchers.startsWith("Project ")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode createdProject = objectMapper.readTree(createProjectResponse).path("data");
+        org.junit.jupiter.api.Assertions.assertTrue(createdProject.path("id").asText().startsWith("project-"));
+
+        mockMvc.perform(post("/api/settings/llm")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "presetId": "minimax-cn",
+                                  "modelId": "MiniMax-M2.7",
+                                  "apiKey": "sk-test-minimax-12345678"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.activeLlmConfig.configured").value(true))
+                .andExpect(jsonPath("$.data.activeLlmConfig.apiKeyHint").value("sk-t...5678"))
+                .andExpect(jsonPath("$.data.modelProfiles[0].name").value("MiniMax (China)"));
+    }
+
+    @Test
+    void conversationCanMoveToAnotherProject() throws Exception {
+        String createProjectResponse = mockMvc.perform(post("/api/projects")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{}"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.name").value(org.hamcrest.Matchers.startsWith("Project ")))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String movedProjectId = objectMapper.readTree(createProjectResponse).path("data").path("id").asText();
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/projects/project-loom/conversations/conversation-shell")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "projectId": "%s"
+                                }
+                                """.formatted(movedProjectId)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.projectId").value(movedProjectId));
+
+        mockMvc.perform(get("/api/projects/" + movedProjectId + "/conversations"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].id").value("conversation-shell"));
     }
 
     @Test

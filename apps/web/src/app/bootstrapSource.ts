@@ -50,7 +50,7 @@ export function buildBootstrapSourceViewModel(
       mode,
       resolution,
       label: '本地快照',
-      detail: '仅使用 fallback 数据源',
+      detail: '仅使用本地回退快照',
     }
   }
 
@@ -59,7 +59,7 @@ export function buildBootstrapSourceViewModel(
       mode,
       resolution,
       label: resolution === 'remote' ? '远端数据' : '远端降级',
-      detail: resolution === 'remote' ? '直接读取后端 bootstrap' : error ?? '远端数据不可用',
+      detail: resolution === 'remote' ? '直接读取后端工作区快照' : error ?? '远端数据不可用',
     }
   }
 
@@ -67,6 +67,6 @@ export function buildBootstrapSourceViewModel(
     mode,
     resolution,
     label: resolution === 'remote' ? '自动 / 远端' : '自动 / 本地',
-    detail: resolution === 'remote' ? '自动优先读取远端 bootstrap' : error ?? '远端失败后回退到本地快照',
+    detail: resolution === 'remote' ? '自动优先读取远端工作区快照' : error ?? '远端失败后回退到本地快照',
   }
 }

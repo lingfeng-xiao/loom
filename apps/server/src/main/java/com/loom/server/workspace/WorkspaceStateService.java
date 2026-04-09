@@ -1,12 +1,16 @@
 package com.loom.server.workspace;
 
 import com.loom.server.api.ApiException;
+import com.loom.server.config.LoomLlmProperties;
 import com.loom.server.model.BootstrapPayload;
-import com.loom.server.workspace.WorkspaceDtos.CapabilityBindingSummary;
+import com.loom.server.workspace.MinimaxChatClient.ChatCompletionRequest;
+import com.loom.server.workspace.MinimaxChatClient.ChatCompletionResult;
+import com.loom.server.workspace.MinimaxChatClient.ChatMessage;
+import com.loom.server.workspace.WorkspaceDtos.ActionView;
 import com.loom.server.workspace.WorkspaceDtos.CapabilityBindingRuleView;
+import com.loom.server.workspace.WorkspaceDtos.CapabilityBindingSummary;
 import com.loom.server.workspace.WorkspaceDtos.CapabilityCardView;
 import com.loom.server.workspace.WorkspaceDtos.CapabilityOverviewView;
-import com.loom.server.workspace.WorkspaceDtos.ActionView;
 import com.loom.server.workspace.WorkspaceDtos.ContextPanelView;
 import com.loom.server.workspace.WorkspaceDtos.ContextReferenceItem;
 import com.loom.server.workspace.WorkspaceDtos.ContextRefreshResponse;
@@ -14,8 +18,12 @@ import com.loom.server.workspace.WorkspaceDtos.ContextSnapshotView;
 import com.loom.server.workspace.WorkspaceDtos.ConversationListItem;
 import com.loom.server.workspace.WorkspaceDtos.ConversationView;
 import com.loom.server.workspace.WorkspaceDtos.CreateConversationRequest;
+import com.loom.server.workspace.WorkspaceDtos.CreateProjectRequest;
 import com.loom.server.workspace.WorkspaceDtos.CursorPage;
 import com.loom.server.workspace.WorkspaceDtos.FileAssetSummaryView;
+import com.loom.server.workspace.WorkspaceDtos.LlmConnectionTestView;
+import com.loom.server.workspace.WorkspaceDtos.LlmModelOptionView;
+import com.loom.server.workspace.WorkspaceDtos.LlmProviderPresetView;
 import com.loom.server.workspace.WorkspaceDtos.McpServerView;
 import com.loom.server.workspace.WorkspaceDtos.MemoryItemView;
 import com.loom.server.workspace.WorkspaceDtos.MemoryPolicyView;
@@ -32,6 +40,7 @@ import com.loom.server.workspace.WorkspaceDtos.SubmitMessageRequest;
 import com.loom.server.workspace.WorkspaceDtos.SubmitMessageResponse;
 import com.loom.server.workspace.WorkspaceDtos.TracePanelView;
 import com.loom.server.workspace.WorkspaceDtos.UpdateConversationRequest;
+import com.loom.server.workspace.WorkspaceDtos.UpdateLlmConfigRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
@@ -41,85 +50,130 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Consumer;
 
 @Service
 public class WorkspaceStateService {
+    private static final List<String> SETTINGS_TABS = List.of("Models", "Skills", "MCP", "Memory", "Routing");
+
+    private final AtomicInteger projectSeq = new AtomicInteger(1);
     private final AtomicInteger conversationSeq = new AtomicInteger(5);
     private final AtomicInteger messageSeq = new AtomicInteger(10);
-    private final ProjectState project = new ProjectState();
+    private final LinkedHashMap<String, ProjectState> projects = new LinkedHashMap<>();
     private final LinkedHashMap<String, ConversationState> conversations = new LinkedHashMap<>();
     private final LinkedHashMap<String, ActionState> actions = new LinkedHashMap<>();
-    private final List<FileAssetSummaryView> fileAssets = List.of(
-            new FileAssetSummaryView("file-prd", "project-loom", "loom-prd.md", "text/markdown", 18_240, "ready", now()),
-            new FileAssetSummaryView("file-contract", "project-loom", "phase1-contract-freeze.md", "text/markdown", 24_512, "ready", now()),
-            new FileAssetSummaryView("file-smoke", "project-loom", "frontend-smoke-checklist.md", "text/markdown", 6_144, "pending", now())
+    private final LinkedHashMap<String, List<FileAssetSummaryView>> fileAssetsByProject = new LinkedHashMap<>();
+    private final List<MemoryItemView> memoryItems = new ArrayList<>();
+    private final List<SkillView> skills = List.of(
+            new SkillView("skill-planning", "project", "planning", true, "internal"),
+            new SkillView("skill-summarize", "project", "summarize", true, "internal"),
+            new SkillView("skill-retrieve-context", "project", "retrieve-context", true, "internal")
     );
-    private final List<MemoryItemView> memoryItems = List.of(
-            new MemoryItemView("memory-project-goal", "project", "project-loom", null, "保持会话优先、Trace 可见和文档先行。", "explicit", now()),
-            new MemoryItemView("memory-contract", "project", "project-loom", null, "合同冻结后优先保障 REST / SSE 字段口径不漂移。", "system", now()),
-            new MemoryItemView("memory-conversation-v1", "conversation", "project-loom", "conversation-v1", "当前会话聚焦 Context、Settings、Capabilities 与联调闭环。", "assisted", now())
+    private final List<McpServerView> mcpServers = List.of(
+            new McpServerView("mcp-local-dev", "project", "local-dev", "connected", 4, 2, 3),
+            new McpServerView("mcp-notion", "project", "notion-mcp", "connected", 6, 1, 0)
     );
-    private final SettingsOverviewView settings = new SettingsOverviewView(
-            "project",
-            List.of("Models", "Skills", "MCP", "Memory", "Routing"),
-            List.of(new ModelProfileView("model-gpt54-thinking", "project", "GPT-5.4 Thinking", "OpenAI-compatible", "gpt-5.4-thinking", true, true, true, true, true, 30000)),
-            List.of(
-                    new SkillView("skill-planning", "project", "planning", true, "internal"),
-                    new SkillView("skill-summarize", "project", "summarize", true, "internal"),
-                    new SkillView("skill-retrieve-context", "project", "retrieve-context", true, "internal")
-            ),
-            List.of(
-                    new McpServerView("mcp-local-dev", "project", "local-dev", "connected", 4, 2, 3),
-                    new McpServerView("mcp-notion", "project", "notion-mcp", "connected", 6, 1, 0)
-            ),
-            new MemoryPolicyView("memory-default", "project", true, true, true),
-            new RoutingPolicyView("routing-default", "project", "internal", true, "OpenClaw")
-    );
+    private final MemoryPolicyView memoryPolicy = new MemoryPolicyView("memory-default", "project", true, true, true);
+    private final RoutingPolicyView routingPolicy = new RoutingPolicyView("routing-default", "project", "internal", true, "OpenClaw");
+    private final List<LlmProviderPresetView> providerPresets = providerPresets();
+    private final MinimaxChatClient minimaxChatClient;
+    private final LlmSettingsRepository llmSettingsRepository;
+    private final LinkedHashMap<String, LlmConfigState> llmConfigs = new LinkedHashMap<>();
+    private LlmConnectionTestView lastConnectionTest;
 
-    public WorkspaceStateService() {
-        seedConversation("conversation-v1", "loom V1 定义", "Kickoff 阶段的产品定义、范围边界和角色分工。", "plan", "active", true);
-        seedConversation("conversation-trace", "Trace 体验", "让系统过程长期可见，而不是把所有状态变化都塞进消息流。", "review", "idle", true);
-        seedConversation("conversation-shell", "工作台壳层实现", "对齐三栏布局、消息流，以及 Trace / Context 面板的表现。", "chat", "active", false);
-        conversations.get("conversation-v1").messages.add(newMessage("conversation-v1", "user", "user", "先把 loom 工作台壳层做成可运行、可评审、并且便于后续接线的状态。", null));
-        conversations.get("conversation-v1").messages.add(newMessage("conversation-v1", "thinking_summary", "assistant", "先对齐三栏布局，再统一会话、能力、OpenClaw 和设置页面的壳层结构。", "以会话为中心 | Trace 可见 | 先完成壳层再进入完整实现"));
-        conversations.get("conversation-v1").messages.add(newMessage("conversation-v1", "assistant", "assistant", "这一轮先冻结 UI 壳层、最小合同和测试基线，避免后续联调边做边漂移。", "关键页面：会话 / 能力 / OpenClaw / 设置"));
+    public WorkspaceStateService(LoomLlmProperties llmProperties, MinimaxChatClient minimaxChatClient, LlmSettingsRepository llmSettingsRepository) {
+        this.minimaxChatClient = minimaxChatClient;
+        this.llmSettingsRepository = llmSettingsRepository;
+        LoomLlmProperties.Minimax minimax = llmProperties.getMinimax();
+        String now = now();
+        LlmConfigState defaultConfig = new LlmConfigState(
+                "profile-minimax-cn",
+                "minimax-cn",
+                "MiniMax",
+                blankTo(minimax.getDisplayName(), "MiniMax M2.7"),
+                blankTo(minimax.getApiBaseUrl(), "https://api.minimaxi.com/v1"),
+                blankTo(minimax.getModelId(), "MiniMax-M2.7"),
+                minimax.getApiKey() == null ? "" : minimax.getApiKey().trim(),
+                blankTo(minimax.getSystemPrompt(), "You are Loom, a careful AI teammate that explains decisions clearly and keeps execution visible."),
+                minimax.getTemperature(),
+                minimax.getMaxTokens(),
+                minimax.getTimeoutMs(),
+                true,
+                now
+        );
+        List<LlmConfigState> loadedConfigs = llmSettingsRepository.loadProfiles();
+        if (loadedConfigs.isEmpty()) {
+            llmConfigs.put(defaultConfig.id, defaultConfig);
+        } else {
+            loadedConfigs.forEach(config -> llmConfigs.put(config.id, config));
+            ensureSingleActiveConfig();
+        }
+        seedWorkspace();
     }
 
     public CursorPage<ProjectListItem> listProjects() {
-        return new CursorPage<>(List.of(new ProjectListItem(project.id, project.name, project.description, project.status, conversations.size(), project.lastMessageAt, project.updatedAt)), null, false);
+        return new CursorPage<>(projects.values().stream().sorted(Comparator.comparing((ProjectState p) -> p.updatedAt).reversed()).map(this::toProjectListItem).toList(), null, false);
+    }
+
+    public ProjectView createProject(CreateProjectRequest request) {
+        String projectName = request == null || request.name() == null || request.name().isBlank()
+                ? nextGeneratedProjectName()
+                : request.name().trim();
+
+        String id = nextProjectId(projectName);
+        ProjectState state = newProject(
+                id,
+                projectName,
+                blankTo(request == null ? null : request.description(), "New project ready for Loom sessions."),
+                blankTo(request == null ? null : request.instructions(), "Start a new session here and keep the trace visible.")
+        );
+        projects.put(id, state);
+        fileAssetsByProject.put(id, List.of());
+        memoryItems.add(new MemoryItemView("memory-project-" + id, "project", id, null, "Project created from the new session flow.", "explicit", now()));
+        return toProjectView(state);
     }
 
     public ProjectView getProject(String projectId) {
-        requireProject(projectId);
-        return new ProjectView(project.id, project.name, project.description, project.status, conversations.size(), project.lastMessageAt, project.updatedAt, project.instructions, project.pinnedConversationIds, project.bindings);
+        return toProjectView(requireProject(projectId));
     }
 
     public CursorPage<ConversationListItem> listConversations(String projectId) {
         requireProject(projectId);
-        return new CursorPage<>(conversations.values().stream().sorted(Comparator.comparing((ConversationState c) -> c.updatedAt).reversed()).map(this::toConversationListItem).toList(), null, false);
+        return new CursorPage<>(projectConversations(projectId).stream().sorted(Comparator.comparing((ConversationState c) -> c.updatedAt).reversed()).map(this::toConversationListItem).toList(), null, false);
     }
 
     public ConversationView createConversation(String projectId, CreateConversationRequest request) {
-        requireProject(projectId);
-        String id = "conversation-" + conversationSeq.incrementAndGet();
-        ConversationState state = new ConversationState(id, projectId, blankTo(request == null ? null : request.title(), "新会话"), blankTo(request == null ? null : request.mode(), "chat"), false);
+        ProjectState project = requireProject(projectId);
+        String createdAt = now();
+        ConversationState state = new ConversationState(
+                "conversation-" + conversationSeq.incrementAndGet(),
+                projectId,
+                blankTo(request == null ? null : request.title(), "New chat"),
+                blankTo(request == null ? null : request.mode(), "chat"),
+                false,
+                createdAt
+        );
         initializeContext(state);
-        conversations.put(id, state);
+        conversations.put(state.id, state);
+        project.updatedAt = createdAt;
         return toConversationView(state);
     }
 
     public ConversationView getConversation(String projectId, String conversationId) {
-        requireProject(projectId);
-        return toConversationView(requireConversation(conversationId));
+        return toConversationView(requireConversation(projectId, conversationId));
     }
 
     public ConversationView updateConversation(String projectId, String conversationId, UpdateConversationRequest request) {
-        requireProject(projectId);
-        ConversationState state = requireConversation(conversationId);
+        ConversationState state = requireConversation(projectId, conversationId);
         if (request != null) {
+            if (request.projectId() != null && !request.projectId().isBlank() && !request.projectId().equals(state.projectId)) {
+                moveConversationToProject(state, requireProject(request.projectId().trim()));
+            }
             state.title = blankTo(request.title(), state.title);
             state.mode = blankTo(request.mode(), state.mode);
             state.status = blankTo(request.status(), state.status);
@@ -130,98 +184,114 @@ public class WorkspaceStateService {
     }
 
     public CursorPage<MessageView> listMessages(String projectId, String conversationId) {
-        requireProject(projectId);
-        return new CursorPage<>(List.copyOf(requireConversation(conversationId).messages), null, false);
+        return new CursorPage<>(List.copyOf(requireConversation(projectId, conversationId).messages), null, false);
     }
 
-    public SubmitMessageResponse submitMessage(String projectId, String conversationId, SubmitMessageRequest request) {
-        requireProject(projectId);
-        if (request == null || request.body() == null || request.body().isBlank()) throw new IllegalArgumentException("Message body is required");
-        ConversationState state = requireConversation(conversationId);
-        MessageView user = newMessage(conversationId, "user", "user", request.body().trim(), null);
-        MessageView thinking = newMessage(conversationId, "thinking_summary", "assistant", "正在整理目标、上下文和下一步动作。", "已根据最新消息刷新上下文和执行摘要。");
-        MessageView assistant = newMessage(conversationId, "assistant", "assistant", "已收到你的最新需求，当前会优先刷新会话、Trace、Context 和设置面板对应的数据读取链路。", "真实主数据已更新，可继续进入下一步联调。");
-        ActionState action = newAction(state, request.body().trim(), assistant.completedAt());
+    public synchronized SubmitMessageResponse submitMessage(String projectId, String conversationId, SubmitMessageRequest request) {
+        ProjectState project = requireProject(projectId);
+        ConversationState state = requireConversation(projectId, conversationId);
+        if (request == null || request.body() == null || request.body().isBlank()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "MESSAGE_BODY_REQUIRED", "Message body is required");
+        }
+        if (state.pendingTurn != null) {
+            throw new ApiException(HttpStatus.CONFLICT, "CONVERSATION_BUSY", "Wait for the active streamed response to finish before sending another message");
+        }
+
+        String startedAt = now();
+        String userBody = request.body().trim();
+        MessageView user = newMessage(projectId, conversationId, "user", "user", userBody, null, null, startedAt, startedAt, null);
+        ActionState action = newAction(projectId, conversationId, summarize(userBody), "running", startedAt, null);
+        state.pendingTurn = new PendingAssistantTurn(
+                projectId,
+                conversationId,
+                action.id,
+                action.runId,
+                userBody,
+                startedAt,
+                "message-" + UUID.randomUUID(),
+                "message-" + UUID.randomUUID()
+        );
+
         state.messages.add(user);
-        state.messages.add(thinking);
-        state.messages.add(assistant);
-        state.summary = abbreviate(request.body().trim());
+        state.summary = summarize(userBody);
         state.status = "active";
-        state.updatedAt = assistant.completedAt();
-        state.lastMessageAt = assistant.completedAt();
+        state.updatedAt = startedAt;
+        state.lastMessageAt = startedAt;
         state.activeActionId = action.id;
         state.activeRunId = action.runId;
-        updateContextAfterMessage(state, request.body().trim(), assistant.completedAt());
+        state.traceSummary = "Preparing the next streamed reply.";
+        state.traceUpdatedAt = startedAt;
+        state.traceSteps.clear();
+        state.traceSteps.addAll(defaultRunningTraceSteps(conversationId, action.runId, startedAt));
+        state.context.updatedAt = startedAt;
+        state.context.conversationSummary = "The latest request was accepted and the reply is now streaming.";
+        state.context.activeGoals = List.of("Answer the active request.", summarize(userBody));
+        state.context.references = List.of(new ContextReferenceItem("ref-latest-message", "Latest message", "conversation", summarize(userBody)));
         project.updatedAt = state.updatedAt;
         project.lastMessageAt = state.lastMessageAt;
         return new SubmitMessageResponse(conversationId, user, state.activeRunId, "/api/projects/" + projectId + "/conversations/" + conversationId + "/stream");
     }
 
     public ContextPanelView getContext(String projectId, String conversationId) {
-        requireProject(projectId);
-        ConversationState state = requireConversation(conversationId);
-        return contextFor(state);
+        return contextFor(requireConversation(projectId, conversationId));
     }
 
     public ContextRefreshResponse refreshContext(String projectId, String conversationId) {
-        requireProject(projectId);
-        ConversationState state = requireConversation(conversationId);
+        ConversationState state = requireConversation(projectId, conversationId);
         String refreshedAt = now();
         state.context.refreshCount++;
         state.context.updatedAt = refreshedAt;
-        state.context.conversationSummary = "已基于最新会话与项目绑定信息刷新上下文，准备进入下一轮实现与联调。";
-        state.context.decisions = List.of(
-                "优先保持会话主链路可用",
-                "Context 优先输出对当前开发最有价值的摘要",
-                "刷新结果 v" + state.context.refreshCount + " 已覆盖目标与风险"
-        );
-        state.context.openLoops = List.of(
-                "补齐 Context 页面真数据接线",
-                "补齐 Settings / Capabilities 页面真数据读取",
-                "形成联调记录与 go / no-go 结论"
-        );
-        state.context.activeGoals = List.of(
-                "推进真实主链路",
-                "完成第 " + state.context.refreshCount + " 次上下文刷新"
-        );
+        state.context.conversationSummary = "The context panel was refreshed from the latest session state.";
+        state.context.decisions = List.of("Use the configured model when available.", "Keep new sessions project-first.", "Record acceptance evidence after changes.");
+        state.context.openLoops = List.of("Retest model connectivity.", "Validate project and session creation.", "Confirm stream rendering.");
+        state.context.activeGoals = List.of("Keep the real-model path stable.", "Refresh #" + state.context.refreshCount);
         state.context.references = List.of(
-                new ContextReferenceItem("ref-contract-freeze", "合同冻结", "file", "Phase 1 合同冻结、事件名和模块边界"),
-                new ContextReferenceItem("ref-recent-message", "最新用户消息", "conversation", latestUserSummary(state))
+                new ContextReferenceItem("ref-settings", "LLM settings", "memory", "MiniMax preset, endpoint, model, and API key."),
+                new ContextReferenceItem("ref-message", "Latest user request", "conversation", latestUserSummary(state))
         );
-        state.context.snapshots = appendSnapshot(state.context.snapshots, new ContextSnapshotView(
-                "snapshot-active-context-" + UUID.randomUUID(),
-                project.id,
-                conversationId,
-                "active_context",
-                state.context.conversationSummary,
-                refreshedAt
-        ));
+        state.context.snapshots = appendSnapshot(state.context.snapshots, new ContextSnapshotView("snapshot-active-context-" + UUID.randomUUID(), projectId, conversationId, "active_context", state.context.conversationSummary, refreshedAt));
         state.updatedAt = refreshedAt;
         return new ContextRefreshResponse(contextFor(state));
     }
 
     public TracePanelView getTrace(String projectId, String conversationId) {
-        requireProject(projectId);
-        ConversationState state = requireConversation(conversationId);
+        ConversationState state = requireConversation(projectId, conversationId);
+        LlmConfigState activeConfig = activeLlmConfig();
         ActionView action = state.activeActionId == null ? null : actionView(state.activeActionId);
-        RunView run = state.activeRunId == null ? null : new RunView(state.activeRunId, action == null ? "action-" + state.activeRunId : action.id(), projectId, conversationId, "success", state.updatedAt, state.updatedAt, null);
-        List<RunStepView> steps = List.of(
-                new RunStepView("trace-context-" + conversationId, state.activeRunId, "读取上下文", "读取会话、设置与目标摘要", "success", state.updatedAt, state.updatedAt, null),
-                new RunStepView("trace-reply-" + conversationId, state.activeRunId, "生成回复", "生成思考摘要与回复内容", state.activeRunId == null ? "running" : "success", state.updatedAt, state.activeRunId == null ? null : state.updatedAt, null),
-                new RunStepView("trace-followup-" + conversationId, state.activeRunId, "准备后续联调", "等待下一次主链路联调或刷新", state.activeRunId == null ? "pending" : "success", state.updatedAt, state.activeRunId == null ? null : state.updatedAt, null)
+        RunView run = action == null
+                ? null
+                : new RunView(
+                action.runId(),
+                action.id(),
+                projectId,
+                conversationId,
+                toRunStatus(action.status()),
+                action.startedAt(),
+                action.completedAt(),
+                null
         );
-        return new TracePanelView("当前会先读取前端文档输入，再把 Phase 1 收敛到可接线状态。", action, run, steps, state.updatedAt);
+        List<RunStepView> steps = state.traceSteps.isEmpty()
+                ? defaultPreviewTraceSteps(conversationId, state.activeRunId, state.updatedAt)
+                : List.copyOf(state.traceSteps);
+        return new TracePanelView(
+                blankTo(state.traceSummary, activeConfig.isConfigured() ? "The active chat path is using the configured " + activeConfig.provider + " endpoint." : "No live model is configured yet. Settings can finish provider setup."),
+                action,
+                run,
+                steps,
+                blankTo(state.traceUpdatedAt, state.updatedAt)
+        );
     }
 
     public RunView getRun(String projectId, String conversationId, String runId) {
         TracePanelView trace = getTrace(projectId, conversationId);
-        if (trace.activeRun() == null || !trace.activeRun().id().equals(runId)) throw new ApiException(HttpStatus.NOT_FOUND, "RUN_NOT_FOUND", "Run does not exist");
+        if (trace.activeRun() == null || !trace.activeRun().id().equals(runId)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "RUN_NOT_FOUND", "Run does not exist");
+        }
         return trace.activeRun();
     }
 
     public ActionView getAction(String projectId, String conversationId, String actionId) {
-        requireProject(projectId);
-        requireConversation(conversationId);
+        requireConversation(projectId, conversationId);
         ActionView action = actionView(actionId);
         if (!action.projectId().equals(projectId) || !action.conversationId().equals(conversationId)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "ACTION_NOT_FOUND", "Action does not exist");
@@ -230,7 +300,6 @@ public class WorkspaceStateService {
     }
 
     public CursorPage<RunStepView> listRunSteps(String projectId, String conversationId, String runId) {
-        requireProject(projectId);
         TracePanelView trace = getTrace(projectId, conversationId);
         if (trace.activeRun() == null || !trace.activeRun().id().equals(runId)) {
             throw new ApiException(HttpStatus.NOT_FOUND, "RUN_NOT_FOUND", "Run does not exist");
@@ -240,206 +309,594 @@ public class WorkspaceStateService {
 
     public CursorPage<FileAssetSummaryView> listFiles(String projectId) {
         requireProject(projectId);
-        return new CursorPage<>(fileAssets, null, false);
+        return new CursorPage<>(fileAssetsByProject.getOrDefault(projectId, List.of()), null, false);
     }
 
     public CursorPage<MemoryItemView> listMemory(String projectId) {
         requireProject(projectId);
-        return new CursorPage<>(memoryItems, null, false);
+        return new CursorPage<>(memoryItems.stream().filter(item -> item.projectId() == null || Objects.equals(item.projectId(), projectId)).toList(), null, false);
     }
 
     public SettingsOverviewView getSettingsOverview(String scope) {
-        if (scope == null || scope.isBlank() || scope.equals(settings.activeScope())) return settings;
-        return new SettingsOverviewView(scope, settings.tabs(), settings.modelProfiles(), settings.skills(), settings.mcpServers(), settings.memoryPolicy(), settings.routingPolicy());
+        String resolvedScope = blankTo(scope, "project");
+        List<LlmConfigState> orderedConfigs = orderedLlmConfigs();
+        LlmConfigState activeConfig = activeLlmConfig();
+        return new SettingsOverviewView(
+                resolvedScope,
+                SETTINGS_TABS,
+                orderedConfigs.stream()
+                        .map(config -> new ModelProfileView(
+                                "model-profile-" + config.id,
+                                config.presetId,
+                                resolvedScope,
+                                config.displayName,
+                                config.provider,
+                                config.modelId,
+                                config.isConfigured(),
+                                config.active,
+                                true,
+                                false,
+                                true,
+                                true,
+                                true,
+                                config.timeoutMs
+                        ))
+                        .toList(),
+                skills,
+                mcpServers,
+                memoryPolicy,
+                routingPolicy,
+                providerPresets,
+                orderedConfigs.stream().map(LlmConfigState::toView).toList(),
+                activeConfig.toView(),
+                lastConnectionTest
+        );
+    }
+
+    public SettingsOverviewView updateLlmConfiguration(UpdateLlmConfigRequest request) {
+        LlmConfigState config = upsertLlmConfig(request);
+        config.updatedAt = now();
+        if (config.active) {
+            activateConfig(config.id);
+        }
+        persistLlmConfigs();
+        return getSettingsOverview("project");
+    }
+
+    public LlmConnectionTestView testLlmConfiguration(UpdateLlmConfigRequest request) {
+        LlmConfigState baseConfig = resolveBaseConfig(request);
+        LlmConfigState candidate = baseConfig.copy();
+        candidate.apply(request, providerPresets);
+        if (!candidate.isConfigured()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "LLM_API_KEY_REQUIRED", candidate.provider + " API key is required before testing the connection");
+        }
+        ChatCompletionResult result = minimaxChatClient.complete(new ChatCompletionRequest(
+                candidate.apiBaseUrl,
+                candidate.apiKey,
+                candidate.modelId,
+                candidate.temperature,
+                candidate.maxTokens,
+                candidate.timeoutMs,
+                List.of(
+                        new ChatMessage("system", candidate.systemPrompt),
+                        new ChatMessage("user", "Reply with a short confirmation that the Loom MiniMax connection works.")
+                )
+        ));
+        lastConnectionTest = new LlmConnectionTestView(true, candidate.provider, result.responseModel(), candidate.apiBaseUrl, "Connection test succeeded.", summarize(result.outputText()), now(), result.latencyMs());
+        return lastConnectionTest;
     }
 
     public CapabilityOverviewView getCapabilitiesOverview(String scope) {
-        SettingsOverviewView scopedSettings = getSettingsOverview(scope);
+        SettingsOverviewView settings = getSettingsOverview(scope);
         return new CapabilityOverviewView(
-                scopedSettings.activeScope(),
-                "通过统一能力摘要展示当前模型、Skills、MCP 与执行策略绑定关系。",
+                settings.activeScope(),
+                "Capabilities now include a real LLM configuration path plus skill, MCP, and routing summaries.",
                 List.of(
-                        new CapabilityCardView("cap-models", "Models", "当前作用域默认模型与能力支持。", scopedSettings.modelProfiles().stream().map(ModelProfileView::name).toList()),
-                        new CapabilityCardView("cap-skills", "Skills", "当前作用域启用的技能。", scopedSettings.skills().stream().map(SkillView::name).toList()),
-                        new CapabilityCardView("cap-mcp", "MCP Servers", "当前作用域已连接的资源与工具提供方。", scopedSettings.mcpServers().stream().map(McpServerView::name).toList()),
-                        new CapabilityCardView("cap-executors", "Executors", "执行运行时与外部执行器入口。", List.of(scopedSettings.routingPolicy().defaultRuntime(), blankTo(scopedSettings.routingPolicy().externalExecutorLabel(), "none")))
+                        new CapabilityCardView("cap-models", "Models", "Current project model binding.", settings.modelProfiles().stream().map(ModelProfileView::name).toList()),
+                        new CapabilityCardView("cap-skills", "Skills", "Enabled internal skills.", settings.skills().stream().map(SkillView::name).toList()),
+                        new CapabilityCardView("cap-mcp", "MCP Servers", "Connected tools and resources.", settings.mcpServers().stream().map(McpServerView::name).toList()),
+                        new CapabilityCardView("cap-executors", "Executors", "Runtime and external executor routing.", List.of(settings.routingPolicy().defaultRuntime(), blankTo(settings.routingPolicy().externalExecutorLabel(), "none")))
                 ),
                 List.of(
-                        new CapabilityBindingRuleView("默认聊天模型", project.bindings.defaultModelProfileId(), "accent"),
-                        new CapabilityBindingRuleView("启用技能数", String.valueOf(project.bindings.enabledSkillIds().size()), "good"),
-                        new CapabilityBindingRuleView("默认路由策略", project.bindings.defaultRoutingPolicyId(), "neutral")
+                        new CapabilityBindingRuleView("Default chat model", settings.modelProfiles().get(0).name(), "accent"),
+                        new CapabilityBindingRuleView("Enabled skills", String.valueOf(settings.skills().size()), "good"),
+                        new CapabilityBindingRuleView("Routing policy", settings.routingPolicy().id(), "neutral")
                 )
         );
     }
 
-    public List<Map<String, Object>> getStreamEvents(String projectId, String conversationId) {
-        requireProject(projectId);
-        ConversationState state = requireConversation(conversationId);
-        String emittedAt = now();
-        List<Map<String, Object>> events = new ArrayList<>();
-        MessageView thinking = latestMessageByKind(state, "thinking_summary");
-        MessageView assistant = latestMessageByKind(state, "assistant");
-        TracePanelView trace = getTrace(projectId, conversationId);
+    public void streamConversation(String projectId, String conversationId, Consumer<Map<String, Object>> sink) {
+        ConversationState state = requireConversation(projectId, conversationId);
+        PendingAssistantTurn pendingTurn = state.pendingTurn;
+        if (pendingTurn == null) {
+            replayLatestConversationEvents(projectId, conversationId, sink);
+            return;
+        }
+        if (pendingTurn.streamingStarted) {
+            replayLatestConversationEvents(projectId, conversationId, sink);
+            return;
+        }
+        pendingTurn.streamingStarted = true;
 
-        appendMessageDeltaEvents(events, "thinking.summary.delta", projectId, conversationId, emittedAt, thinking);
-        if (thinking != null) {
-            events.add(event("thinking.summary.done", projectId, conversationId, emittedAt, Map.of("message", thinking)));
+        ProjectState project = requireProject(projectId);
+        ActionState action = actions.get(pendingTurn.actionId);
+        if (action == null) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "ACTION_NOT_FOUND", "Action does not exist");
         }
 
-        appendMessageDeltaEvents(events, "message.delta", projectId, conversationId, emittedAt, assistant);
-        if (assistant != null) {
-            events.add(event("message.done", projectId, conversationId, emittedAt, Map.of("message", assistant)));
-        }
+        String runId = pendingTurn.runId;
+        emitCurrentTraceSteps(projectId, conversationId, runId, sink);
 
-        String runId = trace.activeRun() != null ? trace.activeRun().id() : "run-preview-" + conversationId;
-        for (RunStepView step : trace.steps()) {
-            events.add(event("trace.step.created", projectId, conversationId, emittedAt, Map.of("runId", runId, "step", step)));
-            String stepEvent = switch (step.status()) {
-                case "success", "failed", "skipped" -> "trace.step.completed";
-                default -> "trace.step.updated";
-            };
-            events.add(event(stepEvent, projectId, conversationId, emittedAt, Map.of("runId", runId, "step", step)));
-        }
+        MessageAccumulator thinking = new MessageAccumulator("thinking_summary", pendingTurn.thinkingMessageId, pendingTurn.startedAt);
+        MessageAccumulator assistant = new MessageAccumulator("assistant", pendingTurn.assistantMessageId, pendingTurn.startedAt);
+        long startedAtMs = Instant.parse(pendingTurn.startedAt).toEpochMilli();
 
-        events.add(event("context.updated", projectId, conversationId, emittedAt, Map.of("context", getContext(projectId, conversationId))));
-        if (trace.activeRun() != null) {
-            String runEvent = "failed".equals(trace.activeRun().status()) ? "run.failed" : "run.completed";
-            events.add(event(runEvent, projectId, conversationId, emittedAt, Map.of("run", trace.activeRun())));
+        try {
+            completeContextStep(projectId, conversationId, runId, pendingTurn.startedAt, sink);
+            markTraceStep(projectId, conversationId, runId, "trace-model-" + conversationId, "running", "Calling the configured model and streaming back deltas.", null, sink);
+            updateTraceSummary(state, "Reasoning through the request and composing a streamed reply.", pendingTurn.startedAt);
+
+            StreamedAssistantTurn streamedTurn = generateAssistantTurn(project, state, pendingTurn, sink, thinking, assistant);
+            String completedAt = now();
+            long latencyMs = Math.max(1L, Instant.parse(completedAt).toEpochMilli() - startedAtMs);
+            MessageView thinkingMessage = finalizeThinkingMessage(projectId, conversationId, thinking, streamedTurn, completedAt, latencyMs);
+            MessageView assistantMessage = finalizeAssistantMessage(projectId, conversationId, assistant, streamedTurn, completedAt, latencyMs);
+
+            if (thinkingMessage != null) {
+                state.messages.add(thinkingMessage);
+                sink.accept(event("thinking.summary.done", projectId, conversationId, completedAt, Map.of("message", thinkingMessage)));
+            }
+            state.messages.add(assistantMessage);
+            sink.accept(event("message.done", projectId, conversationId, completedAt, Map.of("message", assistantMessage)));
+
+            markTraceStep(projectId, conversationId, runId, "trace-model-" + conversationId, "success", "The model completed streaming successfully.", completedAt, sink);
+            markTraceStep(projectId, conversationId, runId, "trace-publish-" + conversationId, "running", "Persisting messages, trace, and refreshed context.", null, sink);
+
+            state.summary = summarize(pendingTurn.userInput);
+            state.updatedAt = completedAt;
+            state.lastMessageAt = completedAt;
+            state.traceSummary = blankTo(streamedTurn.reasoningSummary(), "Reply streamed successfully.");
+            state.traceUpdatedAt = completedAt;
+            updateContextAfterMessage(projectId, state, pendingTurn.userInput, assistantMessage.body(), completedAt);
+
+            action.status = "completed";
+            action.summary = summarize(assistantMessage.body());
+            action.completedAt = completedAt;
+            markTraceStep(projectId, conversationId, runId, "trace-publish-" + conversationId, "success", "Conversation state and context are updated.", completedAt, sink);
+
+            TracePanelView trace = getTrace(projectId, conversationId);
+            sink.accept(event("context.updated", projectId, conversationId, completedAt, Map.of("context", getContext(projectId, conversationId))));
+            sink.accept(event("run.completed", projectId, conversationId, completedAt, Map.of("run", trace.activeRun())));
+
+            project.updatedAt = completedAt;
+            project.lastMessageAt = completedAt;
+            state.pendingTurn = null;
+        } catch (Exception exception) {
+            String failedAt = now();
+            MessageView failureMessage = newMessage(
+                    projectId,
+                    conversationId,
+                    "assistant",
+                    "assistant",
+                    "The streamed reply failed before completion. Check the model connection and try again.\n\nError: " + blankTo(exception.getMessage(), "Unknown model error"),
+                    "Streaming failed",
+                    "failed",
+                    pendingTurn.startedAt,
+                    failedAt,
+                    Math.max(1L, Instant.parse(failedAt).toEpochMilli() - startedAtMs)
+            );
+            state.messages.add(failureMessage);
+            state.updatedAt = failedAt;
+            state.lastMessageAt = failedAt;
+            state.traceSummary = "The streamed run failed before the reply could finish.";
+            state.traceUpdatedAt = failedAt;
+            action.status = "failed";
+            action.summary = blankTo(exception.getMessage(), "Model request failed");
+            action.completedAt = failedAt;
+            project.updatedAt = failedAt;
+            project.lastMessageAt = failedAt;
+            markTraceStep(projectId, conversationId, runId, "trace-model-" + conversationId, "failed", blankTo(exception.getMessage(), "Model request failed"), failedAt, sink);
+            markTraceStep(projectId, conversationId, runId, "trace-publish-" + conversationId, "skipped", "Publishing the final reply was skipped because the run failed.", failedAt, sink);
+            sink.accept(event("message.done", projectId, conversationId, failedAt, Map.of("message", failureMessage)));
+            sink.accept(event("run.failed", projectId, conversationId, failedAt, Map.of(
+                    "run", new RunView(runId, action.id, projectId, conversationId, "failed", action.startedAt, failedAt, null),
+                    "error", Map.of("code", "LLM_REQUEST_FAILED", "message", blankTo(exception.getMessage(), "Model request failed"))
+            )));
+            state.pendingTurn = null;
         }
-        return events;
     }
 
     public BootstrapPayload buildBootstrapPayload() {
         ConversationState active = conversations.values().stream().sorted(Comparator.comparing((ConversationState c) -> c.updatedAt).reversed()).findFirst().orElseThrow();
+        ProjectState project = requireProject(active.projectId);
         ContextPanelView context = contextFor(active);
         TracePanelView trace = getTrace(project.id, active.id);
+        SettingsOverviewView settings = getSettingsOverview("project");
+
         return new BootstrapPayload(
                 "loom",
-                "这是一个带有可见 Trace 和可配置能力壳层的项目化 AI 会话工作台。",
-                new BootstrapPayload.ProjectSummary(project.id, project.name, "Phase 1 启动阶段", project.description, "项目：" + project.name, "最近更新 " + project.updatedAt, "已连接"),
+                "Projectized AI workspace with visible trace, context, and model configuration.",
+                new BootstrapPayload.ProjectSummary(project.id, project.name, "Live workspace", project.description, "Project: " + project.name, "Updated " + project.updatedAt, activeLlmConfig().isConfigured() ? "model-ready" : "model-missing"),
                 List.of(
-                        new BootstrapPayload.WorkspacePageLink("conversation", "会话", "会话工作台", "Cmd+1", true),
-                        new BootstrapPayload.WorkspacePageLink("capabilities", "能力", "Models、MCP、Skills 和执行器", "Cmd+2", true),
-                        new BootstrapPayload.WorkspacePageLink("openclaw", "OpenClaw", "外部执行器可见性", "Cmd+3", true),
-                        new BootstrapPayload.WorkspacePageLink("files", "Files", "项目文件池", "Cmd+4", false),
-                        new BootstrapPayload.WorkspacePageLink("memory", "Memory", "分层 Memory 工作区", "Cmd+5", false),
-                        new BootstrapPayload.WorkspacePageLink("settings", "设置", "分层配置", "Cmd+6", true)
+                        new BootstrapPayload.WorkspacePageLink("conversation", "Conversation", "Project sessions", "Cmd+1", true),
+                        new BootstrapPayload.WorkspacePageLink("capabilities", "Capabilities", "Models, MCP, skills, and routing", "Cmd+2", true),
+                        new BootstrapPayload.WorkspacePageLink("openclaw", "Automation", "External executor visibility", "Cmd+3", true),
+                        new BootstrapPayload.WorkspacePageLink("files", "Files", "Project files", "Cmd+4", true),
+                        new BootstrapPayload.WorkspacePageLink("memory", "Memory", "Project and conversation memory", "Cmd+5", true),
+                        new BootstrapPayload.WorkspacePageLink("settings", "Settings", "Model configuration and policy", "Cmd+6", true)
                 ),
-                conversations.values().stream().filter(c -> !c.pinned).sorted(Comparator.comparing((ConversationState c) -> c.updatedAt).reversed()).map(this::toBootstrapConversation).toList(),
-                conversations.values().stream().filter(c -> c.pinned).sorted(Comparator.comparing((ConversationState c) -> c.updatedAt).reversed()).map(this::toBootstrapConversation).toList(),
+                projectConversations(project.id).stream().filter(c -> !c.pinned).sorted(Comparator.comparing((ConversationState c) -> c.updatedAt).reversed()).map(this::toBootstrapConversation).toList(),
+                projectConversations(project.id).stream().filter(c -> c.pinned).sorted(Comparator.comparing((ConversationState c) -> c.updatedAt).reversed()).map(this::toBootstrapConversation).toList(),
                 List.of(
-                        new BootstrapPayload.WorkspaceModeOption("chat", "Chat", "适合开放式推进和自由讨论。"),
-                        new BootstrapPayload.WorkspaceModeOption("plan", "Plan", "突出目标、约束和候选方案。"),
-                        new BootstrapPayload.WorkspaceModeOption("action", "Action", "突出任务触发和执行可见性。"),
-                        new BootstrapPayload.WorkspaceModeOption("review", "Review", "用于记录复盘、纠偏和结论。")
+                        new BootstrapPayload.WorkspaceModeOption("chat", "Chat", "Direct collaboration with the active project."),
+                        new BootstrapPayload.WorkspaceModeOption("plan", "Plan", "Focus on scope, tradeoffs, and execution steps."),
+                        new BootstrapPayload.WorkspaceModeOption("action", "Action", "Highlight tool execution and follow-through."),
+                        new BootstrapPayload.WorkspaceModeOption("review", "Review", "Inspect outcomes, gaps, and acceptance.")
                 ),
                 active.mode,
                 active.title,
                 project.name + " | " + active.summary,
-                active.messages.stream().map(m -> new BootstrapPayload.ConversationMessage(m.id(), m.kind(), "user".equals(m.role()) ? "用户" : "助手", m.body(), m.summary(), m.statusLabel())).toList(),
-                new BootstrapPayload.ComposerState(
-                        "描述下一步想让 loom 协调的设计或交付事项。",
-                        "发送",
-                        List.of("挂载 Context", "挂载文件", "打开命令面板"),
-                        List.of(new BootstrapPayload.ComposerToggle("允许动作", true), new BootstrapPayload.ComposerToggle("Memory", true), new BootstrapPayload.ComposerToggle("上传", false))
-                ),
+                active.messages.stream().map(message -> new BootstrapPayload.ConversationMessage(message.id(), message.kind(), bootstrapMessageLabel(message), message.body(), message.summary(), message.statusLabel())).toList(),
+                new BootstrapPayload.ComposerState("Describe the next step for the active Loom project.", "Send", List.of("Attach context", "Attach file", "Open command palette"), List.of(new BootstrapPayload.ComposerToggle("Allow actions", true), new BootstrapPayload.ComposerToggle("Memory", true), new BootstrapPayload.ComposerToggle("Upload", false))),
                 trace.reasoningSummary(),
-                trace.steps().stream().map(s -> new BootstrapPayload.TraceStep(s.id(), s.title(), s.detail(), s.status())).toList(),
+                trace.steps().stream().map(step -> new BootstrapPayload.TraceStep(step.id(), step.title(), step.detail(), step.status())).toList(),
                 List.of(
-                        new BootstrapPayload.ContextBlock("context-goal", "当前目标", context.activeGoals().isEmpty() ? "推进真实主链路" : context.activeGoals().get(0)),
-                        new BootstrapPayload.ContextBlock("context-constraints", "约束条件", String.join("；", context.constraints())),
-                        new BootstrapPayload.ContextBlock("context-summary", "摘要", context.conversationSummary()),
-                        new BootstrapPayload.ContextBlock("context-active", "进行中的事项", String.join("；", context.decisions())),
-                        new BootstrapPayload.ContextBlock("context-files", "参考输入", context.references().stream().map(ContextReferenceItem::summary).findFirst().orElse("无")),
-                        new BootstrapPayload.ContextBlock("context-open", "未闭环事项", String.join("；", context.openLoops()))
+                        new BootstrapPayload.ContextBlock("context-goal", "Current goal", context.activeGoals().isEmpty() ? "Start the next session step." : context.activeGoals().get(0)),
+                        new BootstrapPayload.ContextBlock("context-constraints", "Constraints", String.join(" | ", context.constraints())),
+                        new BootstrapPayload.ContextBlock("context-summary", "Summary", context.conversationSummary()),
+                        new BootstrapPayload.ContextBlock("context-active", "Active work", String.join(" | ", context.decisions())),
+                        new BootstrapPayload.ContextBlock("context-files", "Reference", context.references().stream().map(ContextReferenceItem::summary).findFirst().orElse("No linked references yet.")),
+                        new BootstrapPayload.ContextBlock("context-open", "Open loops", String.join(" | ", context.openLoops()))
                 ),
                 new BootstrapPayload.CapabilitiesOverview(
-                        "在不展开每个细节配置页的前提下，展示当前系统能力栈和项目绑定关系。",
+                        "The current workspace shows the active model binding, skill stack, MCP connections, and executor routing in one place.",
                         List.of(
-                                new BootstrapPayload.OverviewCard("cap-models", "Models", "项目默认模型配置。", settings.modelProfiles().stream().map(ModelProfileView::name).toList()),
-                                new BootstrapPayload.OverviewCard("cap-mcp", "MCP Servers", "当前可用的资源和工具提供方。", settings.mcpServers().stream().map(McpServerView::name).toList()),
-                                new BootstrapPayload.OverviewCard("cap-skills", "Skills", "当前项目已启用的技能。", settings.skills().stream().map(SkillView::name).toList()),
-                                new BootstrapPayload.OverviewCard("cap-executors", "执行器", "内部执行与外部执行器路由。", List.of("内部执行", "OpenClaw"))
+                                new BootstrapPayload.OverviewCard("cap-models", "Models", "Configured model profile", settings.modelProfiles().stream().map(ModelProfileView::name).toList()),
+                                new BootstrapPayload.OverviewCard("cap-mcp", "MCP Servers", "Connected servers", settings.mcpServers().stream().map(McpServerView::name).toList()),
+                                new BootstrapPayload.OverviewCard("cap-skills", "Skills", "Enabled skills", settings.skills().stream().map(SkillView::name).toList()),
+                                new BootstrapPayload.OverviewCard("cap-executors", "Executors", "Current runtime routing", List.of("internal", "OpenClaw"))
                         ),
                         List.of(
-                                new BootstrapPayload.StatusItem("默认聊天模型", settings.modelProfiles().get(0).name(), "accent"),
-                                new BootstrapPayload.StatusItem("异步外部任务", "OpenClaw 执行器", "good"),
-                                new BootstrapPayload.StatusItem("普通聊天回复", "内部 pipeline", "neutral")
+                                new BootstrapPayload.StatusItem("Default chat model", settings.modelProfiles().get(0).name(), "accent"),
+                                new BootstrapPayload.StatusItem("External tasks", "OpenClaw executor", "good"),
+                                new BootstrapPayload.StatusItem("Session creation", "Project-first", "neutral")
                         )
                 ),
                 new BootstrapPayload.OpenClawOverview(
-                        "把 OpenClaw 作为可见、可控的执行桥接层，而不是不可观察的黑盒依赖。",
-                        List.of(
-                                new BootstrapPayload.DetailItem("Gateway 地址", "http://127.0.0.1:18789"),
-                                new BootstrapPayload.DetailItem("状态", "已连接"),
-                                new BootstrapPayload.DetailItem("最近心跳", "12 秒前")
-                        ),
-                        List.of(
-                                new BootstrapPayload.StatusItem("通道", "3", "accent"),
-                                new BootstrapPayload.StatusItem("工具", "12", "good"),
-                                new BootstrapPayload.StatusItem("Skills", "6", "accent"),
-                                new BootstrapPayload.StatusItem("插件", "5", "neutral")
-                        ),
-                        List.of(
-                                new BootstrapPayload.StatusItem("异步任务", "OpenClaw", "good"),
-                                new BootstrapPayload.StatusItem("飞书桥接", "OpenClaw", "good"),
-                                new BootstrapPayload.StatusItem("普通聊天回复", "内部执行", "warn")
-                        ),
-                        trace.steps().stream().limit(3).map(s -> new BootstrapPayload.StatusItem(s.id(), s.status(), "success".equals(s.status()) ? "good" : "warn")).toList(),
-                        conversations.values().stream().filter(c -> c.pinned).map(c -> c.title).toList()
+                        "OpenClaw remains the visible external execution bridge instead of a hidden backend dependency.",
+                        List.of(new BootstrapPayload.DetailItem("Gateway", "http://127.0.0.1:18789"), new BootstrapPayload.DetailItem("Status", "connected"), new BootstrapPayload.DetailItem("Last heartbeat", "12 seconds ago")),
+                        List.of(new BootstrapPayload.StatusItem("Channels", "3", "accent"), new BootstrapPayload.StatusItem("Tools", "12", "good"), new BootstrapPayload.StatusItem("Skills", "6", "accent"), new BootstrapPayload.StatusItem("Plugins", "5", "neutral")),
+                        List.of(new BootstrapPayload.StatusItem("Async work", "OpenClaw", "good"), new BootstrapPayload.StatusItem("Chat replies", activeLlmConfig().isConfigured() ? activeLlmConfig().provider : "Setup required", activeLlmConfig().isConfigured() ? "good" : "warn"), new BootstrapPayload.StatusItem("Fallback", "Local guidance", "neutral")),
+                        trace.steps().stream().limit(3).map(step -> new BootstrapPayload.StatusItem(step.id(), step.status(), "success".equals(step.status()) ? "good" : "warn")).toList(),
+                        projectConversations(project.id).stream().filter(c -> c.pinned).map(c -> c.title).toList()
                 ),
                 new BootstrapPayload.SettingsOverview(
-                        "通过分栏和上下文说明来管理全局、项目和会话范围内的设置。",
-                        settings.tabs(),
+                        "Configure model bindings, project policy, and routing from one settings surface.",
+                        SETTINGS_TABS,
                         List.of(
-                                new BootstrapPayload.DetailItem("配置名称", settings.modelProfiles().get(0).name()),
-                                new BootstrapPayload.DetailItem("提供方", settings.modelProfiles().get(0).provider()),
-                                new BootstrapPayload.DetailItem("模型 ID", settings.modelProfiles().get(0).modelId()),
-                                new BootstrapPayload.DetailItem("能力", "Streaming | Images | Tools | Long Context"),
-                                new BootstrapPayload.DetailItem("超时", settings.modelProfiles().get(0).timeoutMs() + " ms")
+                                new BootstrapPayload.DetailItem("Profile", settings.modelProfiles().get(0).name()),
+                                new BootstrapPayload.DetailItem("Provider", settings.activeLlmConfig().provider()),
+                                new BootstrapPayload.DetailItem("Model", settings.activeLlmConfig().modelId()),
+                                new BootstrapPayload.DetailItem("Endpoint", settings.activeLlmConfig().apiBaseUrl()),
+                                new BootstrapPayload.DetailItem("Timeout", settings.activeLlmConfig().timeoutMs() + " ms")
                         ),
-                        List.of(
-                                "Global、Project 和 Conversation 三层配置范围必须保持清晰。",
-                                "长会话默认要同时保留摘要和最近的原始消息。",
-                                "异步外部任务默认走 OpenClaw，普通聊天回复继续走内部 pipeline。"
-                        ),
-                        List.of(
-                                "启用自动外部动作前，需要再次确认路由策略。",
-                                "外部回调必须补齐状态校验和超时处理。",
-                                "任何配置变更都必须同步到运行和测试文档里。"
-                        )
+                        List.of("New sessions now start from project selection or project creation.", "MiniMax and Kimi presets are live; other providers remain placeholders.", "Run a connection test after changing the API key, endpoint, or model."),
+                        List.of("Do not assume the live model works before the connection test passes.", "Changing model settings affects every new reply in the active runtime.", "Capture acceptance evidence after each configuration change.")
                 )
         );
     }
 
-    private void seedConversation(String id, String title, String summary, String mode, String status, boolean pinned) {
-        ConversationState state = new ConversationState(id, project.id, title, mode, pinned);
+    static String blankTo(String value, String fallback) { return value == null || value.isBlank() ? fallback : value.trim(); }
+    static String maskApiKey(String apiKey) { if (apiKey == null || apiKey.isBlank()) return ""; return apiKey.length() <= 8 ? "configured" : apiKey.substring(0, 4) + "..." + apiKey.substring(apiKey.length() - 4); }
+    static String now() { return Instant.now().truncatedTo(ChronoUnit.SECONDS).toString(); }
+
+    private void seedWorkspace() {
+        ProjectState project = newProject("project-loom", "loom", "以项目和会话为中心的 AI 工作台，支持可见 Trace 与模型配置。", "保持会话优先体验、Trace 可见性和文档驱动交付节奏。");
+        projects.put(project.id, project);
+        fileAssetsByProject.put(project.id, List.of(
+                new FileAssetSummaryView("file-prd", project.id, "loom-prd.md", "text/markdown", 18_240, "ready", now()),
+                new FileAssetSummaryView("file-contract", project.id, "phase1-contract-freeze.md", "text/markdown", 24_512, "ready", now()),
+                new FileAssetSummaryView("file-smoke", project.id, "frontend-smoke-checklist.md", "text/markdown", 6_144, "pending", now())
+        ));
+        memoryItems.add(new MemoryItemView("memory-project-goal", "project", project.id, null, "交付过程中保持会话、Trace 和项目状态可见。", "explicit", now()));
+        memoryItems.add(new MemoryItemView("memory-contract", "project", project.id, null, "模型配置与聊天路由必须和设置页保持一致。", "system", now()));
+        seedConversation(project, "conversation-v1", "Phase 1 验收", "验收范围、交付计划与工作台首轮迭代。", "plan", "active", true);
+        seedConversation(project, "conversation-trace", "Trace 复盘", "让推理与执行过程保持可见，而不是隐藏在单条回复里。", "review", "idle", true);
+        seedConversation(project, "conversation-shell", "工作台壳层", "将占位式 UI 推进为接入真实 API 的项目化工作台。", "chat", "active", false);
+        ConversationState seed = conversations.get("conversation-v1");
+        seed.messages.add(newMessage(project.id, seed.id, "user", "user", "需要接入真实模型，并把会话流程改成项目归属可切换。", null, null, seed.updatedAt, seed.updatedAt, null));
+        seed.messages.add(newMessage(project.id, seed.id, "thinking_summary", "assistant", "先对齐后端设置模型并接入 MiniMax，再把新会话流程切到项目选择。", "先后端，再设置页，再会话流。", "completed", seed.updatedAt, seed.updatedAt, 920L));
+        seed.messages.add(newMessage(project.id, seed.id, "assistant", "assistant", "第一轮交付会先提供模型配置、连接测试和按项目归属的会话创建能力。", "设置与会话创建已经是当前关键路径。", "completed", seed.updatedAt, seed.updatedAt, 1540L));
+        seed.summary = "真实模型接入与项目归属会话流。";
+        seed.traceSummary = "Start from the backend model path, then make the session stream and trace visible in the UI.";
+        seed.traceSteps.clear();
+        seed.traceSteps.addAll(List.of(
+                new RunStepView("trace-context-" + seed.id, "run-seed-" + seed.id, "Load context", "Read project instructions and recent session history.", "success", seed.updatedAt, seed.updatedAt, null),
+                new RunStepView("trace-model-" + seed.id, "run-seed-" + seed.id, "Call model", "Use the configured model path or surface setup guidance.", "success", seed.updatedAt, seed.updatedAt, null),
+                new RunStepView("trace-publish-" + seed.id, "run-seed-" + seed.id, "Publish reply", "Persist the visible reply, thinking summary, and updated trace.", "success", seed.updatedAt, seed.updatedAt, null)
+        ));
+        seed.traceUpdatedAt = seed.updatedAt;
+        seed.lastMessageAt = seed.messages.get(seed.messages.size() - 1).completedAt();
+        seed.updatedAt = seed.lastMessageAt;
+        project.lastMessageAt = seed.lastMessageAt;
+        project.updatedAt = seed.updatedAt;
+        memoryItems.add(new MemoryItemView("memory-conversation-v1", "conversation", project.id, seed.id, "这条线程是当前真实模型里程碑的验收主线。", "assisted", now()));
+    }
+
+    private List<LlmProviderPresetView> providerPresets() {
+        return List.of(
+                new LlmProviderPresetView(
+                        "minimax-cn",
+                        "MiniMax (China)",
+                        "MiniMax",
+                        true,
+                        true,
+                        "https://api.minimaxi.com/v1",
+                        "MiniMax-M2.7",
+                        "国内站预设，Loom 默认参数已自动带入。",
+                        List.of(
+                                new LlmModelOptionView("MiniMax-M2.7", "MiniMax M2.7", "当前主推的 MiniMax 文本模型。"),
+                                new LlmModelOptionView("MiniMax-M2.7-highspeed", "MiniMax M2.7 High-Speed", "更低延迟，适合更快的交互响应。")
+                        )
+                ),
+                new LlmProviderPresetView(
+                        "minimax-global",
+                        "MiniMax (Global)",
+                        "MiniMax",
+                        true,
+                        false,
+                        "https://api.minimax.io/v1",
+                        "MiniMax-M2.7",
+                        "国际站预设，保留 Loom 默认参数并切换到全球端点。",
+                        List.of(
+                                new LlmModelOptionView("MiniMax-M2.7", "MiniMax M2.7", "当前主推的 MiniMax 文本模型。"),
+                                new LlmModelOptionView("MiniMax-M2.7-highspeed", "MiniMax M2.7 High-Speed", "更低延迟，适合更快的交互响应。")
+                        )
+                ),
+                new LlmProviderPresetView(
+                        "kimi",
+                        "Kimi",
+                        "Moonshot AI",
+                        true,
+                        false,
+                        "https://api.moonshot.cn/v1",
+                        "kimi-k2-0905-preview",
+                        "Official Moonshot OpenAI-compatible preset for Kimi.",
+                        List.of(
+                                new LlmModelOptionView("kimi-k2-0905-preview", "Kimi K2 0905 Preview", "Official Kimi K2 preview model with strong coding and agentic performance."),
+                                new LlmModelOptionView("kimi-k2-turbo-preview", "Kimi K2 Turbo Preview", "A faster Kimi K2 option for low-latency chat turns."),
+                                new LlmModelOptionView("moonshot-v1-128k", "Moonshot V1 128K", "Long-context Moonshot model for general drafting and review.")
+                        )
+                ),
+                new LlmProviderPresetView(
+                        "openai",
+                        "OpenAI",
+                        "OpenAI",
+                        false,
+                        false,
+                        "https://api.openai.com/v1",
+                        "gpt-5-mini",
+                        "预设已预留，后续接入。",
+                        List.of()
+                ),
+                new LlmProviderPresetView(
+                        "anthropic",
+                        "Anthropic",
+                        "Anthropic",
+                        false,
+                        false,
+                        "https://api.anthropic.com/v1",
+                        "claude-sonnet-4-5",
+                        "预设已预留，后续接入。",
+                        List.of()
+                ),
+                new LlmProviderPresetView(
+                        "gemini",
+                        "Gemini",
+                        "Google",
+                        false,
+                        false,
+                        "https://generativelanguage.googleapis.com",
+                        "gemini-2.5-pro",
+                        "预设已预留，后续接入。",
+                        List.of()
+                ),
+                new LlmProviderPresetView(
+                        "deepseek",
+                        "DeepSeek",
+                        "DeepSeek",
+                        false,
+                        false,
+                        "https://api.deepseek.com/v1",
+                        "deepseek-chat",
+                        "预设已预留，后续接入。",
+                        List.of()
+                )
+        );
+    }
+
+    private List<LlmConfigState> orderedLlmConfigs() {
+        return llmConfigs.values().stream()
+                .sorted(Comparator.comparing((LlmConfigState config) -> config.active).reversed().thenComparing(config -> config.updatedAt, Comparator.reverseOrder()))
+                .toList();
+    }
+
+    private LlmConfigState activeLlmConfig() {
+        return orderedLlmConfigs().stream().findFirst().orElseThrow(() -> new ApiException(HttpStatus.INTERNAL_SERVER_ERROR, "LLM_CONFIG_MISSING", "No LLM configuration is available"));
+    }
+
+    private void ensureSingleActiveConfig() {
+        List<LlmConfigState> ordered = new ArrayList<>(orderedLlmConfigs());
+        if (ordered.isEmpty()) {
+            return;
+        }
+
+        boolean foundActive = false;
+        for (LlmConfigState config : ordered) {
+            if (config.active && !foundActive) {
+                foundActive = true;
+                continue;
+            }
+            config.active = false;
+        }
+
+        if (!foundActive) {
+            ordered.get(0).active = true;
+        }
+    }
+
+    private void activateConfig(String profileId) {
+        String timestamp = now();
+        llmConfigs.values().forEach(config -> {
+            config.active = Objects.equals(config.id, profileId);
+            if (config.active) {
+                config.updatedAt = timestamp;
+            }
+        });
+    }
+
+    private void persistLlmConfigs() {
+        llmSettingsRepository.saveProfiles(new ArrayList<>(llmConfigs.values()));
+    }
+
+    private LlmProviderPresetView requirePreset(String presetId) {
+        return providerPresets.stream()
+                .filter(candidate -> candidate.id().equals(presetId))
+                .findFirst()
+                .orElseThrow(() -> new ApiException(HttpStatus.BAD_REQUEST, "LLM_PRESET_NOT_FOUND", "Unknown LLM preset"));
+    }
+
+    private LlmConfigState createConfigFromPreset(LlmProviderPresetView preset) {
+        String timestamp = now();
+        return new LlmConfigState(
+                "profile-" + UUID.randomUUID(),
+                preset.id(),
+                preset.provider(),
+                preset.label(),
+                preset.apiBaseUrl(),
+                preset.defaultModelId(),
+                "",
+                "You are Loom, a careful AI teammate that explains decisions clearly and keeps execution visible.",
+                1.0d,
+                1024,
+                60000,
+                false,
+                timestamp
+        );
+    }
+
+    private LlmConfigState resolveBaseConfig(UpdateLlmConfigRequest request) {
+        if (request != null && request.profileId() != null && !request.profileId().isBlank()) {
+            LlmConfigState existing = llmConfigs.get(request.profileId());
+            if (existing != null) {
+                return existing;
+            }
+        }
+
+        if (request != null && request.presetId() != null && !request.presetId().isBlank()) {
+            return createConfigFromPreset(requirePreset(request.presetId()));
+        }
+
+        return activeLlmConfig();
+    }
+
+    private LlmConfigState upsertLlmConfig(UpdateLlmConfigRequest request) {
+        LlmConfigState base = resolveBaseConfig(request);
+        LlmConfigState next = base.copy();
+        next.apply(request, providerPresets);
+        next.updatedAt = now();
+        llmConfigs.put(next.id, next);
+        ensureSingleActiveConfig();
+        return next;
+    }
+
+    private ProjectState newProject(String id, String name, String description, String instructions) {
+        String createdAt = now();
+        return new ProjectState(id, name, description, "active", instructions, List.of(), new CapabilityBindingSummary(activeLlmConfig().id, skills.stream().map(SkillView::id).toList(), routingPolicy.id()), createdAt, createdAt);
+    }
+
+    private void seedConversation(ProjectState project, String id, String title, String summary, String mode, String status, boolean pinned) {
+        ConversationState state = new ConversationState(id, project.id, title, mode, pinned, now());
         state.summary = summary;
         state.status = status;
         initializeContext(state);
+        state.traceSummary = "Keep execution visible while the session is active.";
+        state.traceSteps.addAll(defaultPreviewTraceSteps(id, null, state.updatedAt));
+        state.traceUpdatedAt = state.updatedAt;
         conversations.put(id, state);
+        if (pinned && !project.pinnedConversationIds.contains(id)) {
+            project.pinnedConversationIds.add(id);
+        }
     }
 
-    private ActionState newAction(ConversationState conversation, String summary, String completedAt) {
-        String id = "action-" + UUID.randomUUID();
-        String runId = "run-" + UUID.randomUUID();
-        ActionState state = new ActionState(
-                id,
-                project.id,
-                conversation.id,
-                runId,
-                "message-response",
-                "completed",
-                summary,
-                completedAt,
-                completedAt,
-                List.of(
-                        "trace-context-" + conversation.id,
-                        "trace-reply-" + conversation.id,
-                        "trace-followup-" + conversation.id
-                )
+    private StreamedAssistantTurn generateAssistantTurn(
+            ProjectState project,
+            ConversationState conversation,
+            PendingAssistantTurn pendingTurn,
+            Consumer<Map<String, Object>> sink,
+            MessageAccumulator thinkingAccumulator,
+            MessageAccumulator assistantAccumulator
+    ) {
+        LlmConfigState activeConfig = activeLlmConfig();
+        if (!activeConfig.isConfigured()) {
+            String reasoning = "The request was accepted, but the workspace still needs a live " + activeConfig.provider + " API key.";
+            String assistantBody = activeConfig.provider + " is not configured yet. Open Settings > Models, choose a preset, add an API key, and run a connection test before using live chat.";
+            appendDeltaAndEmit(project.id, conversation.id, "thinking.summary.delta", thinkingAccumulator, reasoning, sink);
+            appendDeltaAndEmit(project.id, conversation.id, "message.delta", assistantAccumulator, assistantBody, sink);
+            return new StreamedAssistantTurn(assistantBody, reasoning, "Configuration required", 0L, null);
+        }
+
+        List<ChatMessage> messages = new ArrayList<>();
+        messages.add(new ChatMessage(
+                "system",
+                activeConfig.systemPrompt
+                        + "\n\nProject name: " + project.name
+                        + "\nProject instructions: " + project.instructions
+        ));
+        int start = Math.max(0, conversation.messages.size() - 6);
+        for (int index = start; index < conversation.messages.size(); index++) {
+            MessageView message = conversation.messages.get(index);
+            if ("user".equals(message.role()) && "user".equals(message.kind())) {
+                messages.add(new ChatMessage("user", message.body()));
+            }
+            if ("assistant".equals(message.role()) && "assistant".equals(message.kind())) {
+                messages.add(new ChatMessage("assistant", message.body()));
+            }
+        }
+        messages.add(new ChatMessage("user", pendingTurn.userInput));
+        ChatCompletionResult result = minimaxChatClient.stream(
+                new ChatCompletionRequest(activeConfig.apiBaseUrl, activeConfig.apiKey, activeConfig.modelId, activeConfig.temperature, activeConfig.maxTokens, activeConfig.timeoutMs, messages),
+                new MinimaxChatClient.StreamListener() {
+                    @Override
+                    public void onReasoningDelta(String delta) {
+                        appendDeltaAndEmit(project.id, conversation.id, "thinking.summary.delta", thinkingAccumulator, delta, sink);
+                    }
+
+                    @Override
+                    public void onTextDelta(String delta) {
+                        appendDeltaAndEmit(project.id, conversation.id, "message.delta", assistantAccumulator, delta, sink);
+                    }
+                }
         );
-        actions.put(id, state);
+        String reasoningBody = thinkingAccumulator.body.length() == 0 ? result.reasoningSummary() : thinkingAccumulator.body.toString();
+        String assistantBody = assistantAccumulator.body.length() == 0 ? result.outputText() : assistantAccumulator.body.toString();
+        return new StreamedAssistantTurn(assistantBody, reasoningBody, "Live reply generated through " + result.responseModel() + ".", result.latencyMs(), result.responseModel());
+    }
+
+    private ActionState newAction(String projectId, String conversationId, String summary, String status, String startedAt, String completedAt) {
+        ActionState state = new ActionState(
+                "action-" + UUID.randomUUID(),
+                projectId,
+                conversationId,
+                "run-" + UUID.randomUUID(),
+                "message-response",
+                status,
+                summary,
+                startedAt,
+                completedAt,
+                List.of("trace-context-" + conversationId, "trace-model-" + conversationId, "trace-publish-" + conversationId)
+        );
+        actions.put(state.id, state);
         return state;
     }
 
@@ -451,68 +908,28 @@ public class WorkspaceStateService {
         return state.toView();
     }
 
-    private ConversationListItem toConversationListItem(ConversationState state) {
-        return new ConversationListItem(state.id, state.projectId, state.title, state.summary, state.mode, state.status, state.pinned, state.updatedAt, state.lastMessageAt);
-    }
-
-    private BootstrapPayload.ConversationSummary toBootstrapConversation(ConversationState state) {
-        return new BootstrapPayload.ConversationSummary(state.id, state.title, state.summary, "最近更新 " + state.updatedAt, state.mode, state.status, state.pinned);
-    }
-
-    private ConversationView toConversationView(ConversationState state) {
-        return new ConversationView(state.id, state.projectId, state.title, state.summary, state.mode, state.status, state.pinned, state.updatedAt, state.lastMessageAt, state.context.conversationSummary, state.activeRunId);
-    }
-
-    private ContextPanelView contextFor(ConversationState state) {
-        return new ContextPanelView(
-                state.context.conversationSummary,
-                state.context.decisions,
-                state.context.openLoops,
-                state.context.activeGoals,
-                state.context.constraints,
-                state.context.references,
-                state.context.snapshots,
-                state.context.updatedAt
-        );
-    }
-
     private void initializeContext(ConversationState state) {
-        state.context.conversationSummary = "当前会话围绕 Phase 1 壳层、合同和联调基线推进。";
-        state.context.decisions = List.of("交付最小真实接口", "保持文档与代码同步");
-        state.context.openLoops = List.of("补齐 SSE 接线", "完成联调验证");
-        state.context.activeGoals = List.of("推进真实主链路");
-        state.context.constraints = List.of("保持会话优先", "保持 trace 可见");
-        state.context.references = List.of(new ContextReferenceItem("ref-architecture", "架构设计", "file", "Phase 1 架构、后端模块设计与合同冻结文档"));
-        state.context.snapshots = List.of(new ContextSnapshotView("snapshot-summary-" + state.id, project.id, state.id, "conversation_summary", state.summary, state.updatedAt));
+        state.context.conversationSummary = "This session is ready to collect project-specific intent, trace, and configuration updates.";
+        state.context.decisions = List.of("Keep sessions project-first.", "Surface the live model status in settings.");
+        state.context.openLoops = List.of("Configure MiniMax if live chat is required.", "Capture acceptance evidence.");
+        state.context.activeGoals = List.of("Start from the correct project.");
+        state.context.constraints = List.of("Do not hide model status.", "Keep trace visible.");
+        state.context.references = List.of(new ContextReferenceItem("ref-project", "Project", "memory", "Project-first session flow is required."));
+        state.context.snapshots = List.of(new ContextSnapshotView("snapshot-summary-" + state.id, state.projectId, state.id, "conversation_summary", state.summary, state.updatedAt));
         state.context.updatedAt = state.updatedAt;
     }
 
-    private void updateContextAfterMessage(ConversationState state, String latestUserInput, String updatedAt) {
+    private void updateContextAfterMessage(String projectId, ConversationState state, String latestUserInput, String assistantBody, String updatedAt) {
         state.context.updatedAt = updatedAt;
-        state.context.conversationSummary = "会话已吸收最新需求，当前优先推进 Context 与 Settings/Capabilities 的真实数据链路。";
-        state.context.decisions = List.of(
-                "优先提交可验证的后端读接口",
-                "保持前端 fallback 与远端双源能力",
-                "先本地验证，再进入联调与生产机窗口"
-        );
-        state.context.openLoops = List.of(
-                "Context 右侧面板消费真实接口",
-                "Capabilities / Settings 页面消费真实读模型",
-                "补全 go / no-go 结论"
-        );
-        state.context.activeGoals = List.of("推进真实主链路", abbreviate(latestUserInput));
+        state.context.conversationSummary = "The session absorbed the latest user request and updated the live execution path.";
+        state.context.decisions = List.of("Use the configured MiniMax endpoint when available.", "Keep new-session creation bound to a chosen project.", "Refresh acceptance evidence after verification.");
+        state.context.openLoops = List.of("Retest the model connection after configuration changes.", "Validate project creation and session creation together.", "Confirm the message stream still renders correctly.");
+        state.context.activeGoals = List.of("Answer the active request.", summarize(latestUserInput));
         state.context.references = List.of(
-                new ContextReferenceItem("ref-contract-freeze", "合同冻结", "file", "Phase 1 合同冻结、模块边界与错误口径"),
-                new ContextReferenceItem("ref-latest-message", "最新消息", "conversation", abbreviate(latestUserInput))
+                new ContextReferenceItem("ref-latest-message", "Latest message", "conversation", summarize(latestUserInput)),
+                new ContextReferenceItem("ref-latest-reply", "Latest reply", "conversation", summarize(assistantBody))
         );
-        state.context.snapshots = appendSnapshot(state.context.snapshots, new ContextSnapshotView(
-                "snapshot-decision-" + UUID.randomUUID(),
-                project.id,
-                state.id,
-                "decisions",
-                String.join("；", state.context.decisions),
-                updatedAt
-        ));
+        state.context.snapshots = appendSnapshot(state.context.snapshots, new ContextSnapshotView("snapshot-decision-" + UUID.randomUUID(), projectId, state.id, "decisions", String.join(" | ", state.context.decisions), updatedAt));
     }
 
     private List<ContextSnapshotView> appendSnapshot(List<ContextSnapshotView> snapshots, ContextSnapshotView nextSnapshot) {
@@ -525,18 +942,14 @@ public class WorkspaceStateService {
         for (int index = state.messages.size() - 1; index >= 0; index--) {
             MessageView message = state.messages.get(index);
             if ("user".equals(message.role())) {
-                return abbreviate(message.body());
+                return summarize(message.body());
             }
         }
-        return "暂无用户输入";
+        return "No user input yet.";
     }
 
-    private MessageView newMessage(String conversationId, String kind, String role, String body, String summary) {
-        String at = now();
-        return new MessageView("message-" + UUID.randomUUID(), project.id, conversationId, kind, role, body, summary, "assistant".equals(role) ? "已完成" : null, messageSeq.incrementAndGet(), at, at, List.of());
-    }
-
-    private MessageView latestMessageByKind(ConversationState state, String kind) {
+    private MessageView latestMessageByKind(String projectId, String conversationId, String kind) {
+        ConversationState state = requireConversation(projectId, conversationId);
         for (int index = state.messages.size() - 1; index >= 0; index--) {
             MessageView message = state.messages.get(index);
             if (kind.equals(message.kind())) {
@@ -546,35 +959,393 @@ public class WorkspaceStateService {
         return null;
     }
 
-    private void appendMessageDeltaEvents(
-            List<Map<String, Object>> events,
-            String eventName,
+    private ContextPanelView contextFor(ConversationState state) {
+        return new ContextPanelView(state.context.conversationSummary, state.context.decisions, state.context.openLoops, state.context.activeGoals, state.context.constraints, state.context.references, state.context.snapshots, state.context.updatedAt);
+    }
+
+    private ProjectListItem toProjectListItem(ProjectState state) {
+        return new ProjectListItem(state.id, state.name, state.description, state.status, projectConversations(state.id).size(), state.lastMessageAt, state.updatedAt);
+    }
+
+    private ProjectView toProjectView(ProjectState state) {
+        return new ProjectView(state.id, state.name, state.description, state.status, projectConversations(state.id).size(), state.lastMessageAt, state.updatedAt, state.instructions, List.copyOf(state.pinnedConversationIds), state.bindings);
+    }
+
+    private ConversationListItem toConversationListItem(ConversationState state) {
+        return new ConversationListItem(state.id, state.projectId, state.title, state.summary, state.mode, state.status, state.pinned, state.updatedAt, state.lastMessageAt);
+    }
+
+    private ConversationView toConversationView(ConversationState state) {
+        return new ConversationView(state.id, state.projectId, state.title, state.summary, state.mode, state.status, state.pinned, state.updatedAt, state.lastMessageAt, state.context.conversationSummary, state.activeRunId);
+    }
+
+    private BootstrapPayload.ConversationSummary toBootstrapConversation(ConversationState state) {
+        return new BootstrapPayload.ConversationSummary(state.id, state.title, state.summary, "Updated " + state.updatedAt, state.mode, state.status, state.pinned);
+    }
+
+    private String bootstrapMessageLabel(MessageView message) {
+        if ("user".equals(message.role())) {
+            return "User";
+        }
+        if ("thinking_summary".equals(message.kind())) {
+            return "Thinking";
+        }
+        return "Assistant";
+    }
+
+    private MessageView newMessage(
             String projectId,
             String conversationId,
-            String emittedAt,
-            MessageView message
+            String kind,
+            String role,
+            String body,
+            String summary,
+            String statusLabel,
+            String createdAt,
+            String completedAt,
+            Long latencyMs
     ) {
-        if (message == null || message.body() == null || message.body().isBlank()) {
-            return;
+        return new MessageView(
+                "message-" + UUID.randomUUID(),
+                projectId,
+                conversationId,
+                kind,
+                role,
+                body,
+                summary,
+                statusLabel,
+                latencyMs,
+                messageSeq.incrementAndGet(),
+                createdAt,
+                completedAt,
+                List.of()
+        );
+    }
+
+    private MessageView newMessageWithId(
+            String messageId,
+            String projectId,
+            String conversationId,
+            String kind,
+            String role,
+            String body,
+            String summary,
+            String statusLabel,
+            String createdAt,
+            String completedAt,
+            Long latencyMs
+    ) {
+        return new MessageView(
+                messageId,
+                projectId,
+                conversationId,
+                kind,
+                role,
+                body,
+                summary,
+                statusLabel,
+                latencyMs,
+                messageSeq.incrementAndGet(),
+                createdAt,
+                completedAt,
+                List.of()
+        );
+    }
+
+    private ProjectState requireProject(String projectId) {
+        ProjectState state = projects.get(projectId);
+        if (state == null) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "PROJECT_NOT_FOUND", "Project does not exist");
+        }
+        return state;
+    }
+
+    private ConversationState requireConversation(String projectId, String conversationId) {
+        ConversationState state = conversations.get(conversationId);
+        if (state == null || !state.projectId.equals(projectId)) {
+            throw new ApiException(HttpStatus.NOT_FOUND, "CONVERSATION_NOT_FOUND", "Conversation does not exist");
+        }
+        return state;
+    }
+
+    private List<ConversationState> projectConversations(String projectId) {
+        return conversations.values().stream().filter(conversation -> conversation.projectId.equals(projectId)).toList();
+    }
+
+    private String nextProjectId(String rawName) {
+        String slug = rawName.toLowerCase(Locale.ROOT).replaceAll("[^a-z0-9]+", "-").replaceAll("(^-|-$)", "");
+        String normalizedSlug = slug.isBlank() ? "project" : slug;
+        String base = normalizedSlug.startsWith("project-") || "project".equals(normalizedSlug)
+                ? normalizedSlug
+                : "project-" + normalizedSlug;
+        return projects.containsKey(base) ? base + "-" + projectSeq.incrementAndGet() : base;
+    }
+
+    private String nextGeneratedProjectName() {
+        return "Project " + (projects.size() + 1);
+    }
+
+    private void moveConversationToProject(ConversationState state, ProjectState nextProject) {
+        ProjectState previousProject = requireProject(state.projectId);
+        previousProject.pinnedConversationIds.remove(state.id);
+        nextProject.updatedAt = now();
+        if (state.pinned && !nextProject.pinnedConversationIds.contains(state.id)) {
+            nextProject.pinnedConversationIds.add(state.id);
         }
 
-        List<String> chunks = chunkText(message.body());
-        for (int index = 0; index < chunks.size(); index++) {
-            events.add(event(eventName, projectId, conversationId, emittedAt, Map.of(
-                    "messageId", message.id(),
-                    "chunk", chunks.get(index),
-                    "chunkIndex", index
-            )));
+        state.projectId = nextProject.id;
+        state.messages.replaceAll(message -> new MessageView(
+                message.id(),
+                nextProject.id,
+                message.conversationId(),
+                message.kind(),
+                message.role(),
+                message.body(),
+                message.summary(),
+                message.statusLabel(),
+                message.latencyMs(),
+                message.sequence(),
+                message.createdAt(),
+                message.completedAt(),
+                message.attachments()
+        ));
+        state.context.snapshots = state.context.snapshots.stream()
+                .map(snapshot -> new ContextSnapshotView(
+                        snapshot.id(),
+                        nextProject.id,
+                        snapshot.conversationId(),
+                        snapshot.kind(),
+                        snapshot.content(),
+                        snapshot.updatedAt()
+                ))
+                .toList();
+
+        for (int index = 0; index < memoryItems.size(); index++) {
+            MemoryItemView item = memoryItems.get(index);
+            if (Objects.equals(item.conversationId(), state.id)) {
+                memoryItems.set(index, new MemoryItemView(
+                        item.id(),
+                        item.scope(),
+                        nextProject.id,
+                        item.conversationId(),
+                        item.content(),
+                        item.source(),
+                        item.updatedAt()
+                ));
+            }
+        }
+
+        if (state.activeActionId != null) {
+            ActionState action = actions.get(state.activeActionId);
+            if (action != null) {
+                action.projectId = nextProject.id;
+            }
+        }
+
+        previousProject.updatedAt = now();
+        previousProject.lastMessageAt = projectConversations(previousProject.id).stream()
+                .map(conversation -> conversation.lastMessageAt)
+                .filter(Objects::nonNull)
+                .max(String::compareTo)
+                .orElse(previousProject.lastMessageAt);
+        nextProject.lastMessageAt = state.lastMessageAt;
+    }
+
+    private void replayLatestConversationEvents(String projectId, String conversationId, Consumer<Map<String, Object>> sink) {
+        String emittedAt = now();
+        MessageView thinking = latestMessageByKind(projectId, conversationId, "thinking_summary");
+        MessageView assistant = latestMessageByKind(projectId, conversationId, "assistant");
+        TracePanelView trace = getTrace(projectId, conversationId);
+
+        appendMessageReplayEvents(projectId, conversationId, "thinking.summary.delta", thinking, sink);
+        if (thinking != null) {
+            sink.accept(event("thinking.summary.done", projectId, conversationId, emittedAt, Map.of("message", thinking)));
+        }
+
+        appendMessageReplayEvents(projectId, conversationId, "message.delta", assistant, sink);
+        if (assistant != null) {
+            sink.accept(event("message.done", projectId, conversationId, emittedAt, Map.of("message", assistant)));
+        }
+
+        for (RunStepView step : trace.steps()) {
+            sink.accept(event("trace.step.created", projectId, conversationId, emittedAt, Map.of("runId", trace.activeRun() == null ? "run-preview-" + conversationId : trace.activeRun().id(), "step", step)));
+            sink.accept(event(stepCompleted(step.status()) ? "trace.step.completed" : "trace.step.updated", projectId, conversationId, emittedAt, Map.of("runId", trace.activeRun() == null ? "run-preview-" + conversationId : trace.activeRun().id(), "step", step)));
+        }
+
+        sink.accept(event("context.updated", projectId, conversationId, emittedAt, Map.of("context", getContext(projectId, conversationId))));
+        if (trace.activeRun() != null) {
+            if ("failed".equals(trace.activeRun().status())) {
+                sink.accept(event("run.failed", projectId, conversationId, emittedAt, Map.of(
+                        "run", trace.activeRun(),
+                        "error", Map.of("code", "RUN_FAILED", "message", blankTo(trace.reasoningSummary(), "The active run failed"))
+                )));
+            } else {
+                sink.accept(event("run.completed", projectId, conversationId, emittedAt, Map.of("run", trace.activeRun())));
+            }
         }
     }
 
-    private List<String> chunkText(String value) {
-        if (value.length() <= 24) {
-            return List.of(value);
+    private void appendMessageReplayEvents(String projectId, String conversationId, String eventName, MessageView message, Consumer<Map<String, Object>> sink) {
+        if (message == null || message.body() == null || message.body().isBlank()) {
+            return;
         }
+        List<String> chunks = chunkMessage(message.body(), 32);
+        for (int index = 0; index < chunks.size(); index++) {
+            sink.accept(event(eventName, projectId, conversationId, now(), Map.of("messageId", message.id(), "chunk", chunks.get(index), "chunkIndex", index)));
+        }
+    }
 
-        int middle = value.length() / 2;
-        return List.of(value.substring(0, middle), value.substring(middle));
+    private void emitCurrentTraceSteps(String projectId, String conversationId, String runId, Consumer<Map<String, Object>> sink) {
+        for (RunStepView step : requireConversation(projectId, conversationId).traceSteps) {
+            sink.accept(event("trace.step.created", projectId, conversationId, now(), Map.of("runId", runId, "step", step)));
+            sink.accept(event(stepCompleted(step.status()) ? "trace.step.completed" : "trace.step.updated", projectId, conversationId, now(), Map.of("runId", runId, "step", step)));
+        }
+    }
+
+    private void completeContextStep(String projectId, String conversationId, String runId, String completedAt, Consumer<Map<String, Object>> sink) {
+        markTraceStep(projectId, conversationId, runId, "trace-context-" + conversationId, "success", "Project context, recent messages, and runtime policy are loaded.", completedAt, sink);
+        markTraceStep(projectId, conversationId, runId, "trace-model-" + conversationId, "waiting", "Waiting for streamed deltas from the model.", null, sink);
+    }
+
+    private void markTraceStep(String projectId, String conversationId, String runId, String stepId, String status, String detail, String completedAt, Consumer<Map<String, Object>> sink) {
+        ConversationState state = requireConversation(projectId, conversationId);
+        RunStepView existing = state.traceSteps.stream().filter(step -> step.id().equals(stepId)).findFirst().orElse(null);
+        String startedAt = existing != null && existing.startedAt() != null ? existing.startedAt() : now();
+        RunStepView nextStep = new RunStepView(
+                stepId,
+                runId,
+                stepTitleFor(stepId),
+                detail,
+                status,
+                startedAt,
+                completedAt,
+                "failed".equals(status) ? detail : null
+        );
+        state.traceSteps.removeIf(step -> step.id().equals(stepId));
+        int insertIndex = Math.min(traceIndexFor(stepId), state.traceSteps.size());
+        state.traceSteps.add(insertIndex, nextStep);
+        state.traceUpdatedAt = now();
+        sink.accept(event(
+                existing == null ? "trace.step.created" : stepCompleted(status) ? "trace.step.completed" : "trace.step.updated",
+                projectId,
+                conversationId,
+                state.traceUpdatedAt,
+                Map.of("runId", runId, "step", nextStep)
+        ));
+    }
+
+    private String stepTitleFor(String stepId) {
+        if (stepId.contains("context")) {
+            return "Load context";
+        }
+        if (stepId.contains("model")) {
+            return "Call model";
+        }
+        return "Publish reply";
+    }
+
+    private int traceIndexFor(String stepId) {
+        if (stepId.contains("context")) {
+            return 0;
+        }
+        if (stepId.contains("model")) {
+            return 1;
+        }
+        return 2;
+    }
+
+    private boolean stepCompleted(String status) {
+        return "success".equals(status) || "failed".equals(status) || "skipped".equals(status);
+    }
+
+    private void appendDeltaAndEmit(String projectId, String conversationId, String eventName, MessageAccumulator accumulator, String delta, Consumer<Map<String, Object>> sink) {
+        if (delta == null || delta.isBlank()) {
+            return;
+        }
+        accumulator.body.append(delta);
+        sink.accept(event(eventName, projectId, conversationId, now(), Map.of(
+                "messageId", accumulator.messageId,
+                "chunk", delta,
+                "chunkIndex", accumulator.nextChunkIndex++
+        )));
+    }
+
+    private MessageView finalizeThinkingMessage(String projectId, String conversationId, MessageAccumulator accumulator, StreamedAssistantTurn streamedTurn, String completedAt, long latencyMs) {
+        String body = accumulator.body.length() == 0 ? streamedTurn.reasoningSummary() : accumulator.body.toString();
+        if (body == null || body.isBlank()) {
+            return null;
+        }
+        return newMessageWithId(
+                accumulator.messageId,
+                projectId,
+                conversationId,
+                "thinking_summary",
+                "assistant",
+                body,
+                summarize(body),
+                "completed",
+                accumulator.createdAt,
+                completedAt,
+                latencyMs
+        );
+    }
+
+    private MessageView finalizeAssistantMessage(String projectId, String conversationId, MessageAccumulator accumulator, StreamedAssistantTurn streamedTurn, String completedAt, long latencyMs) {
+        String body = accumulator.body.length() == 0 ? streamedTurn.assistantBody() : accumulator.body.toString();
+        return newMessageWithId(
+                accumulator.messageId,
+                projectId,
+                conversationId,
+                "assistant",
+                "assistant",
+                body,
+                blankTo(streamedTurn.reasoningSummary(), summarize(body)),
+                "completed",
+                accumulator.createdAt,
+                completedAt,
+                latencyMs
+        );
+    }
+
+    private List<RunStepView> defaultPreviewTraceSteps(String conversationId, String runId, String timestamp) {
+        String resolvedRunId = runId == null ? "run-preview-" + conversationId : runId;
+        return List.of(
+                new RunStepView("trace-context-" + conversationId, resolvedRunId, "Load context", "Read project instructions, recent messages, and model bindings.", "success", timestamp, timestamp, null),
+                new RunStepView("trace-model-" + conversationId, resolvedRunId, "Call model", "Use the configured provider or surface setup guidance.", "success", timestamp, timestamp, null),
+                new RunStepView("trace-publish-" + conversationId, resolvedRunId, "Publish reply", "Persist the visible reply, thinking summary, and updated context.", "success", timestamp, timestamp, null)
+        );
+    }
+
+    private List<RunStepView> defaultRunningTraceSteps(String conversationId, String runId, String startedAt) {
+        return List.of(
+                new RunStepView("trace-context-" + conversationId, runId, "Load context", "Read project instructions, recent messages, and model bindings.", "running", startedAt, null, null),
+                new RunStepView("trace-model-" + conversationId, runId, "Call model", "Wait for streamed reasoning and answer deltas.", "pending", null, null, null),
+                new RunStepView("trace-publish-" + conversationId, runId, "Publish reply", "Persist the final answer and refreshed context.", "pending", null, null, null)
+        );
+    }
+
+    private void updateTraceSummary(ConversationState state, String summary, String updatedAt) {
+        state.traceSummary = summary;
+        state.traceUpdatedAt = updatedAt;
+    }
+
+    private String toRunStatus(String actionStatus) {
+        return switch (blankTo(actionStatus, "pending")) {
+            case "running" -> "running";
+            case "waiting" -> "waiting";
+            case "failed" -> "failed";
+            case "cancelled" -> "cancelled";
+            default -> "success";
+        };
+    }
+
+    private List<String> chunkMessage(String body, int chunkSize) {
+        List<String> chunks = new ArrayList<>();
+        for (int start = 0; start < body.length(); start += chunkSize) {
+            int end = Math.min(body.length(), start + chunkSize);
+            chunks.add(body.substring(start, end));
+        }
+        return chunks;
     }
 
     private Map<String, Object> event(String name, String projectId, String conversationId, String emittedAt, Map<String, Object> payload) {
@@ -588,106 +1359,26 @@ public class WorkspaceStateService {
         return event;
     }
 
-    private void requireProject(String projectId) {
-        if (!project.id.equals(projectId)) throw new ApiException(HttpStatus.NOT_FOUND, "PROJECT_NOT_FOUND", "Project does not exist");
+    private static String summarize(String value) {
+        if (value == null || value.isBlank()) {
+            return "";
+        }
+        return value.length() <= 96 ? value : value.substring(0, 95) + "...";
     }
 
-    private ConversationState requireConversation(String conversationId) {
-        ConversationState state = conversations.get(conversationId);
-        if (state == null) throw new ApiException(HttpStatus.NOT_FOUND, "CONVERSATION_NOT_FOUND", "Conversation does not exist");
-        return state;
-    }
+    private static final class MessageAccumulator {
+        private final String kind;
+        private final String messageId;
+        private final String createdAt;
+        private final StringBuilder body = new StringBuilder();
+        private int nextChunkIndex = 0;
 
-    private static String blankTo(String value, String fallback) { return value == null || value.isBlank() ? fallback : value; }
-    private static String abbreviate(String value) { return value.length() <= 48 ? value : value.substring(0, 47) + "…"; }
-    private static String now() { return Instant.now().truncatedTo(ChronoUnit.SECONDS).toString(); }
-
-    private static final class ProjectState {
-        private final String id = "project-loom";
-        private String name = "loom";
-        private String description = "A projectized AI conversation workspace focused on visible trace, context, and capability controls.";
-        private String status = "active";
-        private String instructions = "Keep conversation-first UX, trace visibility, and document-first delivery discipline.";
-        private final List<String> pinnedConversationIds = List.of("conversation-v1", "conversation-trace");
-        private final CapabilityBindingSummary bindings = new CapabilityBindingSummary("model-gpt54-thinking", List.of("skill-planning", "skill-summarize", "skill-retrieve-context"), "routing-default");
-        private String lastMessageAt = now();
-        private String updatedAt = now();
-    }
-
-    private static final class ConversationState {
-        private final String id;
-        private final String projectId;
-        private String title;
-        private String summary = "等待第一条消息";
-        private String mode;
-        private String status = "idle";
-        private boolean pinned;
-        private String updatedAt = now();
-        private String lastMessageAt = now();
-        private String activeActionId;
-        private String activeRunId;
-        private final ContextState context = new ContextState();
-        private final List<MessageView> messages = new ArrayList<>();
-
-        private ConversationState(String id, String projectId, String title, String mode, boolean pinned) {
-            this.id = id;
-            this.projectId = projectId;
-            this.title = title;
-            this.mode = mode;
-            this.pinned = pinned;
+        private MessageAccumulator(String kind, String messageId, String createdAt) {
+            this.kind = kind;
+            this.messageId = messageId;
+            this.createdAt = createdAt;
         }
     }
 
-    private static final class ActionState {
-        private final String id;
-        private final String projectId;
-        private final String conversationId;
-        private final String runId;
-        private final String title;
-        private final String status;
-        private final String summary;
-        private final String startedAt;
-        private final String completedAt;
-        private final List<String> stepIds;
-
-        private ActionState(
-                String id,
-                String projectId,
-                String conversationId,
-                String runId,
-                String title,
-                String status,
-                String summary,
-                String startedAt,
-                String completedAt,
-                List<String> stepIds
-        ) {
-            this.id = id;
-            this.projectId = projectId;
-            this.conversationId = conversationId;
-            this.runId = runId;
-            this.title = title;
-            this.status = status;
-            this.summary = summary;
-            this.startedAt = startedAt;
-            this.completedAt = completedAt;
-            this.stepIds = List.copyOf(stepIds);
-        }
-
-        private ActionView toView() {
-            return new ActionView(id, projectId, conversationId, runId, title, status, summary, startedAt, completedAt, stepIds);
-        }
-    }
-
-    private static final class ContextState {
-        private String conversationSummary = "当前会话围绕 Phase 1 壳层、合同和联调基线推进。";
-        private List<String> decisions = List.of();
-        private List<String> openLoops = List.of();
-        private List<String> activeGoals = List.of();
-        private List<String> constraints = List.of();
-        private List<ContextReferenceItem> references = List.of();
-        private List<ContextSnapshotView> snapshots = List.of();
-        private String updatedAt = now();
-        private int refreshCount = 0;
-    }
+    private record StreamedAssistantTurn(String assistantBody, String reasoningSummary, String summaryBadge, long latencyMs, String responseModel) {}
 }

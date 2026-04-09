@@ -10,14 +10,18 @@ import type {
   CapabilityOverviewView,
   ContextBlock,
   ContextPanelView,
+  CreateConversationRequest,
+  CreateProjectRequest,
   ConversationMessage,
   ConversationMode,
   ConversationListItem,
   ConversationSummary,
   ConversationView,
   ConversationStreamEvent,
+  LlmConnectionTestView,
   LoomBootstrapPayload,
   MessageView,
+  ProjectListItem,
   ProjectSummary,
   ProjectView,
   SettingsOverview,
@@ -26,6 +30,7 @@ import type {
   StatusItem,
   TraceStep,
   TracePanelView,
+  UpdateLlmConfigRequest,
   WorkspacePageId,
 } from '../types'
 
@@ -55,6 +60,11 @@ interface WorkbenchActions {
   closeGlobalSearch: () => void
   toggleLeftSidebar: () => void
   cycleBootstrapSourceMode: () => void
+  createProject: (request?: CreateProjectRequest) => Promise<ProjectView>
+  createConversation: (projectId: string, request?: CreateConversationRequest) => Promise<ConversationView>
+  moveConversation: (conversationId: string, nextProjectId: string) => Promise<ConversationView>
+  updateLlmSettings: (request: UpdateLlmConfigRequest) => Promise<void>
+  testLlmSettings: (request: UpdateLlmConfigRequest) => Promise<LlmConnectionTestView>
   handlePrimaryAction: (actionId: string) => void
   handleHeaderAction: (actionId: string) => void
   handleSystemEntry: (entryId: string) => void
@@ -66,6 +76,11 @@ interface WorkbenchContextValue {
 }
 
 const WorkbenchContext = createContext<WorkbenchContextValue | null>(null)
+const OPTIMISTIC_ASSISTANT_PREFIX = 'optimistic-assistant-'
+
+function isOptimisticAssistantMessage(message: ConversationMessage) {
+  return message.id.startsWith(OPTIMISTIC_ASSISTANT_PREFIX)
+}
 
 function defaultConversationId(payload: LoomBootstrapPayload): string | null {
   return payload.pinnedConversations[0]?.id ?? payload.recentConversations[0]?.id ?? null
@@ -89,10 +104,13 @@ function toConversationMessage(message: MessageView): ConversationMessage {
   return {
     id: message.id,
     kind: message.kind,
-    label: toConversationLabel(message),
+    label: toReadableConversationLabel(message),
     body: message.body,
     emphasis: message.summary,
     statusLabel: message.statusLabel,
+    latencyMs: message.latencyMs,
+    createdAt: message.createdAt,
+    completedAt: message.completedAt,
   }
 }
 
@@ -126,21 +144,20 @@ function toTraceStep(step: RunStepView): TraceStep {
     label: step.title,
     detail: step.detail,
     status: step.status,
+    startedAt: step.startedAt,
+    completedAt: step.completedAt,
+    errorMessage: step.errorMessage,
   }
-}
-
-function sortByUpdatedAtDesc<T extends { updatedAt: string }>(items: T[]): T[] {
-  return [...items].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
 }
 
 function partitionConversations(items: ConversationListItem[]): {
   pinnedConversations: ConversationSummary[]
   recentConversations: ConversationSummary[]
 } {
-  const summaries = items.map(toConversationSummary)
+  const sortedItems = [...items].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
   return {
-    pinnedConversations: sortByUpdatedAtDesc(summaries.filter((item) => item.pinned)),
-    recentConversations: sortByUpdatedAtDesc(summaries.filter((item) => !item.pinned)),
+    pinnedConversations: sortedItems.filter((item) => item.pinned).map(toConversationSummary),
+    recentConversations: sortedItems.filter((item) => !item.pinned).map(toConversationSummary),
   }
 }
 
@@ -169,8 +186,8 @@ function toSettingsOverview(settings: SettingsOverviewView): SettingsOverview {
           {
             label: '能力',
             value: [
-              activeModel.supportsStreaming ? 'Streaming' : null,
-              activeModel.supportsImages ? 'Images' : null,
+              activeModel.supportsStreaming ? '流式输出' : null,
+              activeModel.supportsImages ? '图像' : null,
               activeModel.supportsTools ? 'Tools' : null,
               activeModel.supportsLongContext ? 'Long Context' : null,
             ]
@@ -201,40 +218,190 @@ function toCapabilitiesOverview(capabilities: CapabilityOverviewView): Capabilit
   }
 }
 
+function toReadableConversationLabel(message: MessageView): string {
+  if (message.kind === 'user') {
+    return '用户'
+  }
+  if (message.kind === 'thinking_summary') {
+    return '思考'
+  }
+  return '助手'
+}
+
+function toReadableConversationSummary(item: ConversationListItem | ConversationView): ConversationSummary {
+  return {
+    id: item.id,
+    title: item.title,
+    summary: 'contextSummary' in item && item.contextSummary ? item.contextSummary : item.summary,
+    lastUpdatedLabel: `最近更新 ${item.updatedAt}`,
+    mode: item.mode,
+    status: item.status,
+    pinned: item.pinned,
+  }
+}
+
+function toReadableProjectSummary(base: ProjectSummary, project: ProjectView): ProjectSummary {
+  return {
+    ...base,
+    id: project.id,
+    name: project.name,
+    eyebrow: project.status === 'active' ? '远端项目' : `远端项目 / ${project.status}`,
+    description: project.description,
+    workspaceLabel: `项目：${project.name} / ${project.conversationCount} 个会话`,
+    lastUpdatedLabel: `最近更新 ${project.updatedAt}`,
+  }
+}
+
+function toReadableProjectListItem(project: ProjectView): ProjectListItem {
+  return {
+    id: project.id,
+    name: project.name,
+    description: project.description,
+    status: project.status,
+    conversationCount: project.conversationCount,
+    lastMessageAt: project.lastMessageAt,
+    updatedAt: project.updatedAt,
+  }
+}
+
+function partitionRemoteConversations(items: ConversationListItem[]): {
+  pinnedConversations: ConversationSummary[]
+  recentConversations: ConversationSummary[]
+} {
+  const sortedItems = [...items].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+  return {
+    pinnedConversations: sortedItems.filter((item) => item.pinned).map(toReadableConversationSummary),
+    recentConversations: sortedItems.filter((item) => !item.pinned).map(toReadableConversationSummary),
+  }
+}
+
+function toReadableContextBlocks(context: ContextPanelView): ContextBlock[] {
+  return [
+    { id: 'context-goal', label: '当前目标', value: context.activeGoals[0] ?? '等待新的目标。' },
+    { id: 'context-constraints', label: '约束条件', value: context.constraints.join(' | ') || '当前没有额外约束。' },
+    { id: 'context-summary', label: '会话摘要', value: context.conversationSummary },
+    { id: 'context-active', label: '进行中的事项', value: context.decisions.join(' | ') || '当前没有进行中的事项。' },
+    { id: 'context-files', label: '关联资料', value: context.references[0]?.summary ?? '暂未关联资料。' },
+    { id: 'context-open', label: '未闭环事项', value: context.openLoops.join(' | ') || '当前没有未闭环事项。' },
+  ]
+}
+
+function toDetailedSettingsOverview(settings: SettingsOverviewView): SettingsOverview {
+  const activeModel = settings.modelProfiles.find((profile) => profile.active) ?? settings.modelProfiles[0]
+
+  return {
+    summary: '这里展示当前生效模型、可选预设，以及最近一次连通性测试结果。',
+    tabs: settings.tabs,
+    profile: activeModel
+      ? [
+          { label: '配置名称', value: activeModel.name },
+          { label: '提供方', value: activeModel.provider },
+          { label: 'Model ID', value: activeModel.modelId },
+          {
+            label: '能力',
+            value: [
+              activeModel.supportsStreaming ? '流式输出' : null,
+              activeModel.supportsImages ? '图像' : null,
+              activeModel.supportsTools ? 'Tools' : null,
+              activeModel.supportsLongContext ? 'Long Context' : null,
+            ]
+              .filter(Boolean)
+              .join(' | '),
+          },
+          { label: '超时', value: `${activeModel.timeoutMs} ms` },
+        ]
+      : [],
+    guidance: [
+      `当前作用域：${settings.activeScope}`,
+      `已启用 Skills：${settings.skills.filter((skill) => skill.enabled).map((skill) => skill.name).join(' / ') || '无'}`,
+      `默认运行时：${settings.routingPolicy?.defaultRuntime ?? 'internal'}`,
+    ],
+    riskNotes: [
+      settings.routingPolicy?.allowExternalExecutors ? '外部执行器仍然启用，建议继续保留准入控制。' : '外部执行器当前处于关闭状态。',
+      settings.memoryPolicy?.allowSystemWrites ? 'System 记忆写入已开启，配置变更后需要验证。' : 'System 记忆写入当前关闭。',
+      '每次配置调整后都应重新做一次在线连通性测试。',
+    ],
+    providerPresets: settings.providerPresets,
+    llmConfigs: settings.llmConfigs,
+    activeConfig: settings.activeLlmConfig,
+    lastConnectionTest: settings.lastConnectionTest,
+  }
+}
+
 interface StreamOverlayState {
   conversationId: string
   messages: ConversationMessage[]
+  traceSummary: string
   traceSteps: TraceStep[]
   contextBlocks: ContextBlock[]
 }
 
-function createOverlayState(payload: LoomBootstrapPayload, conversationId: string): StreamOverlayState {
+function createOverlayState(
+  conversationId: string,
+  messages: ConversationMessage[],
+  traceSummary: string,
+  traceSteps: TraceStep[],
+  contextBlocks: ContextBlock[],
+): StreamOverlayState {
   return {
     conversationId,
-    messages: payload.messages,
-    traceSteps: payload.traceSteps,
-    contextBlocks: payload.contextBlocks,
+    messages,
+    traceSummary,
+    traceSteps,
+    contextBlocks,
   }
+}
+
+function upsertStreamingMessage(
+  messages: ConversationMessage[],
+  event: Extract<ConversationStreamEvent, { event: 'message.delta' | 'thinking.summary.delta' }>,
+): ConversationMessage[] {
+  const kind = event.event === 'thinking.summary.delta' ? 'thinking_summary' : 'assistant'
+  const label = kind === 'thinking_summary' ? '思考' : '助手'
+  const nextMessages = event.event === 'message.delta' ? messages.filter((item) => !isOptimisticAssistantMessage(item)) : [...messages]
+  const existingIndex = nextMessages.findIndex((item) => item.id === event.messageId)
+
+  if (existingIndex >= 0) {
+    nextMessages[existingIndex] = {
+      ...nextMessages[existingIndex],
+      body: `${nextMessages[existingIndex].body}${event.chunk}`,
+      statusLabel: 'streaming',
+      completedAt: null,
+    }
+    return nextMessages
+  }
+
+  nextMessages.push({
+    id: event.messageId,
+    kind,
+    label,
+    body: event.chunk,
+    statusLabel: 'streaming',
+    createdAt: event.emittedAt,
+    completedAt: null,
+  })
+  return nextMessages
 }
 
 function applyStreamEvent(overlay: StreamOverlayState, event: ConversationStreamEvent): StreamOverlayState {
   switch (event.event) {
-    case 'thinking.summary.delta':
     case 'message.delta': {
       const messageId = event.messageId
-      const nextMessages = [...overlay.messages]
+      const nextMessages = overlay.messages.filter((item) => !(item.kind === 'assistant' && item.statusLabel === 'streaming' && !item.body))
       const existingIndex = nextMessages.findIndex((item) => item.id === messageId)
       if (existingIndex >= 0) {
         nextMessages[existingIndex] = {
           ...nextMessages[existingIndex],
           body: `${nextMessages[existingIndex].body}${event.chunk}`,
+          statusLabel: 'streaming',
         }
       } else {
         nextMessages.push({
           id: messageId,
-          kind: event.event === 'thinking.summary.delta' ? 'thinking_summary' : 'assistant',
+          kind: 'assistant',
           label: event.event === 'thinking.summary.delta' ? '思考摘要' : '助手',
           body: event.chunk,
+          statusLabel: 'streaming',
         })
       }
       return {
@@ -242,10 +409,9 @@ function applyStreamEvent(overlay: StreamOverlayState, event: ConversationStream
         messages: nextMessages,
       }
     }
-    case 'thinking.summary.done':
     case 'message.done': {
       const nextMessage = toConversationMessage(event.message)
-      const nextMessages = overlay.messages.filter((item) => item.id !== nextMessage.id)
+      const nextMessages = overlay.messages.filter((item) => !(item.id === nextMessage.id || (item.kind === 'assistant' && item.statusLabel === 'streaming' && !item.body)))
       nextMessages.push(nextMessage)
       return {
         ...overlay,
@@ -273,6 +439,62 @@ function applyStreamEvent(overlay: StreamOverlayState, event: ConversationStream
   }
 }
 
+function applyConversationStreamEvent(overlay: StreamOverlayState, event: ConversationStreamEvent): StreamOverlayState {
+  switch (event.event) {
+    case 'message.delta':
+    case 'thinking.summary.delta':
+      return {
+        ...overlay,
+        messages: upsertStreamingMessage(overlay.messages, event),
+        traceSummary:
+          event.event === 'thinking.summary.delta' ? `${overlay.traceSummary}${event.chunk}`.trim() || overlay.traceSummary : overlay.traceSummary,
+      }
+    case 'message.done': {
+      const nextMessage = toConversationMessage(event.message)
+      const nextMessages = overlay.messages.filter((item) => item.id !== nextMessage.id && !isOptimisticAssistantMessage(item))
+      nextMessages.push(nextMessage)
+      return {
+        ...overlay,
+        messages: nextMessages,
+      }
+    }
+    case 'thinking.summary.done': {
+      const nextMessage = toConversationMessage(event.message)
+      const nextMessages = overlay.messages.filter((item) => item.id !== nextMessage.id)
+      nextMessages.push(nextMessage)
+      return {
+        ...overlay,
+        messages: nextMessages,
+        traceSummary: nextMessage.body || overlay.traceSummary,
+      }
+    }
+    case 'trace.step.created':
+    case 'trace.step.updated':
+    case 'trace.step.completed': {
+      const nextStep = toTraceStep(event.step)
+      const nextSteps = overlay.traceSteps.filter((item) => item.id !== nextStep.id)
+      nextSteps.push(nextStep)
+      nextSteps.sort((left, right) => left.id.localeCompare(right.id))
+      return {
+        ...overlay,
+        traceSteps: nextSteps,
+      }
+    }
+    case 'context.updated':
+      return {
+        ...overlay,
+        contextBlocks: toContextBlocks(event.context),
+      }
+    case 'run.failed':
+      return {
+        ...overlay,
+        traceSummary: event.error.message,
+      }
+    default:
+      return overlay
+  }
+}
+
 export function LoomWorkbenchProvider({
   apiBaseUrl,
   payload,
@@ -292,6 +514,7 @@ export function LoomWorkbenchProvider({
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [streamOverlay, setStreamOverlay] = useState<StreamOverlayState | null>(null)
+  const [remoteProjects, setRemoteProjects] = useState<ProjectListItem[] | null>(null)
   const [remoteProject, setRemoteProject] = useState<ProjectView | null>(null)
   const [remoteConversations, setRemoteConversations] = useState<ConversationListItem[] | null>(null)
   const [remoteConversation, setRemoteConversation] = useState<ConversationView | null>(null)
@@ -304,7 +527,9 @@ export function LoomWorkbenchProvider({
   const [scrollPositions, setScrollPositions] = useState<Record<string, number>>({})
   const streamUnsubscribeRef = useRef<null | (() => void)>(null)
   const combinedError = runtimeError ?? error
+  const activeProjectId = route.projectId ?? payload.project.id
   const activeConversationId = route.conversationId ?? defaultConversationId(payload)
+  const bootstrapConversationId = defaultConversationId(payload)
 
   const effectivePayload = useMemo(() => {
     const nextPayload =
@@ -312,21 +537,28 @@ export function LoomWorkbenchProvider({
         ? {
             ...payload,
             messages: streamOverlay.messages,
+            traceSummary: streamOverlay.traceSummary,
             traceSteps: streamOverlay.traceSteps,
             contextBlocks: streamOverlay.contextBlocks,
           }
         : payload
 
-    const remoteConversationGroups = remoteConversations ? partitionConversations(remoteConversations) : null
+    const remoteConversationGroups = remoteConversations ? partitionRemoteConversations(remoteConversations) : null
     const pinnedConversations = remoteConversationGroups?.pinnedConversations ?? nextPayload.pinnedConversations
     const recentConversations = remoteConversationGroups?.recentConversations ?? nextPayload.recentConversations
     const activeConversation =
       remoteConversation ?? [...pinnedConversations, ...recentConversations].find((item) => item.id === activeConversationId) ?? null
-    const nextProject = remoteProject ? toProjectSummary(nextPayload.project, remoteProject) : nextPayload.project
-    const nextMessages = remoteMessages ? remoteMessages.map(toConversationMessage) : nextPayload.messages
-    const nextTraceSteps = remoteTrace ? remoteTrace.steps.map(toTraceStep) : nextPayload.traceSteps
-    const nextContextBlocks = remoteContext ? toContextBlocks(remoteContext) : nextPayload.contextBlocks
-    const nextSettings = remoteSettings ? toSettingsOverview(remoteSettings) : nextPayload.settings
+    const nextProject = remoteProject ? toReadableProjectSummary(nextPayload.project, remoteProject) : nextPayload.project
+    const overlayMessages = streamOverlay && streamOverlay.conversationId === activeConversationId ? streamOverlay.messages : null
+    const overlayTraceSummary = streamOverlay && streamOverlay.conversationId === activeConversationId ? streamOverlay.traceSummary : null
+    const overlayTraceSteps = streamOverlay && streamOverlay.conversationId === activeConversationId ? streamOverlay.traceSteps : null
+    const overlayContextBlocks = streamOverlay && streamOverlay.conversationId === activeConversationId ? streamOverlay.contextBlocks : null
+    const nextMessages = overlayMessages ?? (remoteMessages ? remoteMessages.map(toConversationMessage) : activeConversationId === bootstrapConversationId ? nextPayload.messages : [])
+    const nextTraceSteps =
+      overlayTraceSteps ?? (remoteTrace ? remoteTrace.steps.map(toTraceStep) : activeConversationId === bootstrapConversationId ? nextPayload.traceSteps : [])
+    const nextContextBlocks =
+      overlayContextBlocks ?? (remoteContext ? toReadableContextBlocks(remoteContext) : activeConversationId === bootstrapConversationId ? nextPayload.contextBlocks : [])
+    const nextSettings = remoteSettings ? toDetailedSettingsOverview(remoteSettings) : nextPayload.settings
     const nextCapabilities = remoteCapabilities ? toCapabilitiesOverview(remoteCapabilities) : nextPayload.capabilities
     const conversationStatusLabel =
       remoteConversation == null
@@ -342,10 +574,10 @@ export function LoomWorkbenchProvider({
       pinnedConversations,
       recentConversations,
       activeMode: route.mode ?? activeConversation?.mode ?? nextPayload.activeMode,
-      conversationTitle: remoteConversation?.title ?? activeConversation?.title ?? nextPayload.conversationTitle,
+      conversationTitle: remoteConversation?.title ?? activeConversation?.title ?? (activeConversationId === bootstrapConversationId ? nextPayload.conversationTitle : '新会话'),
       conversationMeta: remoteConversation != null ? `${nextProject.name} · ${conversationStatusLabel} · ${conversationSummary}` : nextPayload.conversationMeta,
       messages: nextMessages,
-      traceSummary: remoteTrace?.reasoningSummary ?? nextPayload.traceSummary,
+      traceSummary: overlayTraceSummary ?? remoteTrace?.reasoningSummary ?? nextPayload.traceSummary,
       traceSteps: nextTraceSteps,
       contextBlocks: nextContextBlocks,
       settings: nextSettings,
@@ -371,7 +603,8 @@ export function LoomWorkbenchProvider({
   }, [activeConversationId, payload])
 
   useEffect(() => {
-    if (!payload.project.id) {
+    if (!activeProjectId) {
+      setRemoteProjects(null)
       setRemoteProject(null)
       setRemoteConversations(null)
       setRemoteSettings(null)
@@ -380,22 +613,25 @@ export function LoomWorkbenchProvider({
     }
 
     const controller = new AbortController()
+    setRemoteProjects(null)
     setRemoteProject(null)
     setRemoteConversations(null)
     setRemoteSettings(null)
     setRemoteCapabilities(null)
 
     void Promise.all([
-      sdk.workspace.getProject(payload.project.id, controller.signal),
-      sdk.workspace.listConversations(payload.project.id, controller.signal),
+      sdk.workspace.listProjects(controller.signal),
+      sdk.workspace.getProject(activeProjectId, controller.signal),
+      sdk.workspace.listConversations(activeProjectId, controller.signal),
       sdk.workspace.getSettingsOverview('project', controller.signal),
       sdk.workspace.getCapabilitiesOverview('project', controller.signal),
     ])
-      .then(([project, conversations, settings, capabilities]) => {
+      .then(([projects, project, conversations, settings, capabilities]) => {
         if (controller.signal.aborted) {
           return
         }
 
+        setRemoteProjects(projects.items)
         setRemoteProject(project)
         setRemoteConversations(conversations.items)
         setRemoteSettings(settings)
@@ -404,10 +640,10 @@ export function LoomWorkbenchProvider({
       .catch(() => undefined)
 
     return () => controller.abort()
-  }, [payload.project.id, sdk])
+  }, [activeProjectId, sdk])
 
   useEffect(() => {
-    if (!payload.project.id || !activeConversationId) {
+    if (!activeProjectId || !activeConversationId) {
       setRemoteConversation(null)
       setRemoteMessages(null)
       setRemoteTrace(null)
@@ -422,10 +658,10 @@ export function LoomWorkbenchProvider({
     setRemoteContext(null)
 
     void Promise.all([
-      sdk.workspace.getConversation(payload.project.id, activeConversationId, controller.signal),
-      sdk.workspace.listMessages(payload.project.id, activeConversationId, controller.signal),
-      sdk.workspace.getTrace(payload.project.id, activeConversationId, controller.signal),
-      sdk.workspace.getContext(payload.project.id, activeConversationId, controller.signal),
+      sdk.workspace.getConversation(activeProjectId, activeConversationId, controller.signal),
+      sdk.workspace.listMessages(activeProjectId, activeConversationId, controller.signal),
+      sdk.workspace.getTrace(activeProjectId, activeConversationId, controller.signal),
+      sdk.workspace.getContext(activeProjectId, activeConversationId, controller.signal),
     ])
       .then(([conversation, messages, trace, context]) => {
         if (controller.signal.aborted) {
@@ -440,7 +676,7 @@ export function LoomWorkbenchProvider({
       .catch(() => undefined)
 
     return () => controller.abort()
-  }, [activeConversationId, payload.messages, payload.project.id, payload.traceSteps, sdk])
+  }, [activeConversationId, activeProjectId, payload.messages, payload.traceSteps, sdk])
 
   useEffect(() => () => {
     streamUnsubscribeRef.current?.()
@@ -451,7 +687,7 @@ export function LoomWorkbenchProvider({
       ...route,
       layout: 'app',
       page: 'conversation',
-      projectId: effectivePayload.project.id,
+      projectId: activeProjectId,
       conversationId,
       mode: findConversationMode(effectivePayload, conversationId),
       callbackKind: null,
@@ -463,7 +699,7 @@ export function LoomWorkbenchProvider({
       ...route,
       layout: 'app',
       page,
-      projectId: effectivePayload.project.id,
+      projectId: activeProjectId,
       conversationId: activeConversationId,
       settingsSection: page === 'settings' ? route.settingsSection ?? effectivePayload.settings.tabs[0] ?? 'Models' : route.settingsSection,
       callbackKind: null,
@@ -520,7 +756,7 @@ export function LoomWorkbenchProvider({
     },
     async submitDraft() {
       const conversationId = activeConversationId
-      if (!conversationId) {
+      if (!conversationId || !activeProjectId) {
         return
       }
 
@@ -543,12 +779,50 @@ export function LoomWorkbenchProvider({
         ...current,
         [key]: {
           ...(current[key] ?? fallbackDraft),
+          draftText: '',
           submitting: true,
         },
       }))
 
+      const optimisticUserId = `optimistic-user-${Date.now()}`
+      const optimisticAssistantId = `${OPTIMISTIC_ASSISTANT_PREFIX}${Date.now()}`
+      const nowIso = new Date().toISOString()
+      const baseMessages = effectivePayload.messages
+      const baseTraceSummary = effectivePayload.traceSummary
+      const baseTraceSteps = effectivePayload.traceSteps
+      const baseContextBlocks = effectivePayload.contextBlocks
+
+      setStreamOverlay(
+        createOverlayState(
+          conversationId,
+          [
+            ...baseMessages,
+            {
+              id: optimisticUserId,
+              kind: 'user',
+              label: '用户',
+              body,
+              createdAt: nowIso,
+              completedAt: nowIso,
+            },
+            {
+              id: optimisticAssistantId,
+              kind: 'assistant',
+              label: '助手',
+              body: '',
+              statusLabel: 'pending',
+              createdAt: nowIso,
+              completedAt: null,
+            },
+          ],
+          baseTraceSummary,
+          baseTraceSteps,
+          baseContextBlocks,
+        ),
+      )
+
       try {
-        const response = await sdk.workspace.submitMessage(payload.project.id, conversationId, {
+        const response = await sdk.workspace.submitMessage(activeProjectId, conversationId, {
           body,
           requestedMode: route.mode ?? findConversationMode(effectivePayload, conversationId),
           allowActions: draft.allowActions,
@@ -556,14 +830,51 @@ export function LoomWorkbenchProvider({
         })
 
         streamUnsubscribeRef.current?.()
-        setStreamOverlay(createOverlayState(payload, conversationId))
+        setStreamOverlay((current) => {
+          const nextMessages = (current?.messages ?? []).filter((message) => message.id !== optimisticUserId)
+          nextMessages.push(toConversationMessage(response.userMessage))
+          return createOverlayState(
+            conversationId,
+            nextMessages,
+            current?.traceSummary ?? baseTraceSummary,
+            current?.traceSteps ?? baseTraceSteps,
+            current?.contextBlocks ?? baseContextBlocks,
+          )
+        })
+        let receivedFirstEvent = false
         streamUnsubscribeRef.current = streamClient.subscribe(
           response.streamPath,
           (event) => {
-            setStreamOverlay((current) => applyStreamEvent(current ?? createOverlayState(payload, conversationId), event))
+            if (!receivedFirstEvent) {
+              receivedFirstEvent = true
+              setDraftsByConversation((current) => ({
+                ...current,
+                [key]: {
+                  ...(current[key] ?? fallbackDraft),
+                  submitting: false,
+                },
+              }))
+            }
+            if (event.event === 'run.failed') {
+              setRuntimeError(event.error.message)
+            }
+            setStreamOverlay((current) =>
+              applyConversationStreamEvent(
+                current ?? createOverlayState(conversationId, baseMessages, baseTraceSummary, baseTraceSteps, baseContextBlocks),
+                event,
+              ),
+            )
           },
           () => {
             streamUnsubscribeRef.current = null
+            setDraftsByConversation((current) => ({
+              ...current,
+              [key]: {
+                ...(current[key] ?? fallbackDraft),
+                draftText: '',
+                submitting: false,
+              },
+            }))
             onRefreshPayload()
           },
         )
@@ -572,16 +883,17 @@ export function LoomWorkbenchProvider({
           ...current,
           [key]: {
             ...(current[key] ?? fallbackDraft),
-            draftText: '',
-            submitting: false,
+            submitting: true,
           },
         }))
       } catch (submitError) {
-        setRuntimeError(submitError instanceof Error ? submitError.message : 'Failed to submit message')
+        setRuntimeError(submitError instanceof Error ? submitError.message : '发送消息失败')
+        setStreamOverlay(createOverlayState(conversationId, baseMessages, baseTraceSummary, baseTraceSteps, baseContextBlocks))
         setDraftsByConversation((current) => ({
           ...current,
           [key]: {
             ...(current[key] ?? fallbackDraft),
+            draftText: body,
             submitting: false,
           },
         }))
@@ -605,9 +917,102 @@ export function LoomWorkbenchProvider({
     cycleBootstrapSourceMode() {
       onCycleBootstrapSource()
     },
+    async createProject(request) {
+      const project = await sdk.workspace.createProject(request)
+      setRemoteProjects((current) => {
+        const next = [...(current ?? []), toReadableProjectListItem(project)]
+        return next.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+      })
+      return project
+    },
+    async createConversation(projectId, request) {
+      const conversation = await sdk.workspace.createConversation(projectId, request)
+      const createdSummary = toReadableConversationSummary(conversation)
+      if (projectId === activeProjectId) {
+        setRemoteConversations((current) => {
+          const next = [conversation, ...(current ?? []).filter((item) => item.id !== conversation.id)]
+          return next.sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+        })
+        setRemoteConversation(conversation)
+        setRemoteMessages([])
+        setRemoteTrace(null)
+        setRemoteContext(null)
+      }
+      navigate(
+        {
+          ...route,
+          layout: 'app',
+          page: 'conversation',
+          projectId,
+          conversationId: conversation.id,
+          mode: conversation.mode,
+          callbackKind: null,
+        },
+        true,
+      )
+      setDraftsByConversation((current) => ({
+        ...current,
+        [conversation.id]: current[conversation.id] ?? {
+          draftText: '',
+          attachments: [],
+          allowActions: true,
+          allowMemory: true,
+          submitting: false,
+        },
+      }))
+      if (projectId === activeProjectId) {
+        setRemoteConversations((current) => {
+          const items = current ?? []
+          const withoutCurrent = items.filter((item) => item.id !== createdSummary.id)
+          return [conversation, ...withoutCurrent].sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
+        })
+      }
+      return conversation
+    },
+    async moveConversation(conversationId, nextProjectId) {
+      if (!activeProjectId) {
+        throw new Error('当前没有可用项目。')
+      }
+
+      const conversation = await sdk.workspace.updateConversation(activeProjectId, conversationId, {
+        projectId: nextProjectId,
+      })
+
+      const refreshedProjects = await sdk.workspace.listProjects()
+      setRemoteProjects(refreshedProjects.items)
+      setRemoteConversation(conversation)
+      navigate(
+        {
+          ...route,
+          layout: 'app',
+          page: 'conversation',
+          projectId: nextProjectId,
+          conversationId: conversation.id,
+          mode: conversation.mode,
+          callbackKind: null,
+        },
+        true,
+      )
+      return conversation
+    },
+    async updateLlmSettings(request) {
+      const settings = await sdk.workspace.updateLlmSettings(request)
+      setRemoteSettings(settings)
+    },
+    async testLlmSettings(request) {
+      const testResult = await sdk.workspace.testLlmSettings(request)
+      setRemoteSettings((current) => (current ? { ...current, lastConnectionTest: testResult } : current))
+      return testResult
+    },
     handlePrimaryAction(actionId) {
       if (actionId === 'new-thread') {
-        openConversation(activeConversationId ?? 'conversation-shell')
+        if (!activeProjectId) {
+          setRuntimeError('当前没有可用项目。')
+          return
+        }
+        void actions
+          .createConversation(activeProjectId, {})
+          .catch((createError) => setRuntimeError(createError instanceof Error ? createError.message : '创建会话失败'))
         return
       }
 
@@ -659,6 +1064,18 @@ export function LoomWorkbenchProvider({
     },
   }
 
+  const availableProjects = remoteProjects ?? [
+    {
+      id: effectivePayload.project.id,
+      name: effectivePayload.project.name,
+      description: effectivePayload.project.description,
+      status: 'active',
+      conversationCount: effectivePayload.pinnedConversations.length + effectivePayload.recentConversations.length,
+      lastMessageAt: null,
+      updatedAt: new Date().toISOString(),
+    },
+  ]
+
   const state = useMemo(
     () =>
       adaptBootstrapToWorkbench(effectivePayload, {
@@ -668,11 +1085,12 @@ export function LoomWorkbenchProvider({
         bootstrapSource,
         draftsByConversation,
         scrollPositions,
+        availableProjects,
         globalSearchOpen,
         commandPaletteOpen,
         leftSidebarCollapsed,
       }),
-    [bootstrapSource, combinedError, commandPaletteOpen, draftsByConversation, effectivePayload, globalSearchOpen, leftSidebarCollapsed, loading, route, scrollPositions],
+    [availableProjects, bootstrapSource, combinedError, commandPaletteOpen, draftsByConversation, effectivePayload, globalSearchOpen, leftSidebarCollapsed, loading, route, scrollPositions],
   )
 
   return <WorkbenchContext.Provider value={{ state, actions }}>{children}</WorkbenchContext.Provider>

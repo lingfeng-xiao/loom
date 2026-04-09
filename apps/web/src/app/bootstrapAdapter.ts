@@ -1,5 +1,4 @@
 import type { ComposerDraftState, UiDomainState, WorkbenchDomainState } from '../domains/workbenchTypes'
-import type { BootstrapSourceViewModel } from './bootstrapSource'
 import { buildCapabilitiesState } from '../services/capabilitiesService'
 import { buildContextState } from '../services/contextService'
 import { buildConversationState } from '../services/conversationService'
@@ -7,8 +6,9 @@ import { buildOpenClawState } from '../services/openClawService'
 import { buildProjectState } from '../services/projectService'
 import { buildSettingsState } from '../services/settingsService'
 import { buildTraceState } from '../services/traceService'
-import type { LoomBootstrapPayload } from '../types'
+import type { BootstrapSourceViewModel } from './bootstrapSource'
 import type { LoomRouteState } from './routeTypes'
+import type { LoomBootstrapPayload, ProjectListItem } from '../types'
 
 interface BootstrapAdapterOptions {
   route: LoomRouteState
@@ -17,17 +17,21 @@ interface BootstrapAdapterOptions {
   bootstrapSource: BootstrapSourceViewModel
   draftsByConversation: Record<string, ComposerDraftState>
   scrollPositions: Record<string, number>
+  availableProjects: ProjectListItem[]
   globalSearchOpen: boolean
   commandPaletteOpen: boolean
   leftSidebarCollapsed: boolean
 }
 
 function defaultDraftState(payload: LoomBootstrapPayload): ComposerDraftState {
+  const hasToggle = (keywords: string[]) =>
+    payload.composer.toggles.find((toggle) => keywords.some((keyword) => toggle.label.toLowerCase().includes(keyword)))?.enabled
+
   return {
     draftText: '',
     attachments: [],
-    allowActions: payload.composer.toggles.find((toggle) => toggle.label.toLowerCase().includes('action'))?.enabled ?? true,
-    allowMemory: payload.composer.toggles.find((toggle) => toggle.label.toLowerCase().includes('memory'))?.enabled ?? true,
+    allowActions: hasToggle(['action', '动作']) ?? true,
+    allowMemory: hasToggle(['memory', '记忆']) ?? true,
     submitting: false,
   }
 }
@@ -46,7 +50,7 @@ function buildUiState(options: BootstrapAdapterOptions): UiDomainState {
 }
 
 function buildHeaderCopy(payload: LoomBootstrapPayload, route: LoomRouteState) {
-  const currentPage = route.page === 'welcome' || route.page === 'callback' ? 'conversation' : route.page
+  const currentPage = route.page === 'callback' ? 'conversation' : route.page
   const selectedConversationId = route.conversationId ?? payload.pinnedConversations[0]?.id ?? payload.recentConversations[0]?.id ?? null
   const currentConversation = [...payload.pinnedConversations, ...payload.recentConversations].find((item) => item.id === selectedConversationId) ?? null
 
@@ -63,10 +67,10 @@ function buildHeaderCopy(payload: LoomBootstrapPayload, route: LoomRouteState) {
   }
 
   const pageTitleMap: Record<string, { title: string; meta: string }> = {
-    capabilities: { title: '技能和应用', meta: '模型、MCP、Skills 与执行器能力基线' },
+    capabilities: { title: '能力与应用', meta: '模型、MCP、工作流能力与执行器基线' },
     openclaw: { title: '自动化', meta: '执行器、路由与回调运行基线' },
-    files: { title: 'Files', meta: '项目文件与引用资产' },
-    memory: { title: 'Memory', meta: '分层长期记忆与上下文策略' },
+    files: { title: '文件', meta: '项目文件与引用资产' },
+    memory: { title: '记忆', meta: '分层长期记忆与上下文策略' },
     settings: { title: '设置', meta: '模型、路由、记忆与工作台配置' },
   }
 
@@ -90,7 +94,7 @@ export function adaptBootstrapToWorkbench(payload: LoomBootstrapPayload, options
   const currentDraft = options.draftsByConversation[activeConversationId] ?? fallbackDraft
 
   return {
-    project: buildProjectState(payload, header.title, header.meta, header.actions),
+    project: buildProjectState(payload, options.availableProjects, header.title, header.meta, header.actions),
     conversation,
     composer: {
       snapshot: payload.composer,

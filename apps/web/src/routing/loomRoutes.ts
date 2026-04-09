@@ -37,12 +37,12 @@ export function parseLoomLocation(
 
   if (segments.length === 0) {
     return {
-      layout: 'welcome',
-      page: 'welcome',
-      projectId: null,
-      conversationId: null,
-      mode: null,
-      traceTab: 'tasks',
+      layout: 'app',
+      page: 'conversation',
+      projectId: fallbackProjectId,
+      conversationId: fallbackConversationId,
+      mode: normalizeMode(params.get('mode')),
+      traceTab: normalizeTraceTab(params.get('traceTab')),
       settingsSection: null,
       callbackKind: null,
     }
@@ -50,12 +50,12 @@ export function parseLoomLocation(
 
   if (segments[0] === 'welcome') {
     return {
-      layout: 'welcome',
-      page: 'welcome',
-      projectId: null,
-      conversationId: null,
-      mode: null,
-      traceTab: 'tasks',
+      layout: 'app',
+      page: 'conversation',
+      projectId: fallbackProjectId,
+      conversationId: fallbackConversationId,
+      mode: normalizeMode(params.get('mode')),
+      traceTab: normalizeTraceTab(params.get('traceTab')),
       settingsSection: null,
       callbackKind: null,
     }
@@ -115,10 +115,6 @@ export function parseLoomLocation(
 }
 
 export function buildWorkspacePath(route: LoomRouteState): string {
-  if (route.layout === 'welcome') {
-    return '/welcome'
-  }
-
   if (route.layout === 'callback') {
     return `/callback/${route.callbackKind ?? 'openclaw'}`
   }

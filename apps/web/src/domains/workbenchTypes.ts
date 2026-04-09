@@ -5,6 +5,7 @@ import type {
   ConversationMessage,
   ConversationMode,
   OpenClawOverview,
+  ProjectListItem,
   ProjectSummary,
   SettingsOverview,
   TimelineStatus,
@@ -43,6 +44,7 @@ export interface ContextSectionViewModel {
 
 export interface ProjectDomainState {
   currentProject: ProjectSummary
+  availableProjects: ProjectListItem[]
   workspaceTitle: string
   workspaceMeta: string
   environmentStatus: string

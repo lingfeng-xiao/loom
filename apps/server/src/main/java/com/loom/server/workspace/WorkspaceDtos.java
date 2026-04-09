@@ -67,7 +67,7 @@ public final class WorkspaceDtos {
     public record CreateConversationRequest(String title, String mode) {
     }
 
-    public record UpdateConversationRequest(String title, String mode, String status, Boolean pinned) {
+    public record UpdateConversationRequest(String projectId, String title, String mode, String status, Boolean pinned) {
     }
 
     public record MessageAttachmentRef(String fileAssetId, String displayName, String mimeType) {
@@ -82,6 +82,7 @@ public final class WorkspaceDtos {
             String body,
             String summary,
             String statusLabel,
+            Long latencyMs,
             int sequence,
             String createdAt,
             String completedAt,
@@ -188,10 +189,13 @@ public final class WorkspaceDtos {
 
     public record ModelProfileView(
             String id,
+            String presetId,
             String scope,
             String name,
             String provider,
             String modelId,
+            boolean configured,
+            boolean active,
             boolean supportsStreaming,
             boolean supportsImages,
             boolean supportsTools,
@@ -213,6 +217,67 @@ public final class WorkspaceDtos {
     public record RoutingPolicyView(String id, String scope, String defaultRuntime, boolean allowExternalExecutors, String externalExecutorLabel) {
     }
 
+    public record LlmModelOptionView(String id, String label, String description) {
+    }
+
+    public record LlmProviderPresetView(
+            String id,
+            String label,
+            String provider,
+            boolean supported,
+            boolean recommended,
+            String apiBaseUrl,
+            String defaultModelId,
+            String description,
+            List<LlmModelOptionView> modelOptions
+    ) {
+    }
+
+    public record LlmConfigView(
+            String id,
+            String presetId,
+            String provider,
+            String displayName,
+            String apiBaseUrl,
+            String modelId,
+            boolean configured,
+            boolean active,
+            String apiKeyHint,
+            String systemPrompt,
+            double temperature,
+            Integer maxTokens,
+            int timeoutMs,
+            String updatedAt
+    ) {
+    }
+
+    public record UpdateLlmConfigRequest(
+            String profileId,
+            String presetId,
+            String displayName,
+            String apiBaseUrl,
+            String modelId,
+            String apiKey,
+            String systemPrompt,
+            Double temperature,
+            Integer maxTokens,
+            Integer timeoutMs,
+            Boolean activate
+    ) {
+    }
+
+    public record LlmConnectionTestView(
+            boolean success,
+            String provider,
+            String modelId,
+            String baseUrl,
+            String message,
+            String responsePreview,
+            String testedAt,
+            Long latencyMs
+    ) {
+    }
+
     public record SettingsOverviewView(
             String activeScope,
             List<String> tabs,
@@ -220,7 +285,11 @@ public final class WorkspaceDtos {
             List<SkillView> skills,
             List<McpServerView> mcpServers,
             MemoryPolicyView memoryPolicy,
-            RoutingPolicyView routingPolicy
+            RoutingPolicyView routingPolicy,
+            List<LlmProviderPresetView> providerPresets,
+            List<LlmConfigView> llmConfigs,
+            LlmConfigView activeLlmConfig,
+            LlmConnectionTestView lastConnectionTest
     ) {
     }
 

@@ -43,13 +43,11 @@ export function WorkspaceSidebar({
   useEffect(() => {
     setExpandedProjects((current) => {
       const next = { ...current }
-
       threadGroups.forEach((group) => {
         if (!(group.id in next)) {
           next[group.id] = true
         }
       })
-
       return next
     })
   }, [threadGroups])
@@ -68,35 +66,34 @@ export function WorkspaceSidebar({
 
   return (
     <aside className="codexSidebar">
-      <nav aria-label="工作区导航" className="sidebarNavList">
+      <nav aria-label="主导航" className="sidebarNavList">
         {navigationEntries.map((entry) => (
           <button
-            className={`sidebarNavItem ${entry.active ? 'active' : ''}`}
+            className={`uiRowItem sidebarNavItem ${entry.active ? 'active' : ''}`}
             key={entry.id}
             onClick={() => ('targetPage' in entry ? onPrimaryAction(entry.id) : onSystemSelect(entry.id))}
             type="button"
           >
-            <WorkbenchIcon name={entry.icon} />
+            <WorkbenchIcon name={entry.icon} size={16} />
             <span>{entry.label}</span>
           </button>
         ))}
       </nav>
 
-      <section className="sidebarHistoryShell" aria-label="项目会话">
+      <section aria-label="项目与会话" className="sidebarHistoryShell">
         <div className="sidebarSectionHeader">
           <span className="sidebarSectionTitle">项目</span>
-
           <div className="sidebarSectionActions">
             <button
-              aria-label={sortMode === 'recent' ? '当前按最近更新排序，点击改为标题排序' : '当前按标题排序，点击改为最近更新排序'}
-              className="sidebarUtilityButton"
+              aria-label={sortMode === 'recent' ? '切换到按标题排序' : '切换到按最近排序'}
+              className="uiButton uiButton-ghost uiButton-icon sidebarUtilityButton"
               onClick={() => setSortMode((current) => (current === 'recent' ? 'title' : 'recent'))}
               type="button"
             >
-              <WorkbenchIcon name="sort" />
+              <WorkbenchIcon name="sort" size={14} />
             </button>
-            <button aria-label="新建项目" className="sidebarUtilityButton" onClick={onCreateProject} type="button">
-              <WorkbenchIcon name="plus" />
+            <button aria-label="新建项目" className="uiButton uiButton-ghost uiButton-icon sidebarUtilityButton" onClick={onCreateProject} type="button">
+              <WorkbenchIcon name="plus" size={14} />
             </button>
           </div>
         </div>
@@ -110,7 +107,7 @@ export function WorkspaceSidebar({
               <div className="sidebarProjectGroup" key={group.id}>
                 <button
                   aria-expanded={expanded}
-                  className={`sidebarProjectRow ${containsActiveThread ? 'active' : ''}`}
+                  className={`uiRowItem sidebarProjectRow ${containsActiveThread ? 'sidebarProjectRow-current' : ''}`}
                   onClick={() =>
                     setExpandedProjects((current) => ({
                       ...current,
@@ -119,7 +116,10 @@ export function WorkspaceSidebar({
                   }
                   type="button"
                 >
-                  <WorkbenchIcon name={expanded ? 'folderOpen' : 'folder'} />
+                  <span className="sidebarProjectLeading">
+                    <WorkbenchIcon name={expanded ? 'chevronDown' : 'chevronRight'} size={14} />
+                    <WorkbenchIcon name={expanded ? 'folderOpen' : 'folder'} size={15} />
+                  </span>
                   <span className="sidebarProjectLabel">{group.label}</span>
                 </button>
 
@@ -127,11 +127,12 @@ export function WorkspaceSidebar({
                   <div className="sidebarProjectThreadList">
                     {group.threads.map((thread) => (
                       <button
-                        className={`sidebarProjectThread ${thread.id === activeThreadId ? 'active' : ''}`}
+                        className={`uiRowItem sidebarProjectThread ${thread.id === activeThreadId ? 'active' : ''}`}
                         key={thread.id}
                         onClick={() => onOpenConversation(thread.id)}
                         type="button"
                       >
+                        <WorkbenchIcon className="sidebarProjectThreadIcon" name="chat" size={14} />
                         <span>{thread.title}</span>
                       </button>
                     ))}
@@ -144,8 +145,8 @@ export function WorkspaceSidebar({
       </section>
 
       {settingsEntry ? (
-        <button className={`sidebarSettingsButton ${settingsEntry.active ? 'active' : ''}`} onClick={() => onSystemSelect(settingsEntry.id)} type="button">
-          <WorkbenchIcon name={settingsEntry.icon} />
+        <button className="uiRowItem sidebarSettingsButton" onClick={() => onSystemSelect(settingsEntry.id)} type="button">
+          <WorkbenchIcon name={settingsEntry.icon} size={16} />
           <span>{settingsEntry.label}</span>
         </button>
       ) : null}

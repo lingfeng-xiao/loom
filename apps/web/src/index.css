@@ -1,24 +1,3 @@
-:root {
-  color-scheme: dark;
-  font-family:
-    "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --shell-bg: #181818;
-  --shell-nav: #1e1e1e;
-  --shell-main: #262626;
-  --shell-rail: #202020;
-  --shell-elevated: #1e1e1e;
-  --shell-hover: rgba(255, 255, 255, 0.05);
-  --shell-active: rgba(255, 255, 255, 0.08);
-  --shell-line: rgba(255, 255, 255, 0.08);
-  --shell-text: #ececec;
-  --shell-text-soft: rgba(255, 255, 255, 0.88);
-  --shell-text-muted: rgba(255, 255, 255, 0.5);
-  --shell-accent: #19c37d;
-  --shell-warn: #f59e0b;
-  --shell-danger: #ef4444;
-  --shell-shadow: 0 16px 40px rgba(0, 0, 0, 0.24);
-}
-
 * {
   box-sizing: border-box;
 }
@@ -34,13 +13,19 @@ body,
 }
 
 body {
-  background: var(--shell-bg);
-  color: var(--shell-text);
+  background:
+    radial-gradient(circle at top left, rgba(var(--brand-rgb), 0.16), transparent 32%),
+    radial-gradient(circle at top right, rgba(var(--accent-rgb), 0.1), transparent 28%),
+    linear-gradient(180deg, var(--bg-shell) 0%, var(--bg-canvas) 100%);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  text-rendering: optimizeLegibility;
 }
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -48,212 +33,400 @@ button {
   cursor: pointer;
 }
 
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+summary:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+a {
+  color: inherit;
+}
+
+::selection {
+  background: rgba(var(--brand-rgb), 0.24);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: var(--radius-pill);
+  background: var(--scrollbar-thumb);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--scrollbar-track);
+}
+
 .appViewport {
   position: fixed;
   inset: 0;
-  width: 100vw;
-  height: 100dvh;
-  min-height: 100dvh;
   overflow: hidden;
-  background: var(--shell-bg);
 }
 
 .appShell {
   width: 100%;
   height: 100%;
-  min-height: 100dvh;
   display: grid;
   grid-template-rows: auto auto minmax(0, 1fr);
-  background: var(--shell-bg);
+  background: transparent;
 }
 
 .workspaceTitleBar {
-  min-height: 52px;
-  padding: 8px 14px 8px 16px;
+  min-height: var(--topbar-height);
+  padding: 14px 18px 10px 16px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  background: var(--shell-nav);
+  gap: var(--space-5);
 }
 
 .titleBarBrand {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
 .titleBarBrandMark {
-  width: 28px;
-  height: 28px;
+  width: 34px;
+  height: 34px;
   display: grid;
   place-items: center;
-  border-radius: 9px;
-  color: var(--shell-accent);
-  background: rgba(25, 195, 125, 0.08);
+  border-radius: 12px;
+  background:
+    linear-gradient(135deg, rgba(var(--brand-rgb), 0.24), rgba(var(--accent-rgb), 0.12)),
+    var(--bg-panel-alt);
+  color: var(--brand-500);
+  box-shadow: inset 0 1px 0 var(--line-subtle);
   font-weight: 700;
 }
 
-.titleBarBrand strong {
-  font-size: 0.96rem;
-  font-weight: 700;
+.titleBarBrandText {
+  display: inline-flex;
+  align-items: center;
+}
+
+.titleBarBrandText strong {
+  font-size: 0.98rem;
   letter-spacing: 0.01em;
 }
 
 .titleBarActions {
   display: inline-flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--space-3);
 }
 
-.bootstrapSourceButton {
-  min-height: 34px;
-  padding: 0 12px;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--shell-text);
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.02em;
+.uiButton {
+  border: 1px solid var(--line-default);
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 3%, transparent);
+  transition:
+    transform var(--dur-mid) var(--ease-standard),
+    background-color var(--dur-mid) var(--ease-standard),
+    border-color var(--dur-mid) var(--ease-standard),
+    color var(--dur-mid) var(--ease-standard),
+    box-shadow var(--dur-mid) var(--ease-standard);
 }
 
-.bootstrapSourceButton:hover {
-  border-color: rgba(255, 255, 255, 0.16);
-  background: rgba(255, 255, 255, 0.07);
+.uiButton:hover {
+  transform: translateY(-1px);
+  border-color: var(--line-strong);
+  background: var(--bg-panel-alt);
 }
 
-.bootstrapSourceButton.source-auto {
-  color: #dbeafe;
+.uiButton:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
 }
 
-.bootstrapSourceButton.source-remote {
-  color: #dcfce7;
+.uiButton-secondary {
+  background: var(--bg-glass);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-soft);
 }
 
-.bootstrapSourceButton.source-fallback {
-  color: #fef3c7;
+.uiButton-primary {
+  background: var(--brand-500);
+  border-color: transparent;
+  color: var(--text-inverse);
+  box-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.24);
 }
 
-.openClawStatusButton {
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--shell-text-muted);
+.uiButton-primary:hover:not(:disabled) {
+  background: var(--brand-600);
+}
+
+.uiButton-ghost {
+  background: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--text-muted);
+}
+
+.uiButton-ghost:hover:not(:disabled) {
+  background: var(--bg-raised);
+}
+
+.uiButton-icon {
   display: inline-flex;
   align-items: center;
   justify-content: center;
 }
 
-.openClawStatusButton.connected {
-  color: var(--shell-accent);
+.uiButton-inline {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.uiButton-inline:hover {
+  transform: none;
+  border-color: transparent;
+  background: transparent;
+}
+
+.uiRowItem {
+  width: 100%;
+  min-height: 38px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--text-secondary);
+  text-align: left;
+  transition:
+    background-color var(--dur-mid) var(--ease-standard),
+    color var(--dur-mid) var(--ease-standard),
+    border-color var(--dur-mid) var(--ease-standard),
+    transform var(--dur-mid) var(--ease-standard);
+}
+
+.uiRowItem:hover {
+  background: var(--bg-soft);
+  color: var(--text-primary);
+}
+
+.uiSurface {
+  border: 1px solid var(--line-subtle);
+  border-radius: 18px;
+  background: var(--bg-panel-alt);
+}
+
+.uiSurface-elevated {
+  box-shadow: var(--shadow-panel);
+}
+
+.uiDialog {
+  border: 1px solid var(--line-default);
+  border-radius: 22px;
+  background:
+    linear-gradient(180deg, rgba(var(--brand-rgb), 0.08), transparent 26%),
+    var(--bg-panel);
+  box-shadow: var(--shadow-popover);
+}
+
+.uiField {
+  display: grid;
+  gap: 8px;
+}
+
+.uiFieldControl {
+  width: 100%;
+  min-height: 44px;
+  padding: 11px 14px;
+  border: 1px solid var(--line-default);
+  border-radius: 12px;
+  background: var(--bg-input);
+  color: var(--text-primary);
+  outline: none;
+  transition:
+    border-color var(--dur-mid) var(--ease-standard),
+    box-shadow var(--dur-mid) var(--ease-standard),
+    background-color var(--dur-mid) var(--ease-standard);
+}
+
+.uiFieldControl:hover {
+  border-color: var(--line-strong);
+}
+
+.uiFieldControl:focus {
+  border-color: color-mix(in srgb, var(--brand-500) 42%, var(--line-strong));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--brand-500) 28%, transparent);
+}
+
+.themeSwitcher {
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--line-default);
+  border-radius: var(--radius-pill);
+  background: var(--bg-glass);
+}
+
+.themeSwitchButton {
+  width: 32px;
+  height: 32px;
+  min-height: 32px;
+  padding: 0;
+  border-radius: var(--radius-pill);
+}
+
+.titleBarIconButton {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.titleBarIconButton-connected {
+  color: var(--brand-500);
+}
+
+.titleBarIconButton-warning {
+  color: var(--status-warning);
 }
 
 .infoBanner,
 .errorBanner {
-  grid-row: 2;
-  padding: 8px 16px;
-  font-size: 0.86rem;
+  margin: 0 16px;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 0.84rem;
+  border: 1px solid var(--line-subtle);
 }
 
 .infoBanner {
-  color: #dcfce7;
-  background: rgba(6, 78, 59, 0.24);
+  background: rgba(var(--brand-rgb), 0.08);
+  color: var(--text-secondary);
 }
 
 .errorBanner {
-  color: #fee2e2;
-  background: rgba(127, 29, 29, 0.28);
+  background: color-mix(in srgb, var(--status-danger) 14%, transparent);
+  color: var(--text-primary);
+}
+
+.titleBarChipButton {
+  min-height: 38px;
+  padding: 0 14px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: var(--radius-pill);
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.titleBarChipButton:hover,
+.titleBarIconButton:hover {
+  border-color: color-mix(in srgb, var(--brand-500) 26%, var(--line-default));
+}
+
+.themeSwitchButton.active {
+  background:
+    linear-gradient(180deg, var(--bg-brand-tint), transparent),
+    var(--bg-panel-alt);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-soft);
 }
 
 .workspace {
-  grid-row: 3;
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1.04fr) minmax(0, 0.96fr);
-  min-width: 0;
   min-height: 0;
   height: 100%;
+  padding: 10px 14px 14px;
+  display: grid;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--right-panel-width);
+  gap: 12px;
 }
 
 .workspace-rightRailCollapsed {
-  grid-template-columns: 220px minmax(0, 1fr) 56px;
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr) 56px;
+}
+
+.workspace-noRightRail {
+  grid-template-columns: var(--sidebar-width) minmax(0, 1fr);
+}
+
+.codexSidebar,
+.mainPanel,
+.rightRail {
+  min-width: 0;
+  min-height: 0;
+  background: var(--bg-panel);
+  border: 1px solid var(--line-subtle);
+  box-shadow: var(--shadow-panel);
 }
 
 .codexSidebar {
-  min-height: 0;
-  overflow: hidden;
-  background: var(--shell-nav);
-}
-
-.rightRail {
-  min-height: 0;
-  overflow: hidden;
-  background: var(--shell-main);
+  padding: 14px 12px 12px;
+  border-radius: var(--radius-lg);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  background:
+    linear-gradient(180deg, rgba(var(--brand-rgb), 0.06), transparent 26%),
+    var(--bg-sidebar);
 }
 
 .mainPanel {
-  min-width: 0;
-  min-height: 0;
   overflow: hidden;
-  background: var(--shell-main);
+  border-radius: 24px;
 }
 
-.codexSidebar {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 12px 10px 12px;
+.rightRail {
+  overflow: hidden;
+  border-radius: 22px;
 }
 
-.sidebarNavList {
+.sidebarNavList,
+.sidebarProjectGroups {
   display: grid;
-  gap: 3px;
-}
-
-.sidebarNavItem,
-.sidebarSettingsButton,
-.sidebarProjectRow,
-.sidebarProjectThread,
-.sidebarUtilityButton {
-  border: 0;
-  background: transparent;
-  color: var(--shell-text);
-}
-
-.sidebarNavItem,
-.sidebarSettingsButton {
-  width: 100%;
-  height: 36px;
-  padding: 0 11px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  border-radius: 12px;
-  text-align: left;
-}
-
-.sidebarNavItem:hover,
-.sidebarSettingsButton:hover,
-.sidebarProjectRow:hover,
-.sidebarProjectThread:hover,
-.sidebarUtilityButton:hover {
-  background: var(--shell-hover);
+  gap: 4px;
 }
 
 .sidebarNavItem.active,
-.sidebarProjectThread.active,
-.sidebarSettingsButton.active {
-  background: var(--shell-active);
+.sidebarProjectRow-current,
+.sidebarProjectThread.active {
+  background:
+    linear-gradient(135deg, var(--bg-brand-tint), var(--bg-accent-tint)),
+    var(--bg-panel-alt);
+  border-color: color-mix(in srgb, var(--brand-500) 28%, var(--line-default));
+  color: var(--text-primary);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent);
 }
 
 .sidebarNavItem span,
+.sidebarProjectLabel,
+.sidebarProjectThread span,
 .sidebarSettingsButton span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 0.88rem;
-  font-weight: 550;
+}
+
+.sidebarNavItem span,
+.sidebarSettingsButton span,
+.sidebarProjectLabel {
+  font-weight: 600;
 }
 
 .sidebarHistoryShell {
@@ -261,23 +434,21 @@ button {
   flex: 1 1 auto;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  overflow: hidden;
+  gap: var(--space-3);
 }
 
 .sidebarSectionHeader {
+  padding: 0 4px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  padding: 0 10px;
 }
 
 .sidebarSectionTitle {
-  font-size: 0.72rem;
-  font-weight: 600;
+  font-size: 0.74rem;
+  color: var(--text-muted);
   letter-spacing: 0.08em;
-  color: var(--shell-text-muted);
+  text-transform: uppercase;
 }
 
 .sidebarSectionActions {
@@ -287,174 +458,161 @@ button {
 }
 
 .sidebarUtilityButton {
-  width: 26px;
-  height: 26px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 8px;
-  color: var(--shell-text-muted);
+  width: 28px;
+  height: 28px;
+  border-radius: 10px;
 }
 
 .sidebarProjectGroups {
   min-height: 0;
   overflow: auto;
-  display: grid;
-  gap: 10px;
   padding-right: 4px;
 }
 
 .sidebarProjectGroup {
   display: grid;
-  gap: 5px;
+  gap: 4px;
 }
 
-.sidebarProjectRow {
-  width: 100%;
-  height: 38px;
-  padding: 0 12px;
-  display: flex;
+.sidebarProjectLeading {
+  display: inline-flex;
   align-items: center;
-  gap: 9px;
-  border-radius: 13px;
-  text-align: left;
-  color: var(--shell-text-soft);
-  background: rgba(255, 255, 255, 0.025);
-  transition:
-    background-color 140ms ease,
-    color 140ms ease,
-    transform 140ms ease;
-}
-
-.sidebarProjectRow:hover {
-  background: rgba(255, 255, 255, 0.045);
-}
-
-.sidebarProjectRow.active {
-  background: rgba(255, 255, 255, 0.05);
-}
-
-.sidebarProjectLabel {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: 0.88rem;
-  font-weight: 600;
-  color: var(--shell-text-soft);
+  gap: 6px;
+  color: var(--text-muted);
 }
 
 .sidebarProjectThreadList {
   display: grid;
-  gap: 2px;
-  padding-left: 18px;
+  gap: 3px;
+  padding-left: 14px;
 }
 
 .sidebarProjectThread {
-  width: 100%;
-  height: 31px;
-  padding: 0 12px;
-  display: flex;
-  align-items: center;
-  border-radius: 10px;
-  text-align: left;
-  color: rgba(255, 255, 255, 0.72);
-  transition:
-    background-color 140ms ease,
-    color 140ms ease;
+  position: relative;
+  min-height: 34px;
+  padding-left: 18px;
+  color: var(--text-muted);
 }
 
-.sidebarProjectThread:hover {
-  color: var(--shell-text-soft);
-  background: rgba(255, 255, 255, 0.035);
+.sidebarProjectThread.active::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent-500);
+  transform: translateY(-50%);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-500) 18%, transparent);
 }
 
-.sidebarProjectThread.active {
-  color: var(--shell-text);
-  background: rgba(255, 255, 255, 0.065);
-}
-
-.sidebarProjectThread span {
-  min-width: 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 0.82rem;
-  line-height: 1;
-}
-
-.sidebarProjectThread.active span {
-  font-weight: 600;
+.sidebarProjectThreadIcon {
+  opacity: 0.82;
 }
 
 .sidebarSettingsButton {
   margin-top: auto;
 }
 
-.sidebarProjectGroups::-webkit-scrollbar {
-  width: 8px;
-}
-
-.sidebarProjectGroups::-webkit-scrollbar-thumb {
-  border: 2px solid transparent;
-  border-radius: 999px;
-  background: rgba(255, 255, 255, 0.09);
-  background-clip: padding-box;
-}
-
 .conversationWorkspace {
-  width: 100%;
   height: 100%;
-  min-height: 0;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
+  background:
+    linear-gradient(180deg, rgba(var(--brand-rgb), 0.045), transparent 22%),
+    var(--bg-panel);
 }
 
 .conversationSubbar {
-  padding: 14px 28px 10px;
-  display: flex;
-  align-items: center;
-  justify-content: flex-start;
+  padding: 22px 24px 12px;
 }
 
-.conversationModeTabs {
+.conversationSubbarTopRow {
   display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+
+.conversationTitleBlock {
+  display: grid;
+  gap: 4px;
+}
+
+.conversationTitleBlock h2,
+.toolPageHeader h2,
+.settingsHeaderBar h2 {
+  margin: 0;
+  font-size: 1.34rem;
+  letter-spacing: -0.02em;
+}
+
+.conversationTitleBlock p,
+.toolPageHeader p,
+.railSummary,
+.settingsDialogHeader p,
+.settingsEmptyState p,
+.emptyPage p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.conversationToolbar {
+  display: inline-flex;
   align-items: center;
   gap: 10px;
+  flex-wrap: wrap;
 }
 
-.titleModePill,
-.railTab,
-.docChip {
+.conversationSelectField {
+  min-width: 124px;
+  height: 40px;
+  padding: 0 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid var(--line-default);
+  border-radius: 14px;
+  color: var(--text-secondary);
+  background: var(--bg-glass);
+  box-shadow: var(--shadow-soft);
+}
+
+.conversationSelectField-project {
+  min-width: 168px;
+}
+
+.conversationSelectField select {
+  flex: 1;
+  min-width: 0;
   border: 0;
-  border-radius: 999px;
-  padding: 8px 14px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--shell-text-soft);
+  background: transparent;
+  color: inherit;
+  outline: none;
 }
 
-.titleModePill.active,
-.railTab.active,
-.docChip-active {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.conversationSubbarMeta {
-  display: none;
+.conversationIconAction {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-pill);
 }
 
 .chatStream {
   min-height: 0;
   overflow: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 28px;
-  padding: 8px 32px 18px;
-  align-items: center;
+  padding: 10px clamp(20px, 4vw, 46px) 24px;
+  display: grid;
+  gap: 16px;
+  scrollbar-width: none;
+}
+
+.chatStream::-webkit-scrollbar {
+  display: none;
 }
 
 .chatMessage {
-  width: min(100%, 860px);
   display: flex;
 }
 
@@ -467,115 +625,146 @@ button {
 }
 
 .chatBubble {
-  width: min(100%, 760px);
-}
-
-.chatMessage-user .chatBubble,
-.chatMessage-assistant .chatBubble {
-  background: var(--shell-nav);
-}
-
-.chatMessage-user .chatBubble {
-  width: min(100%, 560px);
-  padding: 14px 16px;
+  width: fit-content;
+  max-width: min(760px, calc(100% - 44px));
+  padding: 16px 18px;
   border-radius: 18px;
+  border: 1px solid var(--line-subtle);
+  overflow-wrap: anywhere;
+  transition:
+    background-color var(--dur-mid) var(--ease-standard),
+    border-color var(--dur-mid) var(--ease-standard),
+    box-shadow var(--dur-mid) var(--ease-standard),
+    transform var(--dur-mid) var(--ease-standard),
+    opacity var(--dur-mid) var(--ease-standard);
+  animation: bubbleIn var(--dur-slow) var(--ease-standard);
 }
 
-.chatMessage-assistant .chatBubble {
-  width: min(100%, 720px);
-  padding: 12px 14px;
-  border-radius: 16px;
+.chatBubble-user {
+  max-width: min(640px, 72%);
+  background:
+    linear-gradient(135deg, rgba(var(--brand-rgb), 0.26), rgba(var(--accent-rgb), 0.14)),
+    var(--bg-panel-alt);
+  color: var(--text-primary);
+  box-shadow: var(--shadow-soft);
 }
 
-.chatBubble p {
-  margin: 0;
-  color: var(--shell-text-soft);
-  line-height: 1.8;
-  white-space: pre-line;
+.chatBubble-assistant {
+  max-width: min(760px, calc(100% - 86px));
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 5%, transparent), color-mix(in srgb, var(--text-primary) 2%, transparent)),
+    var(--bg-panel-alt);
+  color: var(--text-primary);
 }
 
-.chatSupplement {
-  margin-top: 10px;
-  color: var(--shell-text-muted);
-  line-height: 1.68;
+.chatBubble-streaming {
+  border-color: color-mix(in srgb, var(--brand-500) 34%, var(--line-default));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--brand-500) 18%, transparent),
+    0 10px 24px color-mix(in srgb, var(--brand-500) 10%, transparent);
 }
 
-.chatFootnote {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  gap: 10px;
+.chatBubble-pending {
+  min-width: min(380px, calc(100% - 86px));
+  min-height: 108px;
 }
 
-.chatFootnote small {
-  color: var(--shell-text-muted);
-  font-size: 0.82rem;
+.chatPendingState {
+  display: grid;
+  gap: 12px;
 }
 
-.chatStatus {
+.chatPendingLabel {
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  letter-spacing: 0.01em;
+}
+
+.chatPendingLine {
+  height: 10px;
+  width: 76%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--bg-soft), rgba(var(--brand-rgb), 0.18), var(--bg-soft));
+  background-size: 200% 100%;
+  animation: shimmer 1.5s linear infinite;
+}
+
+.chatPendingLine-wide {
+  width: 92%;
+}
+
+.chatPendingLine-short {
+  width: 54%;
+}
+
+.chatPendingDots {
   display: inline-flex;
   align-items: center;
-  justify-content: center;
-  height: 24px;
-  padding: 0 10px;
+  gap: 6px;
+  padding-top: 4px;
+}
+
+.chatPendingDots span,
+.chatTypingDots span {
+  width: 7px;
+  height: 7px;
   border-radius: 999px;
-  background: rgba(25, 195, 125, 0.1);
-  color: var(--shell-accent);
-  font-size: 0.76rem;
-  font-weight: 600;
+  background: var(--text-muted);
+  animation: pulseDots 1.2s infinite ease-in-out;
+}
+
+.chatPendingDots span:nth-child(2),
+.chatTypingDots span:nth-child(2) {
+  animation-delay: 120ms;
+}
+
+.chatPendingDots span:nth-child(3),
+.chatTypingDots span:nth-child(3) {
+  animation-delay: 240ms;
+}
+
+.chatThoughtMeta {
+  margin-top: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: color-mix(in srgb, var(--accent-500) 52%, var(--text-muted));
+  font-size: 0.8rem;
+}
+
+.chatThoughtMeta:hover {
+  color: var(--accent-500);
 }
 
 .composerDock {
-  padding: 0 24px 14px;
-  display: grid;
-  justify-items: center;
-  align-self: end;
+  padding: 0 24px 22px;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg-canvas) 28%, transparent));
 }
 
 .composerCard {
   width: min(100%, 860px);
-  display: grid;
-  gap: 10px;
-  padding: 10px 12px;
-  border-radius: 16px;
-  background: var(--shell-nav);
-  box-shadow: var(--shell-shadow);
+  margin: 0 auto;
+  padding: 14px 14px 12px;
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgba(var(--brand-rgb), 0.06), transparent 32%),
+    var(--bg-panel-alt);
+  border-color: var(--line-default);
 }
 
-.composerActionRow,
-.composerBottomRow,
-.composerToggleRow {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+.composerCard.isSubmitting {
+  border-color: rgba(var(--brand-rgb), 0.16);
 }
 
-.composerBottomRow {
-  justify-content: space-between;
+.composerCard.hasError {
+  border-color: color-mix(in srgb, var(--status-danger) 34%, transparent);
 }
 
-.composerIconButton,
-.composerToggleButton,
-.composerSendButton {
-  width: 32px;
-  height: 32px;
-  border: 0;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
-  color: var(--shell-text-soft);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.composerToggleButton.enabled {
-  background: rgba(255, 255, 255, 0.1);
-}
-
-.composerSendButton {
-  background: #f0f0f0;
-  color: #121212;
+.composerCard:focus-within {
+  border-color: color-mix(in srgb, var(--brand-500) 40%, var(--line-default));
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--brand-500) 24%, transparent),
+    var(--shadow-panel);
 }
 
 .composerInputShell {
@@ -584,213 +773,164 @@ button {
 
 .composerInput {
   width: 100%;
-  min-height: 54px;
-  max-height: 96px;
-  padding: 6px 2px 2px;
+  max-height: 240px;
+  min-height: 28px;
   border: 0;
-  outline: none;
   resize: none;
   background: transparent;
-  color: var(--shell-text-soft);
+  color: var(--text-primary);
+  line-height: 1.6;
+  outline: none;
 }
 
 .composerInput::placeholder {
-  color: var(--shell-text-muted);
+  color: var(--text-muted);
 }
 
-.composerSlashMenu {
-  display: grid;
-  gap: 6px;
-  padding: 8px;
-  border-radius: 12px;
-  background: rgba(255, 255, 255, 0.04);
-}
-
-.composerSlashItem {
-  height: 34px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: 10px;
-  background: transparent;
-  color: var(--shell-text-soft);
-  text-align: left;
-}
-
-.composerSlashItem:hover {
-  background: var(--shell-hover);
-}
-
-.rightRail {
+.composerBottomRow {
+  margin-top: 10px;
   display: flex;
-  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.composerMetaBlock {
   min-width: 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.composerMetaBlock span,
+.composerError {
+  margin: 0;
+}
+
+.composerError {
+  color: var(--status-danger);
+}
+
+.composerSendButton {
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
 }
 
 .rightRail-collapsed {
-  align-items: center;
-  justify-content: flex-start;
+  width: 56px;
+  display: flex;
+  justify-content: center;
   padding: 12px 8px;
 }
 
 .rightRailCollapsedButtons {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 8px;
+}
+
+.railIconButton {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+}
+
+.railIconButton.active,
+.railTabButton.active,
+.railCommandStepButton.active {
+  background:
+    linear-gradient(135deg, var(--bg-brand-tint), var(--bg-accent-tint)),
+    var(--bg-panel-alt);
+  color: var(--text-primary);
+  border-color: color-mix(in srgb, var(--accent-500) 24%, var(--line-default));
+  box-shadow: var(--shadow-soft);
+}
+
+.rightRail-expanded {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
 }
 
 .railWorkbenchHeader {
-  padding: 12px 16px;
+  padding: 16px 16px 0;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
-.railTabButtons {
-  display: inline-flex;
+.railTabButtons,
+.railCommandStepStrip {
+  display: flex;
   align-items: center;
   gap: 8px;
+  flex-wrap: wrap;
 }
 
 .railTabButton,
-.railIconButton,
-.railCommandStepButton,
-.railTaskItem {
-  border: 0;
-  background: transparent;
-  color: var(--shell-text-soft);
-}
-
-.railTabButton {
-  height: 34px;
+.railCommandStepButton {
+  min-height: 34px;
   padding: 0 12px;
   display: inline-flex;
   align-items: center;
   gap: 8px;
+  border: 1px solid var(--line-default);
   border-radius: 12px;
-}
-
-.railTabButton.active,
-.railIconButton.active,
-.railCommandStepButton.active {
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.railIconButton {
-  width: 34px;
-  height: 34px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 10px;
+  background: var(--bg-panel-alt);
+  color: var(--text-secondary);
 }
 
 .railWorkbenchBody {
   min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding: 0 16px 16px;
   overflow: auto;
+  padding: 16px;
+  display: grid;
+  gap: 14px;
 }
 
 .railSurfaceCard,
-.railCommandPanel,
-.contextItem {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 16px;
+.toolPanel,
+.settingsProfileCard,
+.settingsEmptyState,
+.emptyPage {
+  padding: 16px;
+  border: 1px solid var(--line-subtle);
+  border-radius: 18px;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--brand-500) 7%, transparent), transparent 28%),
+    var(--bg-panel-alt);
 }
 
-.railSurfaceCard {
-  padding: 14px 16px;
-  display: grid;
-  gap: 10px;
-}
-
-.railSurfaceCard-compact {
-  gap: 8px;
-}
-
-.railSurfaceEyebrow {
+.railSurfaceEyebrow,
+.eyebrow {
+  color: var(--text-muted);
   font-size: 0.74rem;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--shell-text-muted);
 }
 
 .railSurfaceTopRow,
+.toolPanelHeader,
+.settingsHeaderBar,
+.settingsProfileTopRow,
+.settingsDialogHeader,
 .railTaskRow {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
+  gap: 10px;
 }
 
-.railCommandMeta {
-  color: var(--shell-text-muted);
-  line-height: 1.55;
+.railInlineButton {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-muted);
 }
 
-.railTaskList {
-  display: grid;
-  gap: 8px;
-}
-
-.railTaskItem {
-  width: 100%;
-  padding: 12px 14px;
-  display: grid;
-  grid-template-columns: 24px minmax(0, 1fr);
-  gap: 12px;
-  align-items: start;
-  border-radius: 14px;
-  text-align: left;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.railTaskItem.active,
-.railTaskItem:hover {
-  background: rgba(255, 255, 255, 0.06);
-}
-
-.railTaskContent {
-  min-width: 0;
-}
-
-.railTaskContent small {
-  display: block;
-  margin-top: 6px;
-  color: var(--shell-text-muted);
-  line-height: 1.55;
-}
-
+.railThoughtBody,
 .railCommandPanel {
   min-height: 0;
-  flex: 1 1 auto;
-  padding: 14px;
-  overflow: auto;
-}
-
-.railCommandLog {
-  margin: 0;
-  color: #d9f99d;
-  font-family: Consolas, "SFMono-Regular", monospace;
-  font-size: 0.86rem;
-  line-height: 1.7;
-  white-space: pre-wrap;
-}
-
-.railCommandStepStrip {
-  display: flex;
-  gap: 8px;
-  overflow: auto;
-}
-
-.railCommandStepButton {
-  flex: 0 0 auto;
-  height: 32px;
-  padding: 0 12px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.04);
 }
 
 .railSection {
@@ -798,283 +938,522 @@ button {
   gap: 10px;
 }
 
-.railSectionTitle {
-  font-size: 0.76rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--shell-text-muted);
+.railSection-grow {
+  min-height: 0;
 }
 
-.railSummaryCard,
-.contextItem,
- .toolPanel,
-.toolMetricCard,
-.toolDetailRow,
-.toolList li,
-.toolRunItem,
-.emptyPage {
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 16px;
-}
-
-.railSummaryCard {
-  padding: 12px 14px;
-}
-
-.railSummaryCard strong {
-  display: block;
-  font-size: 0.88rem;
-  margin-bottom: 8px;
-}
-
-.railSummary {
-  margin: 0;
-  line-height: 1.6;
-  color: var(--shell-text-soft);
-}
-
-.timelineList,
+.railTaskList,
 .contextSectionList,
 .toolDetailStack,
-.toolMetricGrid,
 .toolRunList,
-.toolList {
+.settingsProfileList {
   display: grid;
   gap: 10px;
 }
 
-.timelineItem {
-  display: grid;
-  grid-template-columns: 22px minmax(0, 1fr);
+.railTaskItem,
+.toolRunItem {
+  width: 100%;
+  padding: 12px;
+  display: flex;
+  align-items: flex-start;
   gap: 12px;
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--bg-raised);
+  color: var(--text-primary);
+  text-align: left;
+  transition:
+    border-color var(--dur-mid) var(--ease-standard),
+    background-color var(--dur-mid) var(--ease-standard),
+    transform var(--dur-mid) var(--ease-standard);
 }
 
-.timelineMarkerWrap {
-  display: grid;
-  justify-items: center;
-  grid-template-rows: auto 1fr;
-  gap: 6px;
+.railTaskItem:hover,
+.toolRunItem:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--brand-500) 20%, var(--line-default));
 }
 
 .timelineMarker {
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  display: grid;
-  place-items: center;
-  font-size: 0.72rem;
-  color: var(--shell-text-soft);
-  background: var(--shell-elevated);
+  width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--bg-soft);
+  color: var(--text-secondary);
+  flex: 0 0 auto;
+  font-size: 0.75rem;
 }
 
 .timelineMarker-success,
-.inlineStatus-success {
-  color: #dcfce7;
-  background: rgba(34, 197, 94, 0.16);
+.inlineStatus-success,
+.settingsProfileTest-success,
+.chatMetaTag-live {
+  color: var(--status-success);
 }
 
 .timelineMarker-running,
 .timelineMarker-waiting,
 .inlineStatus-running,
 .inlineStatus-waiting {
-  color: #fef3c7;
-  background: rgba(245, 158, 11, 0.16);
+  color: var(--accent-500);
 }
 
 .timelineMarker-failed,
-.inlineStatus-failed {
-  color: #fee2e2;
-  background: rgba(239, 68, 68, 0.16);
+.inlineStatus-failed,
+.settingsProfileTest-error {
+  color: var(--status-danger);
 }
 
-.timelineLine {
-  width: 1px;
-  background: var(--shell-line);
+.timelineMarker-skipped,
+.inlineStatus-neutral,
+.inlineStatus-pending {
+  color: var(--text-muted);
 }
 
-.timelineTopRow,
-.toolPanelHeader,
-.toolDetailRow,
-.toolRunItem {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+.railTaskContent,
+.contextItem,
+.settingsProfileIdentity {
+  display: grid;
+  gap: 4px;
 }
 
-.timelineContent small,
+.railTaskContent small,
+.toolMetricCard small,
+.toolList small,
+.toolRunItem small,
+.settingsProfileSubline,
+.settingsProfileTest,
+.railCommandMeta {
+  color: var(--text-secondary);
+}
+
 .contextItem p {
-  display: block;
-  margin-top: 6px;
-  line-height: 1.55;
-  color: var(--shell-text-muted);
+  margin: 0;
 }
 
-.inlineStatus {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 4px 8px;
-  border-radius: 999px;
-  font-size: 0.75rem;
+.railCommandPanel {
+  padding: 14px;
+  border: 1px solid var(--line-subtle);
+  border-radius: 20px;
+  background: var(--bg-code);
+}
+
+.railCommandLog {
+  margin: 0;
+  white-space: pre-wrap;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  line-height: 1.6;
 }
 
 .toolSurface {
-  width: 100%;
   height: 100%;
-  min-height: 0;
   overflow: auto;
-  padding: 28px 32px 32px;
+  padding: 28px;
+  display: grid;
+  align-content: start;
+  gap: 18px;
 }
 
 .toolPageHeader {
-  max-width: 920px;
-  margin: 0 auto 20px;
-}
-
-.toolPageHeader h2 {
-  margin: 0;
-  font-size: 1.04rem;
-  font-weight: 600;
-}
-
-.toolPageHeader p {
-  margin: 8px 0 0;
-  line-height: 1.6;
-  color: var(--shell-text-muted);
+  display: grid;
+  gap: 8px;
 }
 
 .toolPageGrid {
-  max-width: 920px;
-  margin: 0 auto;
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 16px;
 }
 
 .toolPageGrid-wide {
-  grid-template-columns: 1.08fr 0.92fr;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
 }
 
 .toolPanel {
-  padding: 18px;
   display: grid;
   gap: 14px;
 }
 
-.toolPanelHeader h3 {
+.toolPanelHeader h3,
+.settingsDialogHeader h3,
+.emptyPage h3 {
   margin: 0;
-  font-size: 0.92rem;
 }
 
 .toolPanelHeader span,
-.toolMetricCard span,
-.toolDetailRow span,
-.toolRunItem small,
-.toolList li span {
-  color: var(--shell-text-muted);
+.settingsProfileSubline span {
+  color: var(--text-muted);
+}
+
+.nestedHeader {
+  padding-top: 10px;
+  border-top: 1px solid var(--line-subtle);
 }
 
 .toolMetricGrid {
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 12px;
 }
 
-.toolMetricCard,
-.toolDetailRow,
-.toolRunItem,
-.contextItem,
-.toolList li {
-  padding: 12px 14px;
-}
-
-.toolMetricCard strong,
-.toolDetailRow strong,
-.toolRunItem strong,
-.toolList li strong,
-.contextItem strong {
-  display: block;
-  color: var(--shell-text);
-  font-weight: 600;
+.toolMetricCard {
+  padding: 14px;
+  display: grid;
+  gap: 6px;
+  border-radius: 14px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line-subtle);
 }
 
 .toolMetricCard strong {
-  margin: 6px 0 4px;
-  font-size: 1.3rem;
+  font-size: 1.2rem;
 }
 
 .toolList {
   margin: 0;
   padding: 0;
   list-style: none;
+  display: grid;
+  gap: 10px;
 }
 
-.toolList-danger li {
-  background: rgba(239, 68, 68, 0.08);
+.toolList li,
+.toolDetailRow {
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+  border-radius: 12px;
+  background: var(--bg-raised);
+  border: 1px solid var(--line-subtle);
 }
 
-.nestedHeader {
-  margin-top: 4px;
+.toolRunItem {
+  justify-content: space-between;
 }
 
 .emptyPage {
-  max-width: 920px;
-  margin: 0 auto;
   min-height: 280px;
   display: grid;
   align-content: center;
-  justify-items: start;
-  padding: 24px;
-}
-
-.loadingState {
-  max-width: 880px;
-  margin: auto;
-  display: grid;
-  place-content: center;
-  gap: 12px;
+  gap: 10px;
   text-align: center;
-  padding: 48px;
-  border-radius: 20px;
-  background: rgba(255, 255, 255, 0.04);
-  box-shadow: var(--shell-shadow);
 }
 
-.loadingState h1,
-.emptyPage h3 {
-  margin: 0;
+.toolSurface-settings {
+  background:
+    linear-gradient(180deg, rgba(var(--brand-rgb), 0.05), transparent 26%),
+    transparent;
 }
 
-.loadingState p,
-.emptyPage p {
-  color: var(--shell-text-muted);
-}
-
-.welcomeShell {
-  width: 100%;
-  height: 100%;
+.settingsListShell {
   display: grid;
+  gap: 16px;
 }
 
-@media (max-width: 1480px) {
-  .workspace {
-    grid-template-columns: 208px minmax(0, 1.02fr) minmax(0, 0.98fr);
+.settingsHeaderBar {
+  align-items: flex-end;
+}
+
+.settingsInlineFeedback {
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line-subtle);
+}
+
+.settingsInlineFeedback-success {
+  background: color-mix(in srgb, var(--status-success) 16%, transparent);
+  border-color: color-mix(in srgb, var(--status-success) 22%, var(--line-subtle));
+}
+
+.settingsInlineFeedback-error {
+  background: color-mix(in srgb, var(--status-danger) 14%, transparent);
+  border-color: color-mix(in srgb, var(--status-danger) 22%, var(--line-subtle));
+}
+
+.settingsEmptyState {
+  justify-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.settingsProfileCard.active {
+  border-color: color-mix(in srgb, var(--accent-500) 26%, var(--line-default));
+  box-shadow: var(--shadow-soft);
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--accent-500) 10%, transparent), transparent 34%),
+    var(--bg-panel-alt);
+}
+
+.settingsProfileIdentity strong {
+  font-size: 1rem;
+}
+
+.settingsProfileSubline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+
+.settingsProfileTags,
+.actionRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.chatMetaTag {
+  min-height: 26px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: 10px;
+  background: var(--bg-glass);
+  color: var(--text-secondary);
+  font-size: 0.76rem;
+  border: 1px solid var(--line-subtle);
+}
+
+.chatMetaTag-live {
+  background: color-mix(in srgb, var(--status-success) 14%, var(--bg-panel-alt));
+  border-color: color-mix(in srgb, var(--status-success) 24%, var(--line-subtle));
+}
+
+.settingsProfileTest {
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-radius: 12px;
+  background: var(--bg-raised);
+}
+
+.settingsProfileTest-success {
+  border: 1px solid color-mix(in srgb, var(--status-success) 22%, var(--line-subtle));
+}
+
+.settingsProfileTest-error {
+  border: 1px solid color-mix(in srgb, var(--status-danger) 22%, var(--line-subtle));
+}
+
+.settingsActionButton {
+  min-height: 38px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+}
+
+.settingsDialogBackdrop {
+  position: fixed;
+  inset: 0;
+  padding: 32px 16px;
+  display: grid;
+  place-items: center;
+  background: var(--bg-overlay);
+  backdrop-filter: blur(14px);
+}
+
+.settingsDialog {
+  width: min(720px, 100%);
+  max-height: min(92dvh, 860px);
+  overflow: auto;
+  padding: 22px;
+  display: grid;
+  gap: 16px;
+}
+
+.settingsEditorGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.settingsEditorWide {
+  grid-column: 1 / -1;
+}
+
+.settingsCheckboxRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text-secondary);
+}
+
+.settingsDisclosure {
+  border: 1px solid var(--line-subtle);
+  border-radius: 14px;
+  background: var(--bg-raised);
+}
+
+.settingsDisclosure[open] {
+  border-color: color-mix(in srgb, var(--accent-500) 18%, var(--line-default));
+}
+
+.settingsDisclosure summary {
+  padding: 14px 16px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  list-style: none;
+}
+
+.settingsDisclosure summary::-webkit-details-marker {
+  display: none;
+}
+
+.settingsDisclosureBody {
+  padding: 0 16px 16px;
+}
+
+.formField span {
+  color: var(--text-secondary);
+  font-size: 0.84rem;
+}
+
+.uiFieldControl:is(textarea) {
+  resize: vertical;
+}
+
+.chatMarkdown {
+  color: inherit;
+  line-height: 1.65;
+}
+
+.chatMarkdown > :first-child {
+  margin-top: 0;
+}
+
+.chatMarkdown > :last-child {
+  margin-bottom: 0;
+}
+
+.chatMarkdown p,
+.chatMarkdown ul,
+.chatMarkdown ol,
+.chatMarkdown pre,
+.chatMarkdown blockquote {
+  margin: 0 0 0.88em;
+}
+
+.chatMarkdown blockquote {
+  padding-left: 14px;
+  border-left: 3px solid color-mix(in srgb, var(--accent-500) 42%, transparent);
+  color: var(--text-secondary);
+}
+
+.chatMarkdown ul,
+.chatMarkdown ol {
+  padding-left: 1.3em;
+}
+
+.chatMarkdown code {
+  padding: 0.12em 0.32em;
+  border-radius: 8px;
+  background: var(--bg-raised);
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+.chatMarkdown pre {
+  padding: 14px;
+  overflow: auto;
+  border: 1px solid var(--line-subtle);
+  border-radius: 16px;
+  background: var(--bg-code);
+}
+
+.chatMarkdown pre code {
+  padding: 0;
+  background: transparent;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
   }
 
-  .workspace-rightRailCollapsed {
-    grid-template-columns: 208px minmax(0, 1fr) 56px;
+  100% {
+    background-position: -200% 0;
   }
 }
 
-@media (max-width: 1280px) {
-  .workspace {
-    grid-template-columns: 196px minmax(0, 1fr) 0.92fr;
+@keyframes bubbleIn {
+  0% {
+    opacity: 0;
+    transform: translateY(8px);
   }
 
+  100% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseDots {
+  0%,
+  80%,
+  100% {
+    transform: scale(0.72);
+    opacity: 0.45;
+  }
+
+  40% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 1180px) {
+  .workspace,
   .workspace-rightRailCollapsed {
-    grid-template-columns: 196px minmax(0, 1fr) 52px;
+    grid-template-columns: 220px minmax(0, 1fr);
   }
 
-  .toolPageGrid {
+  .rightRail {
+    display: none;
+  }
+}
+
+@media (max-width: 920px) {
+  .workspace,
+  .workspace-noRightRail {
+    padding: 8px;
     grid-template-columns: 1fr;
+  }
+
+  .codexSidebar {
+    display: none;
+  }
+
+  .toolPageGrid,
+  .toolPageGrid-wide,
+  .settingsEditorGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .workspaceTitleBar,
+  .conversationSubbarTopRow,
+  .settingsHeaderBar,
+  .settingsDialogHeader {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .titleBarActions,
+  .conversationToolbar {
+    flex-wrap: wrap;
+  }
+
+  .composerDock,
+  .toolSurface,
+  .conversationSubbar {
+    padding-left: 16px;
+    padding-right: 16px;
   }
 }

@@ -40,7 +40,7 @@ export function FilesPage() {
   const [files, setFiles] = useState<FileAssetSummary[]>(fallbackFiles)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const sourceLabel = useMemo(() => (error ? 'fallback' : 'remote'), [error])
+  const sourceLabel = useMemo(() => (error ? '本地回退' : '远端数据'), [error])
 
   useEffect(() => {
     if (!projectId) {
@@ -71,21 +71,21 @@ export function FilesPage() {
   return (
     <section className="toolSurface">
       <div className="toolPageHeader">
-        <h2>Files</h2>
-        <p>项目文件池与引用资产。当前优先展示可供会话和上下文引用的最小文件集。</p>
+        <h2>文件</h2>
+        <p>项目文件池与引用资产，优先展示可供会话与上下文引用的核心文件。</p>
       </div>
 
-      {error ? <section className="infoBanner">Files 远端读取失败，已回退到 {sourceLabel} 数据：{error}</section> : null}
+      {error ? <section className="infoBanner">文件远程读取失败，已回退到 {sourceLabel}：{error}</section> : null}
 
       {loading ? (
         <div className="emptyPage">
-          <p className="eyebrow">Files</p>
+          <p className="eyebrow">文件</p>
           <h3>正在加载项目文件池</h3>
-          <p>优先读取 workspace API，失败时回退到本地基线。</p>
+          <p>优先读取工作区 API，失败时回退到本地基线。</p>
         </div>
       ) : files.length === 0 ? (
         <div className="emptyPage">
-          <p className="eyebrow">Files</p>
+          <p className="eyebrow">文件</p>
           <h3>当前项目还没有文件资产</h3>
           <p>下一步可以接入上传、解析和引用链路。</p>
         </div>
@@ -94,7 +94,9 @@ export function FilesPage() {
           <div className="toolPanel">
             <div className="toolPanelHeader">
               <h3>文件列表</h3>
-              <span>{files.length} 个文件 · {sourceLabel}</span>
+              <span>
+                {files.length} 个文件 / {sourceLabel}
+              </span>
             </div>
             <ul className="toolList">
               {files.map((file) => (

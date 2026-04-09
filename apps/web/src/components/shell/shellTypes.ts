@@ -17,8 +17,10 @@ export type WorkbenchIconName =
   | 'chat'
   | 'folder'
   | 'folderOpen'
+  | 'project'
   | 'chevronDown'
   | 'chevronRight'
+  | 'arrowUp'
   | 'plus'
   | 'sort'
   | 'paperclip'
@@ -29,6 +31,9 @@ export type WorkbenchIconName =
   | 'terminal'
   | 'panelCollapse'
   | 'panelExpand'
+  | 'sun'
+  | 'moon'
+  | 'systemTheme'
 
 export interface ConversationThreadViewModel extends ConversationSummary {
   group: string

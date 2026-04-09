@@ -1,12 +1,26 @@
 import { AppShell } from './app/AppShell'
 import { LoomWorkbenchProvider } from './app/LoomWorkbenchProvider'
+import { ThemeProvider } from './app/theme'
 import { useBootstrapSource } from './app/useBootstrapSource'
 import { useWorkbenchRouter } from './app/useWorkbenchRouter'
 import { DEFAULT_LOOM_ERROR, loomShellData } from './loomShellData'
 import { PlaceholderPage } from './pages/PlaceholderPage'
-import { WelcomePage } from './pages/WelcomePage'
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? ''
+function resolveApiBase() {
+  const configured = import.meta.env.VITE_API_BASE
+  if (configured) {
+    return configured
+  }
+
+  const { port } = window.location
+  if (port === '3000') {
+    return ''
+  }
+
+  return ''
+}
+
+const API_BASE = resolveApiBase()
 
 function defaultConversationId() {
   return loomShellData.pinnedConversations[0]?.id ?? loomShellData.recentConversations[0]?.id ?? null
@@ -21,32 +35,11 @@ export default function App() {
     fallbackSettingsSection: bootstrapSource.payload.settings.tabs[0] ?? 'Models',
   })
 
-  if (router.route.layout === 'welcome') {
-    return (
-      <div className="appViewport">
-        <WelcomePage
-          onEnter={() =>
-            router.navigate({
-              layout: 'app',
-              page: 'conversation',
-              projectId: bootstrapSource.payload.project.id,
-              conversationId: defaultConversationId(),
-              mode: bootstrapSource.payload.activeMode,
-              traceTab: 'tasks',
-              settingsSection: bootstrapSource.payload.settings.tabs[0] ?? 'Models',
-              callbackKind: null,
-            })
-          }
-        />
-      </div>
-    )
-  }
-
   if (router.route.layout === 'callback') {
     return (
       <div className="appViewport">
         <div className="appShell">
-          <PlaceholderPage description="外部回调占位页" title={router.route.callbackKind === 'feishu' ? 'Feishu Callback' : 'OpenClaw Callback'} />
+          <PlaceholderPage description="外部回调占位页" title={router.route.callbackKind === 'feishu' ? '飞书回调' : 'OpenClaw 回调'} />
         </div>
       </div>
     )
@@ -54,19 +47,21 @@ export default function App() {
 
   return (
     <div className="appViewport">
-      <LoomWorkbenchProvider
-        apiBaseUrl={API_BASE}
-        bootstrapSource={bootstrapSource.source}
-        error={bootstrapSource.error}
-        loading={bootstrapSource.loading}
-        onCycleBootstrapSource={bootstrapSource.cycleMode}
-        onRefreshPayload={bootstrapSource.refresh}
-        navigate={router.navigate}
-        payload={bootstrapSource.payload}
-        route={router.route}
-      >
-        <AppShell />
-      </LoomWorkbenchProvider>
+      <ThemeProvider>
+        <LoomWorkbenchProvider
+          apiBaseUrl={API_BASE}
+          bootstrapSource={bootstrapSource.source}
+          error={bootstrapSource.error}
+          loading={bootstrapSource.loading}
+          onCycleBootstrapSource={bootstrapSource.cycleMode}
+          onRefreshPayload={bootstrapSource.refresh}
+          navigate={router.navigate}
+          payload={bootstrapSource.payload}
+          route={router.route}
+        >
+          <AppShell />
+        </LoomWorkbenchProvider>
+      </ThemeProvider>
     </div>
   )
 }
