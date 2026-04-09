@@ -1,6 +1,6 @@
-package com.template.server.controller;
+package com.loom.server.controller;
 
-import com.template.server.api.ApiEnvelope;
+import com.loom.server.api.ApiEnvelope;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RestController;
 

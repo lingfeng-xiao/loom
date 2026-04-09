@@ -1,4 +1,4 @@
-package com.template.server.model;
+package com.loom.server.model;
 
 public record SetupTask(String id, String title, String description, String docsUrl) {
 }

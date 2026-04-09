@@ -1,4 +1,4 @@
-package com.template.server.model;
+package com.loom.server.model;
 
 public enum ProbeStatus {
     up,

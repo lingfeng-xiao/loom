@@ -1,0 +1,112 @@
+:root {
+  --font-sans: "Aptos", "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", "SFMono-Regular", ui-monospace, monospace;
+  --radius-2xs: 6px;
+  --radius-xs: 10px;
+  --radius-sm: 14px;
+  --radius-md: 18px;
+  --radius-lg: 24px;
+  --radius-pill: 999px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 32px;
+  --space-8: 40px;
+  --shadow-soft: 0 4px 12px rgba(28, 28, 28, 0.08);
+  --shadow-panel: 0 18px 44px rgba(28, 28, 28, 0.06);
+  --shadow-popover: 0 22px 60px rgba(28, 28, 28, 0.12);
+  --shadow-inset-button:
+    rgba(255, 255, 255, 0.2) 0 0.5px 0 0 inset,
+    rgba(0, 0, 0, 0.2) 0 0 0 0.5px inset,
+    rgba(0, 0, 0, 0.05) 0 1px 2px 0;
+  --ease-standard: cubic-bezier(0.22, 1, 0.36, 1);
+  --dur-fast: 120ms;
+  --dur-mid: 180ms;
+  --dur-slow: 260ms;
+  --sidebar-width: 268px;
+  --right-panel-width: 356px;
+  --topbar-height: 72px;
+  --brand-rgb: 183, 124, 79;
+  --brand-500: #7b4e2d;
+  --brand-600: #603c21;
+  --brand-700: #3d2410;
+  --brand-soft: rgba(var(--brand-rgb), 0.12);
+  --accent-rgb: 108, 142, 191;
+  --accent-500: #6c8ebf;
+  --accent-soft: rgba(var(--accent-rgb), 0.11);
+  --status-success: #3f7f5f;
+  --status-warning: #a86d34;
+  --status-danger: #b15045;
+  --status-info: #607f9f;
+  --bg-canvas: #f3efe6;
+  --bg-shell: #f7f4ed;
+  --bg-sidebar: rgba(252, 251, 248, 0.72);
+  --bg-panel: rgba(252, 251, 248, 0.82);
+  --bg-panel-alt: #fcfbf8;
+  --bg-input: #fcfbf8;
+  --bg-overlay: rgba(28, 28, 28, 0.18);
+  --bg-soft: rgba(28, 28, 28, 0.04);
+  --bg-glass: rgba(252, 251, 248, 0.84);
+  --bg-raised: rgba(28, 28, 28, 0.03);
+  --bg-code: rgba(28, 28, 28, 0.04);
+  --bg-brand-tint: rgba(var(--brand-rgb), 0.08);
+  --bg-accent-tint: rgba(var(--accent-rgb), 0.08);
+  --line-subtle: #eceae4;
+  --line-default: rgba(28, 28, 28, 0.14);
+  --line-strong: rgba(28, 28, 28, 0.4);
+  --text-primary: #1c1c1c;
+  --text-secondary: rgba(28, 28, 28, 0.82);
+  --text-muted: #5f5f5d;
+  --text-inverse: #fcfbf8;
+  --focus-ring: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --scrollbar-thumb: rgba(28, 28, 28, 0.18);
+  --scrollbar-track: transparent;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --brand-rgb: 214, 170, 133;
+  --brand-500: #e0bb9a;
+  --brand-600: #f1d7bd;
+  --brand-700: #fff1df;
+  --brand-soft: rgba(var(--brand-rgb), 0.16);
+  --accent-rgb: 138, 166, 204;
+  --accent-500: #8aa6cc;
+  --accent-soft: rgba(var(--accent-rgb), 0.18);
+  --status-success: #97c7a5;
+  --status-warning: #e0b073;
+  --status-danger: #df8d81;
+  --status-info: #9ebbd9;
+  --bg-canvas: #171411;
+  --bg-shell: #1b1713;
+  --bg-sidebar: rgba(31, 26, 22, 0.9);
+  --bg-panel: rgba(27, 23, 19, 0.9);
+  --bg-panel-alt: #221d18;
+  --bg-input: #221d18;
+  --bg-overlay: rgba(7, 5, 4, 0.56);
+  --bg-soft: rgba(252, 251, 248, 0.06);
+  --bg-glass: rgba(34, 29, 24, 0.84);
+  --bg-raised: rgba(252, 251, 248, 0.03);
+  --bg-code: rgba(252, 251, 248, 0.04);
+  --bg-brand-tint: rgba(var(--brand-rgb), 0.14);
+  --bg-accent-tint: rgba(var(--accent-rgb), 0.12);
+  --line-subtle: rgba(252, 251, 248, 0.09);
+  --line-default: rgba(252, 251, 248, 0.18);
+  --line-strong: rgba(252, 251, 248, 0.32);
+  --text-primary: #fcfbf8;
+  --text-secondary: rgba(252, 251, 248, 0.84);
+  --text-muted: rgba(252, 251, 248, 0.58);
+  --text-inverse: #171411;
+  --focus-ring: 0 4px 16px rgba(0, 0, 0, 0.24);
+  --shadow-soft: 0 6px 18px rgba(0, 0, 0, 0.18);
+  --shadow-panel: 0 18px 44px rgba(0, 0, 0, 0.24);
+  --shadow-popover: 0 22px 56px rgba(0, 0, 0, 0.32);
+  --scrollbar-thumb: rgba(252, 251, 248, 0.16);
+}
+
+html[data-theme='light'] {
+  color-scheme: light;
+}

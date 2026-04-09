@@ -1,4 +1,4 @@
-package com.template.server.model;
+package com.loom.server.model;
 
 import java.time.Instant;
 

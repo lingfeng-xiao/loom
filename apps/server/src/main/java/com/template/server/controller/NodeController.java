@@ -1,13 +1,13 @@
-package com.template.server.controller;
+package com.loom.server.controller;
 
-import com.template.server.api.ApiEnvelope;
-import com.template.server.config.TemplateProperties;
-import com.template.server.dto.NodeHeartbeatRequest;
-import com.template.server.dto.NodeHeartbeatResponse;
-import com.template.server.dto.NodeRegistrationRequest;
-import com.template.server.dto.NodeRegistrationResponse;
-import com.template.server.model.NodeRecord;
-import com.template.server.service.NodeService;
+import com.loom.server.api.ApiEnvelope;
+import com.loom.server.config.LoomServerProperties;
+import com.loom.server.dto.NodeHeartbeatRequest;
+import com.loom.server.dto.NodeHeartbeatResponse;
+import com.loom.server.dto.NodeRegistrationRequest;
+import com.loom.server.dto.NodeRegistrationResponse;
+import com.loom.server.model.NodeRecord;
+import com.loom.server.service.NodeService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,11 +26,11 @@ import java.util.List;
 public class NodeController {
 
     private final NodeService nodeService;
-    private final TemplateProperties templateProperties;
+    private final LoomServerProperties serverProperties;
 
-    public NodeController(NodeService nodeService, TemplateProperties templateProperties) {
+    public NodeController(NodeService nodeService, LoomServerProperties serverProperties) {
         this.nodeService = nodeService;
-        this.templateProperties = templateProperties;
+        this.serverProperties = serverProperties;
     }
 
     @GetMapping("/api/nodes")
@@ -66,7 +66,7 @@ public class NodeController {
     }
 
     private void verifyToken(String token) {
-        if (!templateProperties.getNode().getServerToken().equals(token)) {
+        if (!serverProperties.getNode().getServerToken().equals(token)) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid node token");
         }
     }

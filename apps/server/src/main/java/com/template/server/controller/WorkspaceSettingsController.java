@@ -1,9 +1,9 @@
-package com.template.server.controller;
+package com.loom.server.controller;
 
-import com.template.server.api.ApiEnvelope;
-import com.template.server.dto.WorkspaceSettingsUpdateRequest;
-import com.template.server.model.WorkspaceSettings;
-import com.template.server.repository.SettingsRepository;
+import com.loom.server.api.ApiEnvelope;
+import com.loom.server.dto.WorkspaceSettingsUpdateRequest;
+import com.loom.server.model.WorkspaceSettings;
+import com.loom.server.repository.SettingsRepository;
 import jakarta.validation.Valid;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;

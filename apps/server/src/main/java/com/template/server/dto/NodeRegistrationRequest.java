@@ -1,4 +1,4 @@
-package com.template.server.dto;
+package com.loom.server.dto;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;

@@ -1,62 +1,65 @@
-export interface WorkspaceSettings {
-  workspaceName: string
-  supportEmail: string
-  docsUrl: string
-  defaultRefreshIntervalSeconds: number
-  updatedAt: string
-}
+export type {
+  ApiEnvelope,
+  CapabilitiesOverview,
+  ComposerState,
+  ContextPanelView,
+  ContextBlock,
+  CursorPage,
+  ConversationStreamEvent,
+  ConversationMessage,
+  ConversationMode,
+  ConversationSummary,
+  DetailItem,
+  FileAssetSummary,
+  CreateConversationRequest,
+  CreateProjectRequest,
+  ProjectListItem,
+  ProjectView,
+  LoomBootstrapPayload,
+  LlmConfigView,
+  LlmConnectionTestView,
+  LlmModelOptionView,
+  LlmProviderPresetView,
+  MemoryItemView,
+  MemoryScope,
+  MemorySuggestionStatus,
+  MemorySuggestionView,
+  MessageKind,
+  MessageView,
+  OpenClawOverview,
+  OverviewCard,
+  ProjectSummary,
+  SettingsOverviewView,
+  RunStepView,
+  SettingsOverview,
+  StatusItem,
+  SubmitMessageRequest,
+  SubmitMessageResponse,
+  UpdateConversationRequest,
+  UpdateLlmConfigRequest,
+  SurfaceTone,
+  TimelineStatus,
+  TraceStep,
+  WorkspacePageId,
+  WorkspacePageLink,
+} from '../../../packages/contracts/src/index'
 
-export interface ReleaseOverview {
-  installRoot: string
-  systemdUnit: string
-  registry: string
-}
-
-export interface SetupTask {
+export interface CapabilityCardView {
   id: string
   title: string
-  description: string
-  docsUrl: string
+  summary: string
+  items: string[]
 }
 
-export interface ExtensionPoint {
-  name: string
-  target: string
-  description: string
+export interface CapabilityBindingRuleView {
+  label: string
+  value: string
+  tone: 'neutral' | 'accent' | 'good' | 'warn' | 'danger'
 }
 
-export interface BootstrapPayload {
-  appName: string
-  description: string
-  workspaceSettings: WorkspaceSettings
-  releaseOverview: ReleaseOverview
-  setupTasks: SetupTask[]
-  extensionPoints: ExtensionPoint[]
-}
-
-export interface NodeProbe {
-  name: string
-  kind: string
-  target: string
-  status: 'up' | 'down' | 'degraded' | 'unknown'
-  detail: string | null
-  recordedAt: string
-}
-
-export interface NodeRecord {
-  id: string
-  name: string
-  type: string
-  host: string
-  status: 'up' | 'down' | 'degraded' | 'unknown'
-  tags: string[]
-  capabilities: string[]
-  lastHeartbeat: string | null
-  createdAt: string
-  updatedAt: string
-  probes: NodeProbe[]
-}
-
-export interface ApiEnvelope<T> {
-  data: T
+export interface CapabilityOverviewView {
+  activeScope: string
+  summary: string
+  cards: CapabilityCardView[]
+  bindingRules: CapabilityBindingRuleView[]
 }

@@ -1,0 +1,123 @@
+# loom Phase 1 联调检查单
+
+生效日期：2026-04-08
+
+上游依据：
+
+- `docs/loom-phase1-test-plan.md`
+- `docs/requirements-pool-spec.md`
+- `docs/loom-phase1-architecture-design.md`
+- `docs/loom-springboot-backend-module-design.md`
+
+## 1. 使用方式
+
+本检查单用于 `QA-004`，在前后端进入联调窗口前后都可使用。
+
+- 冻结前用于检查合同是否足够清晰
+- 联调时用于逐项勾检问题
+- 联调后用于回填测试结果和修复状态
+
+## 2. 联调前置检查
+
+| 检查项 | 通过标准 | 证据来源 |
+| --- | --- | --- |
+| 需求池状态 | 当前联调范围对应需求已进入 `Ready` 或 `In Progress` | 需求池 |
+| 合同冻结 | REST / SSE / 数据模型字段已冻结 | 架构与合同文档 |
+| 分支隔离 | 前后端分支与 QA 分支已分离，未混入无关改动 | Git 分支 |
+| 本地验证 | 后端测试、前端构建、测试清单准备完成 | CI / 本地执行记录 |
+| 回退准备 | 已确认生产回退脚本和候选 env 规则 | 发布与回退文档 |
+
+## 3. 联调检查表
+
+### 3.1 接口层
+
+| 检查项 | 通过标准 | 责任方 |
+| --- | --- | --- |
+| Project 读取 | 能返回项目摘要、状态和基础元数据 | 后端 |
+| Conversation 读取 | 能返回会话列表、当前会话和模式信息 | 后端 / 前端 |
+| Message 提交 | 用户消息可成功提交并生成响应链路 | 前后端 |
+| Settings 读取 | 能读取 models、skills、MCP、memory、routing 摘要 | 后端 / 前端 |
+| Context 读取 | 右侧 Context 面板可显示摘要与未闭环项 | 后端 / 前端 |
+
+### 3.2 流式层
+
+| 检查项 | 通过标准 | 责任方 |
+| --- | --- | --- |
+| message.delta | 增量消息可连续展示 | 后端 / 前端 |
+| message.done | 消息完成态正确收口 | 后端 / 前端 |
+| thinking.summary.* | 思考摘要可展示且有完成态 | 后端 / 前端 |
+| trace.step.* | Trace 步骤创建、更新、完成可视化 | 后端 / 前端 |
+| context.updated | 上下文刷新后前端可以感知 | 后端 / 前端 |
+
+### 3.3 前端体验层
+
+| 检查项 | 通过标准 | 责任方 |
+| --- | --- | --- |
+| 欢迎页进入 | 进入工作台不报错 | 前端 |
+| 会话切换 | 切换会话后状态和 URL 同步 | 前端 |
+| 模式切换 | chat / plan / action / review 可切换 | 前端 |
+| 右侧面板切换 | Trace / Context / Settings 可正常切换 | 前端 |
+| fallback 切换 | 后端不可用时仍可使用 fallback | 前端 |
+
+### 3.4 异常层
+
+| 检查项 | 通过标准 | 责任方 |
+| --- | --- | --- |
+| 接口 4xx / 5xx | 错误信息可解释，不阻塞页面整体 | 后端 / 前端 |
+| SSE 中断 | 前端可恢复或提示重试 | 后端 / 前端 |
+| 空态 | 无数据时有明确空态文案 | 前端 |
+| 配置缺失 | 缺少设置或合同字段时有降级表现 | 后端 / 前端 |
+
+## 4. 联调记录模板
+
+| 字段 | 内容 |
+| --- | --- |
+| 日期 | YYYY-MM-DD |
+| 联调范围 | 本次覆盖的需求 ID |
+| 环境 | 本地 / 集成 / 生产候选 |
+| 结论 | 通过 / 部分通过 / 阻塞 |
+| 阻塞项 | 具体问题与责任方 |
+| 修复计划 | 下一步动作与 owner |
+| 回退状态 | 是否需要回退、是否已验证可回退 |
+
+## 4.1 当前已知联调基线（2026-04-08）
+
+| 项目 | 当前状态 | 证据 |
+| --- | --- | --- |
+| Message 提交主链路 | 已打通 | `FE-002` `80a5084` + `BE-002` `687d57d` |
+| SSE 事件名对齐 | 已打通首版 | `BE-003` `0fdb1e9` |
+| 会话页消费 stream | 已打通首版 | `FE-003` `d5a748f` |
+| Context 真数据面板 | 已打通 | `FE-004` `44c6c1f` + `BE-004` `13143aa` |
+| Settings / Capabilities 真数据页面 | 已打通 | `FE-005` 当前集成工作树 + `BE-005` `13143aa` |
+| 生产机验证 | 未开始 | `ssh jd` 未执行 |
+
+## 4.2 本轮联调建议顺序
+
+1. 先验证 `message -> stream -> bootstrap refresh` 主链路。
+2. 再验证 Context 面板字段是否与合同冻结文档一致。
+3. 再验证 Settings / Capabilities 的 scope 与摘要字段。
+4. 最后验证 fallback、4xx/5xx 和 SSE 中断表现。
+
+## 5. 通过判定
+
+联调通过需要同时满足：
+
+- 接口层通过
+- 流式层通过
+- 前端体验层通过
+- 异常层无阻塞问题
+- 联调记录完整可回看
+
+## 6. 本轮执行记录（2026-04-08）
+
+| 字段 | 内容 |
+| --- | --- |
+| 联调范围 | `BE-006`、`FE-005`、`QA-004` |
+| 环境 | 本地 / `codex/integration-phase1-delivery` |
+| 结论 | 通过 |
+| 接口层 | `project / conversation / message / context / trace / settings / capabilities` 已可读取；`actions/{actionId}` 已补最小查询接口 |
+| 流式层 | `message.*`、`thinking.summary.*`、`trace.step.*`、`context.updated`、`run.completed` 仍按冻结合同输出 |
+| 前端体验层 | 会话页已优先读取 workspace API 的 project / conversation / message / trace / context；Settings / Capabilities 已优先读取远端读模型 |
+| 异常层 | 后端新增 `ACTION_NOT_FOUND` 回归断言；前端仍保留 fallback/bootstrap 回退路径 |
+| 证据 | `apps/server` `./mvnw.cmd -q test` 通过；`apps/web` `npm run build` 通过；`packages/contracts` 类型检查通过 |
+| 备注 | 本记录仅覆盖本地与集成分支联调，不包含生产机 smoke |

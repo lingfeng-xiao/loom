@@ -11,6 +11,15 @@ Rollback uses the last successful promoted env snapshot:
 /opt/template/scripts/remote-rollback.sh
 ```
 
+## Development-time Guardrail
+
+在开发期使用 `ssh jd` 做生产验证时，任何写操作前都必须先确认：
+
+- 当前操作由 PM 执行
+- `/opt/template/state/last_successful.env` 存在
+- 本轮变更已经在本地通过基础验证
+- 本次验证目标和失败后的回退动作已记录
+
 ## What Rollback Does
 
 1. Brings the stack back up with the image tags stored in `last_successful.env`.
