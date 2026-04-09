@@ -2,28 +2,30 @@
 
 ## Current Status
 
-已于 2026-04-08 完成一次文档清理，并基于最新 Phase 1 设计重新恢复关键规划文档。
+自 2026-04-09 起，文档体系以“项目内产品级会话闭环”为唯一主线。
+当前唯一上游总计划文档为 [loom conversation closure plan](./loom-conversation-closure-plan.md)。
 
-当前有效的新基线来自：
+当前有效主线包括：
 
-- `loom-phase1-architecture-design.md`
-- `loom-springboot-backend-module-design.md`
-- `loom-java-package-structure.md`
+- `loom-conversation-closure-plan.md`
 - `requirements-pool-spec.md`
-- `loom-v1-role-breakdown.md`
+- `deployment.md`
+- `rollback.md`
+- `release-runbook.md`
+- `loom-phase1-test-plan.md`
+- `loom-phase1-test-record.md`
+- `loom-phase1-risk-release-record.md`
 
-## Temporarily Cleared
+## Temporarily Cleared Or Out Of Scope
 
-- [loom V1 design spec](./loom-v1-design-spec.md)
-- [loom Phase 1 UI spec](./loom-phase1-ui-spec.md)
-- [loom Phase 1 architecture baseline](./loom-phase1-architecture.md)
-- [loom-ui-wireframes.html](./loom-ui-wireframes.html)
-- [loom-ui-high-fidelity.html](./loom-ui-high-fidelity.html)
-- [loom-ui-components-high-fidelity.html](./loom-ui-components-high-fidelity.html)
-- [docs/frontend](./frontend)
+- 已删除产品概念对应的历史文档
+- 仅服务 `Chat / Plan / Action / Review` 的说明
+- 仅服务“本地快照 / 远端数据 / fallback”概念的说明
+- 不直接服务当前会话闭环的扩展方向文档
 
 ## Still Valid
 
+- [loom conversation closure plan](./loom-conversation-closure-plan.md)
 - [development spec](./development-spec.md)
 - [deployment](./deployment.md)
 - [git workflow](./git-workflow.md)
@@ -45,6 +47,7 @@
 
 ## Rule
 
-- 暂未恢复的旧文档不得直接回填旧内容
-- 新文档必须明确标注生效日期与设计来源
-- 需求、角色拆分和实施排期以新需求池为唯一入口
+- 当前收敛波次只认 [loom conversation closure plan](./loom-conversation-closure-plan.md) 这一份上游总计划文档。
+- `requirements-pool-spec.md` 中的本波次需求必须按 `ARC / FE / BE / PM / QA / OPS` 角色拆分维护，并统一引用该主计划。
+- current valid docs 只保留现行文档；过期文档必须删除，或明确转入 archive 语义后再保留。
+- 新增或更新文档时，必须同步说明来源、生效日期、是否影响需求池、是否影响发布与验收。

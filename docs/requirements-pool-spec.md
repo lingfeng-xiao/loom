@@ -1,13 +1,77 @@
 # loom 需求池
 
-生效日期：2026-04-08
+> Conversation closure wave upstream plan: `docs/loom-conversation-closure-plan.md`
+
+生效日期：2026-04-09
 
 设计来源：
+- `docs/loom-conversation-closure-plan.md`
 - `docs/loom-phase1-architecture-design.md`
 - `docs/loom-springboot-backend-module-design.md`
 - `docs/loom-java-package-structure.md`
 - `docs/development-spec.md`
 - 当前仓库实现现状（`apps/web`、`apps/server`、`packages/contracts`）
+
+## 0. Conversation Closure Wave (2026-04-09)
+
+### 0.1 Maintenance rules for this wave
+
+- 本波次唯一上游总计划文档为 `docs/loom-conversation-closure-plan.md`。
+- 本波次需求按 `ARC / FE / BE / PM / QA / OPS` 角色拆分维护。
+- 每条需求都必须显式维护 `Source`、`Dependency`、`Acceptance`。
+- 只有当主计划文档已落地并被需求池引用后，实现侧需求才能从 `Ready` 进入 `In Progress`。
+- 删除类改动必须在需求池中可追踪，不允许先删代码再补文档。
+
+### 0.2 Architecture / ARC
+
+| Requirement ID | Priority | Status | Title | Source | Dependency | Acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| ARC-007 | P0 | Ready | Freeze the conversation-closure product boundary and keep only project, conversation, context, memory, stream, and the minimum deployment/ops baseline. | `docs/loom-conversation-closure-plan.md` | None | The active scope explicitly keeps only the product-grade conversation surface, and removed concepts/modules are listed for deletion or archive. |
+| ARC-008 | P0 | Ready | Freeze the target architecture and module dependency rules for `common / project / conversation / context / memory / stream`. | `docs/loom-conversation-closure-plan.md` | ARC-007 | Backend and frontend target structure, domain ownership, and dependency boundaries are documented and accepted as the only current architecture baseline. |
+| ARC-009 | P0 | Ready | Freeze the standards set and require each standard to map to concrete system constraints. | `docs/loom-conversation-closure-plan.md` | ARC-007, ARC-008 | Frontend, backend, git, Maven, release, file, contract, test, doc, config, and logging standards are written down with explicit codebase/process mapping. |
+| ARC-010 | P0 | Ready | Freeze document cleanup, archive policy, and current-valid document boundaries for this wave. | `docs/loom-conversation-closure-plan.md` | ARC-007 | Current-valid docs, archive treatment, and deletion criteria are explicit, and no expired doc remains mixed into the active baseline by accident. |
+
+### 0.3 Frontend / FE
+
+| Requirement ID | Priority | Status | Title | Source | Dependency | Acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| FE-010 | P0 | Ready | Remove mode concepts, data-source concepts, and non-core pages/entry points from the frontend product surface. | `docs/loom-conversation-closure-plan.md` | ARC-007, ARC-010 | The UI no longer exposes `Chat / Plan / Action / Review`, local/remote/fallback data-source labels, or routes/pages outside the conversation-closure scope. |
+| FE-011 | P0 | Ready | Refactor frontend business state into `project / conversation / context / memory / session-ui` domain stores. | `docs/loom-conversation-closure-plan.md` | ARC-008, FE-010, BE-012 | The frontend no longer depends on a single business-truth provider, and each retained domain owns its own state boundary. |
+| FE-012 | P0 | Ready | Converge the conversation, context, and memory surfaces into the minimum product-grade workspace. | `docs/loom-conversation-closure-plan.md` | FE-010, FE-011, BE-015 | Users can complete the retained conversation flow without seeing removed concepts, dead entry points, or placeholder shells. |
+| FE-013 | P0 | Ready | Clean obsolete frontend types, services, routes, styles, and seed/demo data tied to removed concepts or modules. | `docs/loom-conversation-closure-plan.md` | FE-010, FE-011, ARC-010 | Removed concepts have no primary-path residue in frontend code, docs, routes, demo data, or build inputs. |
+
+### 0.4 Backend / BE
+
+| Requirement ID | Priority | Status | Title | Source | Dependency | Acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| BE-012 | P0 | Ready | Converge backend modules to `project / conversation / context / memory / stream / common` and demote/remove the old workspace-centered aggregate. | `docs/loom-conversation-closure-plan.md` | ARC-007, ARC-008 | Module ownership is explicit, cross-module repository access is eliminated, and the retained backend surface matches the closure architecture. |
+| BE-013 | P0 | Ready | Persist conversation, message, action/run state and remove in-memory business truth from the workspace aggregate. | `docs/loom-conversation-closure-plan.md` | ARC-008, BE-012 | Conversation, message, context, memory, and run state are restart-safe and no longer depend on long-lived in-memory business truth. |
+| BE-014 | P0 | Ready | Remove mode, data-source, and obsolete workspace-shell semantics from backend contracts and APIs. | `docs/loom-conversation-closure-plan.md` | ARC-007, BE-012 | Backend contracts no longer expose removed concepts, and deleted semantics do not remain as compatibility leftovers in active APIs. |
+| BE-015 | P0 | Ready | Productize the conversation, context, memory, stream, and recovery closure path. | `docs/loom-conversation-closure-plan.md` | BE-013, BE-014, QA-008 | The backend supports a stable end-to-end flow for send, stream, context refresh, memory suggestion handling, page refresh recovery, and service restart recovery. |
+
+### 0.5 PM
+
+| Requirement ID | Priority | Status | Title | Source | Dependency | Acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| PM-007 | P0 | Ready | Adopt the conversation closure plan as the single upstream plan and align the requirement pool to it. | `docs/loom-conversation-closure-plan.md` | ARC-007, ARC-010 | The plan document is referenced by docs index/readme and by every new wave requirement that belongs to this closure effort. |
+| PM-008 | P0 | Ready | Maintain the current-valid, archive, and deletion document lists for this wave. | `docs/loom-conversation-closure-plan.md` | PM-007, ARC-010 | There is a maintained list of active docs, archive candidates, and deletion candidates, and the current-valid set stays clean throughout the wave. |
+| PM-009 | P0 | Ready | Maintain wave sequencing, dependency gates, acceptance exit, and go/no-go rules for the closure wave. | `docs/loom-conversation-closure-plan.md` | PM-007, ARC-008, QA-008, OPS-003 | Stage gates, dependency locks, and exit criteria are visible and kept current so implementation does not outrun frozen boundaries. |
+
+### 0.6 QA
+
+| Requirement ID | Priority | Status | Title | Source | Dependency | Acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| QA-008 | P0 | Ready | Establish the product-grade conversation-closure acceptance matrix. | `docs/loom-conversation-closure-plan.md` | ARC-007, ARC-008, BE-015, FE-012 | Acceptance covers project -> conversation -> send -> stream -> context -> memory suggestion -> refresh -> restart recovery as a single retained user flow. |
+| QA-009 | P0 | Ready | Establish the cleanliness regression checklist for removed concepts, pages, routes, docs, configs, and seeds. | `docs/loom-conversation-closure-plan.md` | ARC-010, FE-013, BE-014, PM-008 | Regression checks can prove that removed concepts and their technical residue are no longer present in primary product and delivery paths. |
+| QA-010 | P0 | Ready | Cover stream, recovery, context, memory, and removed-concept regressions across backend, frontend, and deployment smoke. | `docs/loom-conversation-closure-plan.md` | QA-008, QA-009, FE-012, BE-015, OPS-003 | Validation captures successful and failing stream flows, refresh/restart recovery, context and memory behavior, and non-regression after concept cleanup. |
+
+### 0.7 Ops / OPS
+
+| Requirement ID | Priority | Status | Title | Source | Dependency | Acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| OPS-002 | P0 | Ready | Converge deployment scripts, env vars, naming, image/runtime labels, and operational terminology to the conversation-closure scope. | `docs/loom-conversation-closure-plan.md` | ARC-010, BE-012 | Deployment/runtime artifacts no longer reference removed modules or stale naming, and the retained deployment surface matches the current product boundary. |
+| OPS-003 | P0 | Ready | Freeze the minimum `preflight / smoke / promote / rollback` operational closure for the retained product. | `docs/loom-conversation-closure-plan.md` | OPS-002, QA-008 | A minimum but real release path exists for the retained product surface, including smoke and rollback readiness for the closure scope. |
+| OPS-004 | P0 | Ready | Clean deployment and runtime leftovers tied to removed modules, pages, concepts, and historical naming. | `docs/loom-conversation-closure-plan.md` | OPS-002, ARC-010 | Compose/env/script/runtime leftovers that belong to removed scope are deleted or archived and no longer appear in active deployment instructions. |
 
 ## 1. 当前项目基线
 
@@ -137,7 +201,7 @@
 - `QA-005`：发布前 `go / no-go` 检查单已补齐，状态更新为 `Done`。
 - `PM-001`、`PM-003`、`PM-004`：文档、风险台账、分支恢复与集成分支编排持续维护中，生产服务器尚未进入使用窗口。
 - 当前下一批待推进需求：`FE-001 / FE-002 / FE-003` 与 `BE-001 / BE-002 / BE-003` 的进一步产品化收口，以及 `QA-003` 的前端关键路径自动化或更完整手测证据。
-## 0. Refactor Wave Supplement (2026-04-09)
+## A. Refactor Wave Supplement (Historical, 2026-04-09)
 
 ### 0.1 Additional requirements
 

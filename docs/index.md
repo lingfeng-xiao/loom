@@ -1,18 +1,19 @@
 # loom Docs Overview
 
-本目录已于 2026-04-08 执行一次文档清理，并在同日恢复新一版 Phase 1 关键规划文档。
+本目录自 2026-04-09 起进入“会话闭环收敛波次”维护口径。
+当前唯一上游总计划为 [loom conversation closure plan](./loom-conversation-closure-plan.md)。
 
 ## Cleared
 
-以下内容已清空，不再作为当前项目依据：
+以下内容不再作为当前收敛波次的现行依据：
 
-- 旧设计方案
-- 旧 Phase 1 UI 规范 / 架构基线
-- 旧 HTML 原型
-- `docs/frontend` 下旧前端设计输入
+- 已删除产品概念对应的旧说明
+- 仅服务旧页面、旧模式、旧数据源概念的文档
+- 与当前产品级会话闭环无直接关系的扩展方向文档
 
 ## Remaining Valid Docs
 
+- [loom conversation closure plan](./loom-conversation-closure-plan.md)
 - [development spec](./development-spec.md)
 - [deployment](./deployment.md)
 - [git workflow](./git-workflow.md)
@@ -34,6 +35,7 @@
 
 ## Rule
 
-- 暂未恢复的旧文档禁止直接引用旧内容
-- 新文档必须从最新设计基线重新生成
-- 需求和角色分工统一维护在新需求池与角色拆分文档中
+- 当前收敛波次的需求、角色拆分、清理动作，统一以上游文档 [loom conversation closure plan](./loom-conversation-closure-plan.md) 为准。
+- Current valid docs 只保留现行有效文档；过期文档必须删除，或明确转入 `archive` 语义后再保留。
+- 新增文档必须写明生效日期、来源和是否属于 current valid docs。
+- 任何删除类改动都必须在需求池中可追踪，不能只改代码不回填文档。
