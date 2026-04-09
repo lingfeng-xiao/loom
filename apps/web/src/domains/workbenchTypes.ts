@@ -103,6 +103,9 @@ export interface MemoryDomainState {
 export interface UiDomainState {
   loading: boolean
   error: string | null
+  workspaceError: string | null
+  conversationError: string | null
+  composerError: string | null
   bootstrapSource: BootstrapSourceViewModel
   globalSearchOpen: boolean
   commandPaletteOpen: boolean

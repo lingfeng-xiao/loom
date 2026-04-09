@@ -66,7 +66,7 @@ export function MemoryPage() {
               {items.map((item) => (
                 <li key={item.id}>
                   <strong>
-                    {scopeLabel(item.scope)} · {sourceLabel(item.source)}
+                    {scopeLabel(item.scope)} / {sourceLabel(item.source)}
                   </strong>
                   <small>{item.content}</small>
                   <span>
@@ -86,16 +86,13 @@ export function MemoryPage() {
               {memory.suggestions.map((suggestion) => (
                 <li key={suggestion.id}>
                   <strong>
-                    {scopeLabel(suggestion.scope)} · {suggestionStatusLabel(suggestion.status)}
+                    {scopeLabel(suggestion.scope)} / {suggestionStatusLabel(suggestion.status)}
                   </strong>
                   <small>{suggestion.content}</small>
                   <span>{suggestion.createdAt}</span>
                 </li>
               ))}
             </ul>
-            {pendingSuggestions.length > 0 ? (
-              <p className="toolNote">建议的接受 / 拒绝操作后续可以接到 memory 领域 action 上，这里已经预留好展示位。</p>
-            ) : null}
           </div>
 
           <div className="toolPanel">

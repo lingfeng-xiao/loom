@@ -57,6 +57,7 @@ export function AppShell() {
       {ui.loading ? <section className="infoBanner">正在加载最新工作区快照：{source.detail}</section> : null}
       {showSourceNotice ? <section className="infoBanner">当前数据源：{source.label}</section> : null}
       {ui.error ? <section className="errorBanner">加载工作区快照失败：{ui.error}</section> : null}
+      {ui.workspaceError ? <section className="errorBanner">远端工作区刷新失败：{ui.workspaceError}</section> : null}
 
       <div
         className={`workspace workspace-${conversation.currentPage} ${

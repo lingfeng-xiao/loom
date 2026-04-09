@@ -1,22 +1,22 @@
 import type { LoomBootstrapPayload } from './types'
 
-export const DEFAULT_LOOM_ERROR = '当前正在使用本地工作台快照，等待后端工作区快照恢复。'
+export const DEFAULT_LOOM_ERROR = '当前正在使用本地工作区快照，等待后端工作区快照恢复。'
 
 export const loomShellData: LoomBootstrapPayload = {
   appName: 'loom',
-  description: 'loom 是一个以线程为中心，同时可见轨迹与上下文的 AI 工作台。',
+  description: 'loom 是一个以会话为中心，同时可见轨迹与上下文的 AI 工作台。',
   project: {
     id: 'project-loom',
     name: 'loom',
     eyebrow: 'Phase 1 启动阶段',
-    description: '当前阶段聚焦工作台壳层、最小合同和领域边界，为后续联调打底。',
+    description: '当前阶段聚焦工作台壳层、最小契约和领域边界，为后续联调打底。',
     workspaceLabel: '项目：loom',
     lastUpdatedLabel: '2 分钟前更新',
     openClawStatus: '已连接',
   },
   pages: [
     { id: 'conversation', label: '会话', description: '线程工作台', shortcut: 'Cmd+1', available: true },
-    { id: 'capabilities', label: '技能和应用', description: '模型、MCP、工作流能力与执行器', shortcut: 'Cmd+2', available: true },
+    { id: 'capabilities', label: '能力与应用', description: '模型、MCP、工作流能力与执行器', shortcut: 'Cmd+2', available: true },
     { id: 'openclaw', label: '自动化', description: '自动化与执行器', shortcut: 'Cmd+3', available: true },
     { id: 'files', label: '文件', description: '项目文件池', shortcut: 'Cmd+4', available: true },
     { id: 'memory', label: '记忆', description: '分层长期记忆', shortcut: 'Cmd+5', available: true },
@@ -26,7 +26,7 @@ export const loomShellData: LoomBootstrapPayload = {
     {
       id: 'conversation-shell',
       title: '工作台壳层重构',
-      summary: '把前端从单文件壳层升级成线程优先的工作台架构。',
+      summary: '把前端从单文件壳层升级成会话优先的工作台架构。',
       lastUpdatedLabel: '2 分钟前',
       mode: 'chat',
       status: 'active',
@@ -34,7 +34,7 @@ export const loomShellData: LoomBootstrapPayload = {
     },
     {
       id: 'conversation-openclaw',
-      title: 'OpenClaw 路由复盘',
+      title: '自动化路由复盘',
       summary: '复核执行器发现、回调链路与等待状态呈现。',
       lastUpdatedLabel: '20 分钟前',
       mode: 'plan',
@@ -79,7 +79,7 @@ export const loomShellData: LoomBootstrapPayload = {
   ],
   activeMode: 'chat',
   conversationTitle: '会话系统 V1 设计',
-  conversationMeta: '项目：loom · 进行中 · 优先完成工作台重构',
+  conversationMeta: '项目：loom / 进行中 / 优先完成工作台重构',
   messages: [
     {
       id: 'message-user',
@@ -99,7 +99,7 @@ export const loomShellData: LoomBootstrapPayload = {
       id: 'message-assistant',
       kind: 'assistant',
       label: '助手',
-      body: '这一轮先冻结 UI 壳层、最小合同和测试基线，避免后续联调边做边漂移。',
+      body: '这一轮先冻结 UI 壳层、最小契约和测试基线，避免后续联调边做边漂移。',
       emphasis: '关键页面：会话 / 能力 / 自动化 / 设置',
       latencyLabel: '已处理 1m 34s',
     },
@@ -122,27 +122,27 @@ export const loomShellData: LoomBootstrapPayload = {
       { label: '上传', enabled: false },
     ],
   },
-  traceSummary: '当前工作台先通过启动快照预取线程、轨迹、上下文与工具域数据，再由前端适配层映射进领域状态。',
+  traceSummary: '当前工作台先通过启动快照预取会话、轨迹、上下文与工具域数据，再由前端适配层映射进领域状态。',
   traceSteps: [
     { id: 'trace-1', label: '读取前端文档输入', detail: '路由 / 状态 / 组件合同', status: 'success' },
-    { id: 'trace-2', label: '建立领域适配层', detail: '启动快照 → 项目 / 会话 / 轨迹 / 上下文 / 设置', status: 'success' },
+    { id: 'trace-2', label: '建立领域适配层', detail: '启动快照 -> 项目 / 会话 / 轨迹 / 上下文 / 设置', status: 'success' },
     { id: 'trace-3', label: '重构工作台壳层', detail: '侧栏 / 标题栏 / 消息流 / 右栏', status: 'running' },
     { id: 'trace-4', label: '文档双向收敛', detail: 'React 实现与前端文档统一', status: 'pending' },
   ],
   contextBlocks: [
-    { id: 'context-goal', label: '当前目标', value: '交付线程优先、可持续演进的前端工作台架构。' },
+    { id: 'context-goal', label: '当前目标', value: '交付会话优先、可持续演进的前端工作台架构。' },
     { id: 'context-constraints', label: '约束条件', value: '保持现有 URL 语义、技术栈不切换、右栏纳入重构。' },
-    { id: 'context-summary', label: '摘要', value: '优先拆分壳层、状态与数据入口，再统一页面容器与组件树。' },
+    { id: 'context-summary', label: '会话摘要', value: '优先拆分壳层、状态与数据入口，再统一页面容器与组件树。' },
     { id: 'context-active', label: '进行中的事项', value: 'Provider 建设、领域 hooks、工具页与右栏重构。' },
-    { id: 'context-files', label: '参考输入', value: '前端文档、设计方案、HTML 原型以及当前启动合同。' },
-    { id: 'context-open', label: '未闭环事项', value: '后端分领域接口、流式事件接入、文件 / 记忆真实数据。' },
+    { id: 'context-files', label: '关联资料', value: '前端文档、设计方案、HTML 原型以及当前启动合同。' },
+    { id: 'context-open', label: '未闭环事项', value: '后端分领域接口、流式事件接入、文件与记忆真实数据。' },
   ],
   capabilities: {
     summary: '集中展示当前工作台的模型、MCP、工作流能力与执行器绑定关系。',
     cards: [
       { id: 'cap-models', title: '模型', summary: '默认模型配置', items: ['GPT-5.4 Thinking', '流式输出', '长上下文'] },
       { id: 'cap-mcp', title: 'MCP 服务', summary: '可用资源与工具提供方', items: ['local-dev', 'notion-mcp', 'internal-hub'] },
-      { id: 'cap-skills', title: '工作流能力', summary: '当前启用的工作流能力', items: ['planning', 'summarize', 'retrieve-context'] },
+      { id: 'cap-skills', title: '工作流能力', summary: '当前启用的工作流能力', items: ['规划', '总结', '检索上下文'] },
       { id: 'cap-executors', title: '执行器', summary: '内部与外部执行器组合', items: ['内部执行器', 'OpenClaw'] },
     ],
     bindingRules: [
@@ -152,7 +152,7 @@ export const loomShellData: LoomBootstrapPayload = {
     ],
   },
   openClaw: {
-    summary: '把 OpenClaw 作为可见、可控的执行桥接层，而不是不可观测的黑盒依赖。',
+    summary: '把 OpenClaw 作为可见、可控的执行桥接层，而不是不可观测的黑箱依赖。',
     connection: [
       { label: 'Gateway 地址', value: 'http://127.0.0.1:18789' },
       { label: '状态', value: '已连接' },
@@ -177,13 +177,13 @@ export const loomShellData: LoomBootstrapPayload = {
     linkedConversations: ['OpenClaw 执行复盘', '路由策略回顾'],
   },
   settings: {
-    summary: '通过分层配置管理全局、项目和线程范围内的模型、MCP、记忆与路由策略。',
-    tabs: ['Models', 'Skills', 'MCP', 'Memory', 'Routing'],
+    summary: '通过分层配置管理全局、项目和会话范围内的模型、MCP、记忆与路由策略。',
+    tabs: ['模型', '技能', 'MCP', '记忆', '路由'],
     profile: [
       { label: '配置名称', value: 'GPT-5.4 Thinking' },
       { label: '提供方', value: 'OpenAI-compatible' },
       { label: '模型 ID', value: 'gpt-5.4-thinking' },
-      { label: '能力', value: '流式输出 · 图像 · Tools · 长上下文' },
+      { label: '能力', value: '流式输出 / 图像 / 工具调用 / 长上下文' },
       { label: '超时', value: '30000 ms' },
     ],
     guidance: [
@@ -194,7 +194,7 @@ export const loomShellData: LoomBootstrapPayload = {
     riskNotes: [
       '启用自动外部动作前，需要再次确认路由策略。',
       '外部回调必须补齐状态校验和超时处理。',
-      '任何配置变更都必须同步到运行和测试文档里。',
+      '任何配置变更都需要同步到运行与测试文档。',
     ],
   },
 }

@@ -82,14 +82,18 @@ export class LoomHttpClient {
         signal,
       })
     } catch (error) {
-      throw new LoomApiError('NETWORK_ERROR', '无法连接 Loom API。请确认后端已经启动，并检查 API Base URL 是否正确。', error)
+      throw new LoomApiError('NETWORK_ERROR', `无法连接到 Loom API（${path}）。请确认后端服务已启动且可以访问。`, error)
     }
 
     let json: ApiEnvelope<T> | ApiErrorEnvelope
     try {
       json = (await response.json()) as ApiEnvelope<T> | ApiErrorEnvelope
     } catch (error) {
-      throw new LoomApiError('INVALID_RESPONSE', 'Loom API 返回了无法识别的响应。如果你正在使用预览构建，请确认请求指向 8080 端口。', error)
+      throw new LoomApiError(
+        'INVALID_RESPONSE',
+        `Loom API 在 ${path} 返回了无法识别的响应。请确认该接口返回的是标准 JSON。`,
+        error,
+      )
     }
 
     if (!response.ok || ('error' in json && json.error)) {

@@ -13,7 +13,10 @@ import type { LoomBootstrapPayload, ProjectListItem } from '../types'
 interface BootstrapAdapterOptions {
   route: LoomRouteState
   loading: boolean
-  error: string | null
+  bootstrapError: string | null
+  workspaceError: string | null
+  conversationError: string | null
+  composerError: string | null
   bootstrapSource: BootstrapSourceViewModel
   draftsByConversation: Record<string, ComposerDraftState>
   scrollPositions: Record<string, number>
@@ -39,7 +42,10 @@ function defaultDraftState(payload: LoomBootstrapPayload): ComposerDraftState {
 function buildUiState(options: BootstrapAdapterOptions): UiDomainState {
   return {
     loading: options.loading,
-    error: options.error,
+    error: options.bootstrapError,
+    workspaceError: options.workspaceError,
+    conversationError: options.conversationError,
+    composerError: options.composerError,
     bootstrapSource: options.bootstrapSource,
     globalSearchOpen: options.globalSearchOpen,
     commandPaletteOpen: options.commandPaletteOpen,
@@ -57,7 +63,7 @@ function buildHeaderCopy(payload: LoomBootstrapPayload, route: LoomRouteState) {
   if (currentPage === 'conversation') {
     return {
       title: currentConversation?.title ?? payload.conversationTitle,
-      meta: `${payload.project.name} · ${currentConversation?.lastUpdatedLabel ?? payload.project.lastUpdatedLabel} · ${payload.project.openClawStatus}`,
+      meta: `${payload.project.name} / ${currentConversation?.lastUpdatedLabel ?? payload.project.lastUpdatedLabel} / ${payload.project.openClawStatus}`,
       actions: [
         { id: 'workspace', label: '工作区', icon: 'switch' as const },
         { id: 'submit', label: '提交', icon: 'submit' as const, tone: 'primary' as const },

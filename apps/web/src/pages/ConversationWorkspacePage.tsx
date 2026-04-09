@@ -60,6 +60,8 @@ export function ConversationWorkspacePage({ onOpenThinkingMessage }: Conversatio
         title={conversation.activeThread?.title ?? '新会话'}
       />
 
+      {ui.conversationError ? <div className="conversationInlineNotice errorBanner">会话数据同步失败：{ui.conversationError}</div> : null}
+
       <MessageStream
         conversationId={conversation.activeConversationId}
         messages={conversation.messages}
@@ -72,7 +74,7 @@ export function ConversationWorkspacePage({ onOpenThinkingMessage }: Conversatio
       <ComposerDock
         composer={composer.snapshot}
         draft={composer.currentDraft}
-        error={ui.error}
+        error={ui.composerError}
         onDraftChange={composer.updateDraft}
         onSubmit={composer.submitDraft}
       />

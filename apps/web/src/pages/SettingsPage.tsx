@@ -387,7 +387,7 @@ export function SettingsPage() {
                 onChange={(event) => setFormState((current) => ({ ...current, activate: event.target.checked }))}
                 type="checkbox"
               />
-              <span>保存后立即设为当前模型</span>
+              <span>保存后立刻设为当前模型</span>
             </label>
 
             <details

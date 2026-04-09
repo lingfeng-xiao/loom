@@ -13,8 +13,8 @@ interface WorkspaceTitleBarProps {
 
 const themeOptions: Array<{ id: ThemePreference; label: string; icon: 'systemTheme' | 'sun' | 'moon' }> = [
   { id: 'system', label: '跟随系统', icon: 'systemTheme' },
-  { id: 'light', label: '亮色', icon: 'sun' },
-  { id: 'dark', label: '暗色', icon: 'moon' },
+  { id: 'light', label: '浅色', icon: 'sun' },
+  { id: 'dark', label: '深色', icon: 'moon' },
 ]
 
 function resolveStatusTone(environmentStatus: string) {
@@ -58,11 +58,22 @@ export function WorkspaceTitleBar({
           <span>{bootstrapSourceLabel}</span>
         </button>
 
+        <button
+          aria-label="打开自动化状态"
+          className={`uiButton uiButton-secondary titleBarChipButton titleBarIconButton-${resolveStatusTone(environmentStatus)}`}
+          onClick={onOpenClaw}
+          title={environmentStatus}
+          type="button"
+        >
+          <WorkbenchIcon name="automation" size={15} />
+          <span>自动化</span>
+        </button>
+
         <div aria-label="主题切换" className="themeSwitcher" role="group">
           {themeOptions.map((option) => (
             <button
-              aria-pressed={themePreference === option.id}
               aria-label={option.label}
+              aria-pressed={themePreference === option.id}
               className={`uiButton uiButton-ghost uiButton-icon themeSwitchButton ${themePreference === option.id ? 'active' : ''}`}
               key={option.id}
               onClick={() => onThemeChange(option.id)}
@@ -73,16 +84,6 @@ export function WorkspaceTitleBar({
             </button>
           ))}
         </div>
-
-        <button
-          aria-label="打开自动化状态"
-          className={`uiButton uiButton-secondary uiButton-icon titleBarIconButton titleBarIconButton-${resolveStatusTone(environmentStatus)}`}
-          onClick={onOpenClaw}
-          title={environmentStatus}
-          type="button"
-        >
-          <WorkbenchIcon name="automation" size={15} />
-        </button>
       </div>
     </header>
   )

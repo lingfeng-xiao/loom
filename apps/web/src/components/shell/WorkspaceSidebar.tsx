@@ -127,12 +127,11 @@ export function WorkspaceSidebar({
                   <div className="sidebarProjectThreadList">
                     {group.threads.map((thread) => (
                       <button
-                        className={`uiRowItem sidebarProjectThread ${thread.id === activeThreadId ? 'active' : ''}`}
+                        className={`uiRowItem sidebarProjectThread sidebarProjectThread-textOnly ${thread.id === activeThreadId ? 'active' : ''}`}
                         key={thread.id}
                         onClick={() => onOpenConversation(thread.id)}
                         type="button"
                       >
-                        <WorkbenchIcon className="sidebarProjectThreadIcon" name="chat" size={14} />
                         <span>{thread.title}</span>
                       </button>
                     ))}

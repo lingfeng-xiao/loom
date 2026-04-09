@@ -1,5 +1,5 @@
-import { WorkbenchIcon } from '../WorkbenchIcon'
 import type { ConversationMode, ProjectListItem } from '../../types'
+import { WorkbenchIcon } from '../WorkbenchIcon'
 
 interface ConversationSubbarProps {
   title: string

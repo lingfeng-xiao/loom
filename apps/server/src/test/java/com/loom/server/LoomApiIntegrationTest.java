@@ -131,7 +131,7 @@ class LoomApiIntegrationTest {
 
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/context"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.activeGoals[0]").value("Start from the correct project."));
+                .andExpect(jsonPath("$.data.activeGoals[0]").value("先从正确的项目开始。"));
 
         mockMvc.perform(post("/api/projects/project-loom/conversations/conversation-v1/context/refresh"))
                 .andExpect(status().isOk())
@@ -140,7 +140,7 @@ class LoomApiIntegrationTest {
 
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/trace"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.steps[0].title").value("Load context"));
+                .andExpect(jsonPath("$.data.steps[0].title").value("加载上下文"));
 
         mockMvc.perform(get("/api/settings/overview").queryParam("scope", "project"))
                 .andExpect(status().isOk())
@@ -196,7 +196,7 @@ class LoomApiIntegrationTest {
         mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/runs/" + runId + "/steps"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].runId").value(runId))
-                .andExpect(jsonPath("$.data.items[1].title").value("Call model"));
+                .andExpect(jsonPath("$.data.items[1].title").value("调用模型"));
 
         String traceResponse = mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/trace"))
                 .andExpect(status().isOk())

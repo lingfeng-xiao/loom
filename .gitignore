@@ -6,5 +6,8 @@ apps/web/node_modules/
 apps/web/dist/
 apps/web/.vite/
 apps/server/.loom-local/
+apps/server/.loom-local-8081/
+apps/server/.local/
 deploy/data/
+.codex-runtime/
 *.log

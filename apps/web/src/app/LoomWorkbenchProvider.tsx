@@ -178,7 +178,7 @@ function toSettingsOverview(settings: SettingsOverviewView): SettingsOverview {
   const activeModel = settings.modelProfiles[0]
 
   return {
-    summary: '设置页已切到真实读模型，展示当前作用域的模型、Skills、MCP、Memory 与 Routing 概览。',
+    summary: '设置页已切到真实读模型，展示当前作用域的模型、技能、MCP、记忆与路由概览。',
     tabs: settings.tabs,
     profile: activeModel
       ? [
@@ -190,8 +190,8 @@ function toSettingsOverview(settings: SettingsOverviewView): SettingsOverview {
             value: [
               activeModel.supportsStreaming ? '流式输出' : null,
               activeModel.supportsImages ? '图像' : null,
-              activeModel.supportsTools ? 'Tools' : null,
-              activeModel.supportsLongContext ? 'Long Context' : null,
+              activeModel.supportsTools ? '工具调用' : null,
+              activeModel.supportsLongContext ? '长上下文' : null,
             ]
               .filter(Boolean)
               .join(' | '),
@@ -201,12 +201,12 @@ function toSettingsOverview(settings: SettingsOverviewView): SettingsOverview {
       : [],
     guidance: [
       `当前作用域：${settings.activeScope}`,
-      `启用 Skills：${settings.skills.filter((skill) => skill.enabled).map((skill) => skill.name).join(' / ') || '无'}`,
-      `默认运行时：${settings.routingPolicy?.defaultRuntime ?? 'internal'}`,
+      `启用技能：${settings.skills.filter((skill) => skill.enabled).map((skill) => skill.name).join(' / ') || '无'}`,
+      `默认运行时：${settings.routingPolicy?.defaultRuntime ?? '内部运行时'}`,
     ],
     riskNotes: [
       settings.routingPolicy?.allowExternalExecutors ? '外部执行器仍需受控开启。' : '当前未开放外部执行器直连。',
-      settings.memoryPolicy?.allowSystemWrites ? 'System 写入已开启，变更前需要同步测试记录。' : 'System 写入未开启。',
+      settings.memoryPolicy?.allowSystemWrites ? '系统写入已开启，变更前需要同步测试记录。' : '系统写入未开启。',
       '任何配置变更都必须同步到运行和测试文档里。',
     ],
   }
@@ -298,14 +298,14 @@ function toDetailedSettingsOverview(settings: SettingsOverviewView): SettingsOve
       ? [
           { label: '配置名称', value: activeModel.name },
           { label: '提供方', value: activeModel.provider },
-          { label: 'Model ID', value: activeModel.modelId },
+          { label: '模型 ID', value: activeModel.modelId },
           {
             label: '能力',
             value: [
               activeModel.supportsStreaming ? '流式输出' : null,
               activeModel.supportsImages ? '图像' : null,
-              activeModel.supportsTools ? 'Tools' : null,
-              activeModel.supportsLongContext ? 'Long Context' : null,
+              activeModel.supportsTools ? '工具调用' : null,
+              activeModel.supportsLongContext ? '长上下文' : null,
             ]
               .filter(Boolean)
               .join(' | '),
@@ -315,12 +315,12 @@ function toDetailedSettingsOverview(settings: SettingsOverviewView): SettingsOve
       : [],
     guidance: [
       `当前作用域：${settings.activeScope}`,
-      `已启用 Skills：${settings.skills.filter((skill) => skill.enabled).map((skill) => skill.name).join(' / ') || '无'}`,
-      `默认运行时：${settings.routingPolicy?.defaultRuntime ?? 'internal'}`,
+      `已启用技能：${settings.skills.filter((skill) => skill.enabled).map((skill) => skill.name).join(' / ') || '无'}`,
+      `默认运行时：${settings.routingPolicy?.defaultRuntime ?? '内部运行时'}`,
     ],
     riskNotes: [
       settings.routingPolicy?.allowExternalExecutors ? '外部执行器仍然启用，建议继续保留准入控制。' : '外部执行器当前处于关闭状态。',
-      settings.memoryPolicy?.allowSystemWrites ? 'System 记忆写入已开启，配置变更后需要验证。' : 'System 记忆写入当前关闭。',
+      settings.memoryPolicy?.allowSystemWrites ? '系统记忆写入已开启，配置变更后需要验证。' : '系统记忆写入当前关闭。',
       '每次配置调整后都应重新做一次在线连通性测试。',
     ],
     providerPresets: settings.providerPresets,
@@ -540,7 +540,9 @@ export function LoomWorkbenchProvider({
   const [globalSearchOpen, setGlobalSearchOpen] = useState(false)
   const [commandPaletteOpen] = useState(false)
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
-  const [runtimeError, setRuntimeError] = useState<string | null>(null)
+  const [workspaceError, setWorkspaceError] = useState<string | null>(null)
+  const [conversationError, setConversationError] = useState<string | null>(null)
+  const [composerError, setComposerError] = useState<string | null>(null)
   const [streamOverlay, setStreamOverlay] = useState<StreamOverlayState | null>(null)
   const [streamMemorySuggestions, setStreamMemorySuggestions] = useState<MemorySuggestionView[]>([])
   const [remoteProjects, setRemoteProjects] = useState<ProjectListItem[] | null>(null)
@@ -557,7 +559,6 @@ export function LoomWorkbenchProvider({
   const [draftsByConversation, setDraftsByConversation] = useState<Record<string, ComposerDraftState>>({})
   const [scrollPositions, setScrollPositions] = useState<Record<string, number>>({})
   const streamUnsubscribeRef = useRef<null | (() => void)>(null)
-  const combinedError = runtimeError ?? error
   const activeProjectId = route.projectId ?? payload.project.id
   const activeConversationId = route.conversationId ?? defaultConversationId(payload)
   const bootstrapConversationId = defaultConversationId(payload)
@@ -632,6 +633,8 @@ export function LoomWorkbenchProvider({
   useEffect(() => {
     setStreamOverlay(null)
     setStreamMemorySuggestions([])
+    setConversationError(null)
+    setComposerError(null)
   }, [activeConversationId, payload])
 
   useEffect(() => {
@@ -644,6 +647,7 @@ export function LoomWorkbenchProvider({
       setStreamMemorySuggestions([])
       setRemoteSettings(null)
       setRemoteCapabilities(null)
+      setWorkspaceError(null)
       return
     }
 
@@ -656,6 +660,7 @@ export function LoomWorkbenchProvider({
     setStreamMemorySuggestions([])
     setRemoteSettings(null)
     setRemoteCapabilities(null)
+    setWorkspaceError(null)
 
     void Promise.all([
       sdk.workspace.listProjects(controller.signal),
@@ -674,13 +679,14 @@ export function LoomWorkbenchProvider({
         setRemoteConversations(conversations.items)
         setRemoteSettings(settings)
         setRemoteCapabilities(capabilities)
+        setWorkspaceError(null)
       })
       .catch((fetchError) => {
         if (controller.signal.aborted) {
           return
         }
 
-        setRuntimeError(fetchError instanceof Error ? fetchError.message : '远端业务数据加载失败')
+        setWorkspaceError(fetchError instanceof Error ? fetchError.message : '远端工作区数据加载失败。')
       })
 
     void sdk.workspace
@@ -710,6 +716,7 @@ export function LoomWorkbenchProvider({
       setRemoteMessages(null)
       setRemoteTrace(null)
       setRemoteContext(null)
+      setConversationError(null)
       return
     }
 
@@ -718,6 +725,7 @@ export function LoomWorkbenchProvider({
     setRemoteMessages(null)
     setRemoteTrace(null)
     setRemoteContext(null)
+    setConversationError(null)
 
     void Promise.all([
       sdk.workspace.getConversation(activeProjectId, activeConversationId, controller.signal),
@@ -734,8 +742,15 @@ export function LoomWorkbenchProvider({
         setRemoteMessages(messages.items)
         setRemoteTrace(trace)
         setRemoteContext(context)
+        setConversationError(null)
       })
-      .catch(() => undefined)
+      .catch((fetchError) => {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        setConversationError(fetchError instanceof Error ? fetchError.message : '会话数据同步失败。')
+      })
 
     return () => controller.abort()
   }, [activeConversationId, activeProjectId, payload.messages, payload.traceSteps, sdk])
@@ -836,7 +851,7 @@ export function LoomWorkbenchProvider({
         return
       }
 
-      setRuntimeError(null)
+      setComposerError(null)
       setDraftsByConversation((current) => ({
         ...current,
         [key]: {
@@ -920,7 +935,7 @@ export function LoomWorkbenchProvider({
               }))
             }
             if (event.event === 'run.failed') {
-              setRuntimeError(event.error.message)
+              setComposerError(event.error.message)
             }
             if (event.event === 'memory.suggested') {
               setStreamMemorySuggestions((current) => mergeMemorySuggestions(current, [event.suggestion]))
@@ -954,7 +969,7 @@ export function LoomWorkbenchProvider({
           },
         }))
       } catch (submitError) {
-        setRuntimeError(submitError instanceof Error ? submitError.message : '发送消息失败')
+        setComposerError(submitError instanceof Error ? submitError.message : '发送消息失败。')
         setStreamOverlay(
           createOverlayState(
             conversationId,
@@ -1083,12 +1098,12 @@ export function LoomWorkbenchProvider({
     handlePrimaryAction(actionId) {
       if (actionId === 'new-thread') {
         if (!activeProjectId) {
-          setRuntimeError('当前没有可用项目。')
+          setWorkspaceError('当前没有可用项目。')
           return
         }
         void actions
           .createConversation(activeProjectId, {})
-          .catch((createError) => setRuntimeError(createError instanceof Error ? createError.message : '创建会话失败'))
+          .catch((createError) => setWorkspaceError(createError instanceof Error ? createError.message : '创建会话失败。'))
         return
       }
 
@@ -1157,7 +1172,10 @@ export function LoomWorkbenchProvider({
       adaptBootstrapToWorkbench(effectivePayload, {
         route,
         loading,
-        error: combinedError,
+        bootstrapError: error,
+        workspaceError,
+        conversationError,
+        composerError,
         bootstrapSource,
         draftsByConversation,
         scrollPositions,
@@ -1166,7 +1184,22 @@ export function LoomWorkbenchProvider({
         commandPaletteOpen,
         leftSidebarCollapsed,
       }),
-    [availableProjects, bootstrapSource, combinedError, commandPaletteOpen, draftsByConversation, effectivePayload, globalSearchOpen, leftSidebarCollapsed, loading, route, scrollPositions],
+    [
+      availableProjects,
+      bootstrapSource,
+      commandPaletteOpen,
+      composerError,
+      conversationError,
+      draftsByConversation,
+      effectivePayload,
+      error,
+      globalSearchOpen,
+      leftSidebarCollapsed,
+      loading,
+      route,
+      scrollPositions,
+      workspaceError,
+    ],
   )
 
   const memory = useMemo(() => {

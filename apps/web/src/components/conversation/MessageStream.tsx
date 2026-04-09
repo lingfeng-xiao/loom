@@ -101,9 +101,18 @@ export function MessageStream({
   const renderItems = useMemo(() => buildRenderItems(messages, showPendingAssistant), [messages, showPendingAssistant])
 
   useEffect(() => {
-    if (streamRef.current && restoredScrollTop != null) {
-      streamRef.current.scrollTop = restoredScrollTop
+    if (!streamRef.current) {
+      return
     }
+
+    if (restoredScrollTop != null && restoredScrollTop > 0) {
+      streamRef.current.scrollTop = restoredScrollTop
+      stickToBottomRef.current = false
+      return
+    }
+
+    stickToBottomRef.current = true
+    streamRef.current.scrollTop = streamRef.current.scrollHeight
   }, [restoredScrollTop, conversationId])
 
   useEffect(() => {
@@ -128,15 +137,17 @@ export function MessageStream({
       }}
       ref={streamRef}
     >
-      {renderItems.map((item) => (
-        <MessageItem
-          key={item.key}
-          message={item.message}
-          onOpenThinking={onOpenThinking}
-          pending={item.pending}
-          thinkingMessage={item.thinkingMessage}
-        />
-      ))}
+      <div className="chatStreamLane">
+        {renderItems.map((item) => (
+          <MessageItem
+            key={item.key}
+            message={item.message}
+            onOpenThinking={onOpenThinking}
+            pending={item.pending}
+            thinkingMessage={item.thinkingMessage}
+          />
+        ))}
+      </div>
     </div>
   )
 }

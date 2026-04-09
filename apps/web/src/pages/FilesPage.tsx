@@ -75,7 +75,7 @@ export function FilesPage() {
         <p>项目文件池与引用资产，优先展示可供会话与上下文引用的核心文件。</p>
       </div>
 
-      {error ? <section className="infoBanner">文件远程读取失败，已回退到 {sourceLabel}：{error}</section> : null}
+      {error ? <section className="infoBanner">文件远端读取失败，已回退到 {sourceLabel}：{error}</section> : null}
 
       {loading ? (
         <div className="emptyPage">

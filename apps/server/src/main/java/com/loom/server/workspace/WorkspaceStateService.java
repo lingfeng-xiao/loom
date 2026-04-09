@@ -686,12 +686,12 @@ public class WorkspaceStateService {
         seed.messages.add(newMessage(project.id, seed.id, "thinking_summary", "assistant", "先对齐后端设置模型并接入 MiniMax，再把新会话流程切到项目选择。", "先后端，再设置页，再会话流。", "completed", seed.updatedAt, seed.updatedAt, 920L));
         seed.messages.add(newMessage(project.id, seed.id, "assistant", "assistant", "第一轮交付会先提供模型配置、连接测试和按项目归属的会话创建能力。", "设置与会话创建已经是当前关键路径。", "completed", seed.updatedAt, seed.updatedAt, 1540L));
         seed.summary = "真实模型接入与项目归属会话流。";
-        seed.traceSummary = "Start from the backend model path, then make the session stream and trace visible in the UI.";
+        seed.traceSummary = "先打通后端模型链路，再把会话流和轨迹在界面里完整呈现。";
         seed.traceSteps.clear();
         seed.traceSteps.addAll(List.of(
-                new RunStepView("trace-context-" + seed.id, "run-seed-" + seed.id, "Load context", "Read project instructions and recent session history.", "success", seed.updatedAt, seed.updatedAt, null),
-                new RunStepView("trace-model-" + seed.id, "run-seed-" + seed.id, "Call model", "Use the configured model path or surface setup guidance.", "success", seed.updatedAt, seed.updatedAt, null),
-                new RunStepView("trace-publish-" + seed.id, "run-seed-" + seed.id, "Publish reply", "Persist the visible reply, thinking summary, and updated trace.", "success", seed.updatedAt, seed.updatedAt, null)
+                new RunStepView("trace-context-" + seed.id, "run-seed-" + seed.id, "加载上下文", "读取项目说明与最近会话历史。", "success", seed.updatedAt, seed.updatedAt, null),
+                new RunStepView("trace-model-" + seed.id, "run-seed-" + seed.id, "调用模型", "使用已配置的模型链路，或在未配置时给出设置引导。", "success", seed.updatedAt, seed.updatedAt, null),
+                new RunStepView("trace-publish-" + seed.id, "run-seed-" + seed.id, "发布回复", "持久化可见回复、思考摘要和更新后的轨迹。", "success", seed.updatedAt, seed.updatedAt, null)
         ));
         seed.traceUpdatedAt = seed.updatedAt;
         seed.lastMessageAt = seed.messages.get(seed.messages.size() - 1).completedAt();
@@ -987,22 +987,22 @@ public class WorkspaceStateService {
     }
 
     private void initializeContext(ConversationState state) {
-        state.context.conversationSummary = "This session is ready to collect project-specific intent, trace, and configuration updates.";
-        state.context.decisions = List.of("Keep sessions project-first.", "Surface the live model status in settings.");
-        state.context.openLoops = List.of("Configure MiniMax if live chat is required.", "Capture acceptance evidence.");
-        state.context.activeGoals = List.of("Start from the correct project.");
-        state.context.constraints = List.of("Do not hide model status.", "Keep trace visible.");
-        state.context.references = List.of(new ContextReferenceItem("ref-project", "Project", "memory", "Project-first session flow is required."));
+        state.context.conversationSummary = "当前会话已准备好收集项目相关意图、轨迹与配置更新。";
+        state.context.decisions = List.of("会话保持项目优先归属。", "在设置页展示实时模型状态。");
+        state.context.openLoops = List.of("如果需要实时聊天，补齐模型配置。", "补充验收证据。");
+        state.context.activeGoals = List.of("先从正确的项目开始。");
+        state.context.constraints = List.of("不要隐藏模型状态。", "保持轨迹可见。");
+        state.context.references = List.of(new ContextReferenceItem("ref-project", "项目", "memory", "当前需要坚持项目优先的会话流。"));
         state.context.snapshots = List.of(new ContextSnapshotView("snapshot-summary-" + state.id, state.projectId, state.id, "conversation_summary", state.summary, state.updatedAt));
         state.context.updatedAt = state.updatedAt;
     }
 
     private void updateContextAfterMessage(String projectId, ConversationState state, String latestUserInput, String assistantBody, String updatedAt) {
         state.context.updatedAt = updatedAt;
-        state.context.conversationSummary = "The session absorbed the latest user request and updated the live execution path.";
-        state.context.decisions = List.of("Use the configured MiniMax endpoint when available.", "Keep new-session creation bound to a chosen project.", "Refresh acceptance evidence after verification.");
-        state.context.openLoops = List.of("Retest the model connection after configuration changes.", "Validate project creation and session creation together.", "Confirm the message stream still renders correctly.");
-        state.context.activeGoals = List.of("Answer the active request.", summarize(latestUserInput));
+        state.context.conversationSummary = "会话已经吸收最新用户请求，并更新了当前执行路径。";
+        state.context.decisions = List.of("优先使用已配置的模型端点。", "新会话创建始终绑定到所选项目。", "验证完成后刷新验收证据。");
+        state.context.openLoops = List.of("配置变更后重新测试模型连通性。", "联动验证项目创建和会话创建。", "确认消息流仍能正确渲染。");
+        state.context.activeGoals = List.of("回答当前请求。", summarize(latestUserInput));
         state.context.references = List.of(
                 new ContextReferenceItem("ref-latest-message", "Latest message", "conversation", summarize(latestUserInput)),
                 new ContextReferenceItem("ref-latest-reply", "Latest reply", "conversation", summarize(assistantBody))
@@ -1384,8 +1384,8 @@ public class WorkspaceStateService {
     }
 
     private void completeContextStep(String projectId, String conversationId, String runId, String completedAt, Consumer<Map<String, Object>> sink) {
-        markTraceStep(projectId, conversationId, runId, "trace-context-" + conversationId, "success", "Project context, recent messages, and runtime policy are loaded.", completedAt, sink);
-        markTraceStep(projectId, conversationId, runId, "trace-model-" + conversationId, "waiting", "Waiting for streamed deltas from the model.", null, sink);
+        markTraceStep(projectId, conversationId, runId, "trace-context-" + conversationId, "success", "项目上下文、最近消息和运行策略已加载。", completedAt, sink);
+        markTraceStep(projectId, conversationId, runId, "trace-model-" + conversationId, "waiting", "等待模型流式返回增量。", null, sink);
     }
 
     private void markTraceStep(String projectId, String conversationId, String runId, String stepId, String status, String detail, String completedAt, Consumer<Map<String, Object>> sink) {
@@ -1417,12 +1417,12 @@ public class WorkspaceStateService {
 
     private String stepTitleFor(String stepId) {
         if (stepId.contains("context")) {
-            return "Load context";
+            return "加载上下文";
         }
         if (stepId.contains("model")) {
-            return "Call model";
+            return "调用模型";
         }
-        return "Publish reply";
+        return "发布回复";
     }
 
     private int traceIndexFor(String stepId) {
@@ -1491,17 +1491,17 @@ public class WorkspaceStateService {
     private List<RunStepView> defaultPreviewTraceSteps(String conversationId, String runId, String timestamp) {
         String resolvedRunId = runId == null ? "run-preview-" + conversationId : runId;
         return List.of(
-                new RunStepView("trace-context-" + conversationId, resolvedRunId, "Load context", "Read project instructions, recent messages, and model bindings.", "success", timestamp, timestamp, null),
-                new RunStepView("trace-model-" + conversationId, resolvedRunId, "Call model", "Use the configured provider or surface setup guidance.", "success", timestamp, timestamp, null),
-                new RunStepView("trace-publish-" + conversationId, resolvedRunId, "Publish reply", "Persist the visible reply, thinking summary, and updated context.", "success", timestamp, timestamp, null)
+                new RunStepView("trace-context-" + conversationId, resolvedRunId, "加载上下文", "读取项目说明、最近消息和模型绑定。", "success", timestamp, timestamp, null),
+                new RunStepView("trace-model-" + conversationId, resolvedRunId, "调用模型", "使用已配置的提供方，或给出设置引导。", "success", timestamp, timestamp, null),
+                new RunStepView("trace-publish-" + conversationId, resolvedRunId, "发布回复", "持久化可见回复、思考摘要和更新后的上下文。", "success", timestamp, timestamp, null)
         );
     }
 
     private List<RunStepView> defaultRunningTraceSteps(String conversationId, String runId, String startedAt) {
         return List.of(
-                new RunStepView("trace-context-" + conversationId, runId, "Load context", "Read project instructions, recent messages, and model bindings.", "running", startedAt, null, null),
-                new RunStepView("trace-model-" + conversationId, runId, "Call model", "Wait for streamed reasoning and answer deltas.", "pending", null, null, null),
-                new RunStepView("trace-publish-" + conversationId, runId, "Publish reply", "Persist the final answer and refreshed context.", "pending", null, null, null)
+                new RunStepView("trace-context-" + conversationId, runId, "加载上下文", "读取项目说明、最近消息和模型绑定。", "running", startedAt, null, null),
+                new RunStepView("trace-model-" + conversationId, runId, "调用模型", "等待思考摘要和答案的流式增量。", "pending", null, null, null),
+                new RunStepView("trace-publish-" + conversationId, runId, "发布回复", "持久化最终答案和刷新后的上下文。", "pending", null, null, null)
         );
     }
 

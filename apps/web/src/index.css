@@ -14,8 +14,8 @@ body,
 
 body {
   background:
-    radial-gradient(circle at top left, rgba(var(--brand-rgb), 0.16), transparent 32%),
-    radial-gradient(circle at top right, rgba(var(--accent-rgb), 0.1), transparent 28%),
+    radial-gradient(circle at top left, rgba(var(--brand-rgb), 0.12), transparent 34%),
+    radial-gradient(circle at top right, rgba(var(--accent-rgb), 0.1), transparent 26%),
     linear-gradient(180deg, var(--bg-shell) 0%, var(--bg-canvas) 100%);
   color: var(--text-primary);
   font-family: var(--font-sans);
@@ -82,7 +82,7 @@ a {
 
 .workspaceTitleBar {
   min-height: var(--topbar-height);
-  padding: 14px 18px 10px 16px;
+  padding: 18px 22px 12px 20px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -96,27 +96,35 @@ a {
 }
 
 .titleBarBrandMark {
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
+  border-radius: 14px;
   background:
-    linear-gradient(135deg, rgba(var(--brand-rgb), 0.24), rgba(var(--accent-rgb), 0.12)),
+    linear-gradient(135deg, rgba(var(--brand-rgb), 0.2), rgba(var(--accent-rgb), 0.1)),
     var(--bg-panel-alt);
-  color: var(--brand-500);
-  box-shadow: inset 0 1px 0 var(--line-subtle);
-  font-weight: 700;
+  color: var(--brand-700);
+  border: 1px solid var(--line-subtle);
+  font-weight: 600;
 }
 
 .titleBarBrandText {
-  display: inline-flex;
-  align-items: center;
+  display: grid;
+  gap: 2px;
+}
+
+.titleBarEyebrow {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .titleBarBrandText strong {
-  font-size: 0.98rem;
-  letter-spacing: 0.01em;
+  font-size: 1rem;
+  letter-spacing: -0.02em;
+  font-weight: 600;
 }
 
 .titleBarActions {
@@ -129,7 +137,7 @@ a {
   border: 1px solid var(--line-default);
   background: var(--bg-panel);
   color: var(--text-primary);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 3%, transparent);
+  box-shadow: none;
   transition:
     transform var(--dur-mid) var(--ease-standard),
     background-color var(--dur-mid) var(--ease-standard),
@@ -153,18 +161,18 @@ a {
 .uiButton-secondary {
   background: var(--bg-glass);
   color: var(--text-primary);
-  box-shadow: var(--shadow-soft);
+  box-shadow: none;
 }
 
 .uiButton-primary {
-  background: var(--brand-500);
-  border-color: transparent;
+  background: var(--text-primary);
+  border-color: rgba(0, 0, 0, 0.2);
   color: var(--text-inverse);
-  box-shadow: 0 12px 24px rgba(var(--brand-rgb), 0.24);
+  box-shadow: var(--shadow-inset-button);
 }
 
 .uiButton-primary:hover:not(:disabled) {
-  background: var(--brand-600);
+  background: color-mix(in srgb, var(--text-primary) 92%, transparent);
 }
 
 .uiButton-ghost {
@@ -223,20 +231,18 @@ a {
 
 .uiSurface {
   border: 1px solid var(--line-subtle);
-  border-radius: 18px;
+  border-radius: 16px;
   background: var(--bg-panel-alt);
 }
 
 .uiSurface-elevated {
-  box-shadow: var(--shadow-panel);
+  box-shadow: none;
 }
 
 .uiDialog {
   border: 1px solid var(--line-default);
   border-radius: 22px;
-  background:
-    linear-gradient(180deg, rgba(var(--brand-rgb), 0.08), transparent 26%),
-    var(--bg-panel);
+  background: var(--bg-panel-alt);
   box-shadow: var(--shadow-popover);
 }
 
@@ -305,9 +311,9 @@ a {
 
 .infoBanner,
 .errorBanner {
-  margin: 0 16px;
+  margin: 0 20px;
   padding: 10px 14px;
-  border-radius: var(--radius-sm);
+  border-radius: 12px;
   font-size: 0.84rem;
   border: 1px solid var(--line-subtle);
 }
@@ -318,7 +324,7 @@ a {
 }
 
 .errorBanner {
-  background: color-mix(in srgb, var(--status-danger) 14%, transparent);
+  background: color-mix(in srgb, var(--status-danger) 10%, var(--bg-panel-alt));
   color: var(--text-primary);
 }
 
@@ -330,7 +336,7 @@ a {
   gap: 8px;
   border-radius: var(--radius-pill);
   font-size: 0.84rem;
-  font-weight: 600;
+  font-weight: 400;
   color: var(--text-secondary);
 }
 
@@ -340,20 +346,18 @@ a {
 }
 
 .themeSwitchButton.active {
-  background:
-    linear-gradient(180deg, var(--bg-brand-tint), transparent),
-    var(--bg-panel-alt);
+  background: var(--bg-panel-alt);
   color: var(--text-primary);
-  box-shadow: var(--shadow-soft);
+  box-shadow: inset 0 0 0 1px var(--line-default);
 }
 
 .workspace {
   min-height: 0;
   height: 100%;
-  padding: 10px 14px 14px;
+  padding: 10px 18px 18px;
   display: grid;
   grid-template-columns: var(--sidebar-width) minmax(0, 1fr) var(--right-panel-width);
-  gap: 12px;
+  gap: 14px;
 }
 
 .workspace-rightRailCollapsed {
@@ -371,45 +375,75 @@ a {
   min-height: 0;
   background: var(--bg-panel);
   border: 1px solid var(--line-subtle);
-  box-shadow: var(--shadow-panel);
+  box-shadow: none;
 }
 
 .codexSidebar {
-  padding: 14px 12px 12px;
+  padding: 16px 14px 14px;
   border-radius: var(--radius-lg);
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
-  background:
-    linear-gradient(180deg, rgba(var(--brand-rgb), 0.06), transparent 26%),
-    var(--bg-sidebar);
+  background: var(--bg-sidebar);
 }
 
 .mainPanel {
+  display: flex;
   overflow: hidden;
-  border-radius: 24px;
+  border-radius: 28px;
+  background:
+    radial-gradient(circle at top left, rgba(var(--brand-rgb), 0.09), transparent 26%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent 24%),
+    var(--bg-panel);
 }
 
 .rightRail {
   overflow: hidden;
-  border-radius: 22px;
+  border-radius: 24px;
+  background:
+    linear-gradient(180deg, rgba(var(--brand-rgb), 0.04), transparent 18%),
+    var(--bg-panel);
 }
 
 .sidebarNavList,
 .sidebarProjectGroups {
   display: grid;
-  gap: 4px;
+  gap: 6px;
+}
+
+.sidebarIntroCard {
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line-subtle);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at top right, rgba(var(--brand-rgb), 0.08), transparent 46%),
+    var(--bg-panel-alt);
+}
+
+.sidebarIntroCard strong {
+  font-size: 1rem;
+  line-height: 1.3;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+
+.sidebarIntroCard p,
+.sidebarSectionHeading small,
+.conversationMetricCard span,
+.chatMessageMeta,
+.composerPill,
+.composerToggle {
+  color: var(--text-muted);
 }
 
 .sidebarNavItem.active,
-.sidebarProjectRow-current,
 .sidebarProjectThread.active {
-  background:
-    linear-gradient(135deg, var(--bg-brand-tint), var(--bg-accent-tint)),
-    var(--bg-panel-alt);
-  border-color: color-mix(in srgb, var(--brand-500) 28%, var(--line-default));
+  background: var(--bg-panel-alt);
+  border-color: var(--line-strong);
   color: var(--text-primary);
-  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--text-primary) 6%, transparent);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.32);
 }
 
 .sidebarNavItem span,
@@ -444,6 +478,11 @@ a {
   justify-content: space-between;
 }
 
+.sidebarSectionHeading {
+  display: grid;
+  gap: 4px;
+}
+
 .sidebarSectionTitle {
   font-size: 0.74rem;
   color: var(--text-muted);
@@ -474,6 +513,20 @@ a {
   gap: 4px;
 }
 
+.sidebarProjectRow {
+  min-height: 30px;
+  padding: 0 2px;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-secondary);
+}
+
+.sidebarProjectRow:hover {
+  background: transparent;
+  border-color: transparent;
+  color: var(--text-primary);
+}
+
 .sidebarProjectLeading {
   display: inline-flex;
   align-items: center;
@@ -484,31 +537,39 @@ a {
 .sidebarProjectThreadList {
   display: grid;
   gap: 3px;
-  padding-left: 14px;
+  padding-left: 0;
+}
+
+.sidebarThreadCount {
+  margin-left: auto;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-subtle);
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  font-size: 0.75rem;
 }
 
 .sidebarProjectThread {
-  position: relative;
-  min-height: 34px;
-  padding-left: 18px;
+  min-height: 36px;
+  padding: 0 12px;
   color: var(--text-muted);
+  border-radius: 12px;
 }
 
-.sidebarProjectThread.active::before {
-  content: '';
-  position: absolute;
-  left: 8px;
-  top: 50%;
-  width: 6px;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--accent-500);
-  transform: translateY(-50%);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent-500) 18%, transparent);
+.sidebarProjectThread-textOnly {
+  gap: 0;
 }
 
-.sidebarProjectThreadIcon {
-  opacity: 0.82;
+.sidebarProjectThread span {
+  font-size: 0.83rem;
+  font-weight: 520;
+  line-height: 1.25;
 }
 
 .sidebarSettingsButton {
@@ -516,16 +577,17 @@ a {
 }
 
 .conversationWorkspace {
+  min-height: 0;
   height: 100%;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
-  background:
-    linear-gradient(180deg, rgba(var(--brand-rgb), 0.045), transparent 22%),
-    var(--bg-panel);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: transparent;
 }
 
 .conversationSubbar {
-  padding: 22px 24px 12px;
+  flex: 0 0 auto;
+  padding: 28px 28px 12px;
 }
 
 .conversationSubbarTopRow {
@@ -540,12 +602,25 @@ a {
   gap: 4px;
 }
 
-.conversationTitleBlock h2,
+.conversationTitleBlock h2 {
+  margin: 0;
+  font-size: clamp(1.2rem, 1.45vw, 1.55rem);
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  font-weight: 580;
+}
+
+.conversationTitleBlock p {
+  font-size: 0.9rem;
+}
+
 .toolPageHeader h2,
 .settingsHeaderBar h2 {
   margin: 0;
-  font-size: 1.34rem;
-  letter-spacing: -0.02em;
+  font-size: clamp(1.7rem, 2.2vw, 2.6rem);
+  line-height: 1;
+  letter-spacing: -0.06em;
+  font-weight: 600;
 }
 
 .conversationTitleBlock p,
@@ -566,6 +641,73 @@ a {
   flex-wrap: wrap;
 }
 
+.conversationMetaRow {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.conversationModeBadge {
+  min-height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--line-subtle);
+  border-radius: var(--radius-pill);
+  background: var(--bg-raised);
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  letter-spacing: 0.08em;
+}
+
+.conversationEditorialStrip {
+  padding: 0 28px 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 16px;
+}
+
+.conversationEditorialCard,
+.conversationMetricCard {
+  padding: 18px 20px;
+  border: 1px solid var(--line-subtle);
+  border-radius: 18px;
+  background: rgba(252, 251, 248, 0.52);
+}
+
+.conversationEditorialCard {
+  display: grid;
+  gap: 8px;
+}
+
+.conversationEditorialCard strong,
+.conversationMetricCard strong,
+.chatEmptyState h3 {
+  font-size: 1rem;
+  line-height: 1.25;
+  font-weight: 600;
+}
+
+.conversationEditorialCard p,
+.chatEmptyState p {
+  margin: 0;
+  color: var(--text-secondary);
+  line-height: 1.55;
+}
+
+.conversationEditorialMetrics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 12px;
+}
+
+.conversationMetricCard {
+  min-width: 160px;
+  display: grid;
+  gap: 6px;
+}
+
 .conversationSelectField {
   min-width: 124px;
   height: 40px;
@@ -577,7 +719,7 @@ a {
   border-radius: 14px;
   color: var(--text-secondary);
   background: var(--bg-glass);
-  box-shadow: var(--shadow-soft);
+  box-shadow: none;
 }
 
 .conversationSelectField-project {
@@ -600,16 +742,38 @@ a {
 }
 
 .chatStream {
+  flex: 1 1 auto;
   min-height: 0;
   overflow: auto;
-  padding: 10px clamp(20px, 4vw, 46px) 24px;
-  display: grid;
-  gap: 16px;
+  padding: 12px 28px 28px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   scrollbar-width: none;
 }
 
 .chatStream::-webkit-scrollbar {
   display: none;
+}
+
+.chatStreamLane {
+  width: min(100%, 1040px);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.chatEmptyState {
+  width: min(100%, 760px);
+  padding: 24px;
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--line-subtle);
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top right, rgba(var(--accent-rgb), 0.08), transparent 38%),
+    rgba(252, 251, 248, 0.52);
 }
 
 .chatMessage {
@@ -624,11 +788,28 @@ a {
   justify-content: flex-start;
 }
 
+.chatMessageStack {
+  width: min(100%, 760px);
+  display: grid;
+  gap: 8px;
+}
+
+.chatMessage-user .chatMessageStack {
+  justify-items: end;
+}
+
+.chatMessageMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+}
+
 .chatBubble {
   width: fit-content;
   max-width: min(760px, calc(100% - 44px));
-  padding: 16px 18px;
-  border-radius: 18px;
+  padding: 18px 20px;
+  border-radius: 22px;
   border: 1px solid var(--line-subtle);
   overflow-wrap: anywhere;
   transition:
@@ -643,25 +824,22 @@ a {
 .chatBubble-user {
   max-width: min(640px, 72%);
   background:
-    linear-gradient(135deg, rgba(var(--brand-rgb), 0.26), rgba(var(--accent-rgb), 0.14)),
+    linear-gradient(135deg, rgba(var(--brand-rgb), 0.16), rgba(var(--accent-rgb), 0.08)),
     var(--bg-panel-alt);
   color: var(--text-primary);
-  box-shadow: var(--shadow-soft);
 }
 
 .chatBubble-assistant {
   max-width: min(760px, calc(100% - 86px));
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--text-primary) 5%, transparent), color-mix(in srgb, var(--text-primary) 2%, transparent)),
-    var(--bg-panel-alt);
+  background: rgba(252, 251, 248, 0.68);
   color: var(--text-primary);
 }
 
 .chatBubble-streaming {
-  border-color: color-mix(in srgb, var(--brand-500) 34%, var(--line-default));
-  box-shadow:
-    inset 0 0 0 1px color-mix(in srgb, var(--brand-500) 18%, transparent),
-    0 10px 24px color-mix(in srgb, var(--brand-500) 10%, transparent);
+  border-color: color-mix(in srgb, var(--brand-500) 26%, var(--line-default));
+  background:
+    linear-gradient(180deg, rgba(var(--brand-rgb), 0.05), transparent 42%),
+    rgba(252, 251, 248, 0.74);
 }
 
 .chatBubble-pending {
@@ -728,7 +906,7 @@ a {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: color-mix(in srgb, var(--accent-500) 52%, var(--text-muted));
+  color: color-mix(in srgb, var(--accent-500) 58%, var(--text-muted));
   font-size: 0.8rem;
 }
 
@@ -737,17 +915,18 @@ a {
 }
 
 .composerDock {
-  padding: 0 24px 22px;
-  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg-canvas) 28%, transparent));
+  flex: 0 0 auto;
+  padding: 0 28px 28px;
+  background: linear-gradient(180deg, transparent, color-mix(in srgb, var(--bg-canvas) 36%, transparent));
 }
 
 .composerCard {
-  width: min(100%, 860px);
+  width: min(100%, 1040px);
   margin: 0 auto;
-  padding: 14px 14px 12px;
-  border-radius: 20px;
+  padding: 16px 16px 14px;
+  border-radius: 24px;
   background:
-    linear-gradient(180deg, rgba(var(--brand-rgb), 0.06), transparent 32%),
+    radial-gradient(circle at top right, rgba(var(--brand-rgb), 0.08), transparent 34%),
     var(--bg-panel-alt);
   border-color: var(--line-default);
 }
@@ -761,10 +940,27 @@ a {
 }
 
 .composerCard:focus-within {
-  border-color: color-mix(in srgb, var(--brand-500) 40%, var(--line-default));
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--brand-500) 24%, transparent),
-    var(--shadow-panel);
+  border-color: color-mix(in srgb, var(--brand-500) 32%, var(--line-default));
+  box-shadow: var(--focus-ring);
+}
+
+.composerPillRow {
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.composerPill {
+  min-height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-subtle);
+  background: var(--bg-raised);
+  font-size: 0.78rem;
 }
 
 .composerInputShell {
@@ -772,14 +968,18 @@ a {
 }
 
 .composerInput {
+  appearance: none;
   width: 100%;
   max-height: 240px;
   min-height: 28px;
   border: 0;
+  padding: 0;
+  margin: 0;
   resize: none;
   background: transparent;
   color: var(--text-primary);
   line-height: 1.6;
+  box-shadow: none;
   outline: none;
 }
 
@@ -787,10 +987,16 @@ a {
   color: var(--text-muted);
 }
 
+.composerInput:focus,
+.composerInput:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
 .composerBottomRow {
   margin-top: 10px;
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: space-between;
   gap: 12px;
 }
@@ -799,6 +1005,31 @@ a {
   min-width: 0;
   color: var(--text-muted);
   font-size: 0.8rem;
+  display: grid;
+  gap: 10px;
+}
+
+.composerToggleRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.composerToggle {
+  min-height: 28px;
+  padding: 0 10px;
+  display: inline-flex;
+  align-items: center;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line-subtle);
+  background: transparent;
+  font-size: 0.76rem;
+}
+
+.composerToggle.enabled {
+  background: rgba(var(--brand-rgb), 0.08);
+  color: var(--text-secondary);
 }
 
 .composerMetaBlock span,
@@ -810,11 +1041,16 @@ a {
   color: var(--status-danger);
 }
 
+.conversationInlineNotice {
+  margin: 0 28px;
+}
+
 .composerSendButton {
   width: 42px;
   height: 42px;
   border-radius: 50%;
 }
+
 
 .rightRail-collapsed {
   width: 56px;
@@ -875,7 +1111,7 @@ a {
   align-items: center;
   gap: 8px;
   border: 1px solid var(--line-default);
-  border-radius: 12px;
+  border-radius: var(--radius-pill);
   background: var(--bg-panel-alt);
   color: var(--text-secondary);
 }
@@ -896,9 +1132,7 @@ a {
   padding: 16px;
   border: 1px solid var(--line-subtle);
   border-radius: 18px;
-  background:
-    linear-gradient(180deg, color-mix(in srgb, var(--brand-500) 7%, transparent), transparent 28%),
-    var(--bg-panel-alt);
+  background: rgba(252, 251, 248, 0.62);
 }
 
 .railSurfaceEyebrow,
@@ -959,7 +1193,7 @@ a {
   align-items: flex-start;
   gap: 12px;
   border: 1px solid var(--line-subtle);
-  border-radius: var(--radius-sm);
+  border-radius: 16px;
   background: var(--bg-raised);
   color: var(--text-primary);
   text-align: left;
@@ -1054,15 +1288,16 @@ a {
 .toolSurface {
   height: 100%;
   overflow: auto;
-  padding: 28px;
+  padding: 32px;
   display: grid;
   align-content: start;
-  gap: 18px;
+  gap: 22px;
 }
 
 .toolPageHeader {
   display: grid;
-  gap: 8px;
+  gap: 10px;
+  max-width: 760px;
 }
 
 .toolPageGrid {
@@ -1257,7 +1492,7 @@ a {
   display: grid;
   place-items: center;
   background: var(--bg-overlay);
-  backdrop-filter: blur(14px);
+  backdrop-filter: blur(18px);
 }
 
 .settingsDialog {
@@ -1437,6 +1672,10 @@ a {
     grid-template-columns: 1fr;
   }
 
+  .conversationEditorialStrip {
+    grid-template-columns: 1fr;
+  }
+
   .workspaceTitleBar,
   .conversationSubbarTopRow,
   .settingsHeaderBar,
@@ -1453,6 +1692,14 @@ a {
   .composerDock,
   .toolSurface,
   .conversationSubbar {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .conversationInlineNotice,
+  .conversationEditorialStrip,
+  .chatStream,
+  .composerDock {
     padding-left: 16px;
     padding-right: 16px;
   }
