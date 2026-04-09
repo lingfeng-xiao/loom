@@ -6,6 +6,7 @@ final class PendingAssistantTurn {
     final String actionId;
     final String runId;
     final String userInput;
+    final boolean allowMemory;
     final String startedAt;
     final String thinkingMessageId;
     final String assistantMessageId;
@@ -17,6 +18,7 @@ final class PendingAssistantTurn {
             String actionId,
             String runId,
             String userInput,
+            boolean allowMemory,
             String startedAt,
             String thinkingMessageId,
             String assistantMessageId
@@ -26,6 +28,7 @@ final class PendingAssistantTurn {
         this.actionId = actionId;
         this.runId = runId;
         this.userInput = userInput;
+        this.allowMemory = allowMemory;
         this.startedAt = startedAt;
         this.thinkingMessageId = thinkingMessageId;
         this.assistantMessageId = assistantMessageId;

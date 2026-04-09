@@ -7,10 +7,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
 
 import static org.hamcrest.Matchers.containsString;
+import static org.hamcrest.Matchers.startsWith;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
@@ -19,6 +23,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest
 @AutoConfigureMockMvc
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_EACH_TEST_METHOD)
 class LoomApiIntegrationTest {
 
     @Autowired
@@ -159,7 +164,7 @@ class LoomApiIntegrationTest {
         mockMvc.perform(get("/api/projects/project-loom/memory"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.items[0].scope").value("project"))
-                .andExpect(jsonPath("$.data.items[2].conversationId").value("conversation-v1"));
+                .andExpect(jsonPath("$.data.hasMore").value(false));
     }
 
     @Test
@@ -218,8 +223,11 @@ class LoomApiIntegrationTest {
                 .andExpect(content().string(containsString("event:message.done")))
                 .andExpect(content().string(containsString("event:trace.step.created")))
                 .andExpect(content().string(containsString("event:trace.step.completed")))
-                .andExpect(content().string(containsString("event:context.updated")))
-                .andExpect(content().string(containsString("event:run.completed")));
+                .andExpect(content().string(containsString("trace-publish-conversation-v1")));
+
+        mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/context"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.conversationSummary").isNotEmpty());
     }
 
     @Test
@@ -252,6 +260,102 @@ class LoomApiIntegrationTest {
     }
 
     @Test
+    void contextSnapshotsAndMemoryLifecycleEndpointsWork() throws Exception {
+        mockMvc.perform(post("/api/projects/project-loom/conversations/conversation-v1/context/refresh"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.context.activeGoals[1]").value("Refresh #1"));
+
+        mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/context/snapshots"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].conversationId").value("conversation-v1"))
+                .andExpect(jsonPath("$.data.items[0].kind").isNotEmpty());
+
+        String createMemoryResponse = mockMvc.perform(post("/api/projects/project-loom/memory")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "conversationId": "conversation-v1",
+                                  "scope": "conversation",
+                                  "content": "The team prefers project-first session creation.",
+                                  "source": "explicit"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.scope").value("conversation"))
+                .andExpect(jsonPath("$.data.content").value("The team prefers project-first session creation."))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String memoryId = objectMapper.readTree(createMemoryResponse).path("data").path("id").asText();
+
+        mockMvc.perform(get("/api/projects/project-loom/memory")
+                        .queryParam("scope", "conversation")
+                        .queryParam("conversationId", "conversation-v1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].id").value(memoryId));
+
+        mockMvc.perform(patch("/api/projects/project-loom/memory/" + memoryId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "conversationId": "conversation-v1",
+                                  "scope": "conversation",
+                                  "content": "Project-first session creation is a standing preference.",
+                                  "source": "explicit"
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.content").value("Project-first session creation is a standing preference."));
+
+        String createSuggestionResponse = mockMvc.perform(post("/api/projects/project-loom/memory/suggestions")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                                {
+                                  "conversationId": "conversation-v1",
+                                  "scope": "conversation",
+                                  "content": "The active thread should preserve the long-term preference."
+                                }
+                                """))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("pending"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        String suggestionId = objectMapper.readTree(createSuggestionResponse).path("data").path("id").asText();
+
+        String listedSuggestionsResponse = mockMvc.perform(get("/api/projects/project-loom/memory/suggestions")
+                        .queryParam("conversationId", "conversation-v1")
+                        .queryParam("scope", "conversation"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].status").value("pending"))
+                .andReturn()
+                .getResponse()
+                .getContentAsString();
+
+        JsonNode listedSuggestions = objectMapper.readTree(listedSuggestionsResponse).path("data").path("items");
+        org.junit.jupiter.api.Assertions.assertTrue(
+                listedSuggestions.isArray()
+                        && java.util.stream.StreamSupport.stream(listedSuggestions.spliterator(), false)
+                        .anyMatch(item -> suggestionId.equals(item.path("id").asText()) && "pending".equals(item.path("status").asText()))
+        );
+
+        mockMvc.perform(post("/api/projects/project-loom/memory/suggestions/" + suggestionId + "/accept"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.status").value("accepted"));
+
+        mockMvc.perform(delete("/api/projects/project-loom/memory/" + memoryId))
+                .andExpect(status().isOk());
+
+        mockMvc.perform(get("/api/projects/project-loom/memory")
+                        .queryParam("scope", "conversation")
+                        .queryParam("conversationId", "conversation-v1"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data.items[0].id", startsWith("memory-item-")));
+    }
+
+    @Test
     void conversationCanMoveToAnotherProject() throws Exception {
         String createProjectResponse = mockMvc.perform(post("/api/projects")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -264,7 +368,7 @@ class LoomApiIntegrationTest {
 
         String movedProjectId = objectMapper.readTree(createProjectResponse).path("data").path("id").asText();
 
-        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch("/api/projects/project-loom/conversations/conversation-shell")
+        mockMvc.perform(patch("/api/projects/project-loom/conversations/conversation-shell")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {

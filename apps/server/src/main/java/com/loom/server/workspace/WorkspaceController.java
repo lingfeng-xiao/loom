@@ -1,7 +1,11 @@
 package com.loom.server.workspace;
 
 import com.loom.server.api.ApiEnvelope;
+import com.loom.server.memory.MemoryItemCommand;
+import com.loom.server.memory.MemorySuggestionCommand;
+import com.loom.server.memory.MemorySuggestionView;
 import com.loom.server.workspace.WorkspaceDtos.ActionView;
+import com.loom.server.workspace.WorkspaceDtos.ContextSnapshotView;
 import com.loom.server.workspace.WorkspaceDtos.ContextRefreshResponse;
 import com.loom.server.workspace.WorkspaceDtos.CreateProjectRequest;
 import com.loom.server.workspace.WorkspaceDtos.CreateConversationRequest;
@@ -17,6 +21,7 @@ import com.loom.server.workspace.WorkspaceDtos.SubmitMessageRequest;
 import com.loom.server.workspace.WorkspaceDtos.SubmitMessageResponse;
 import com.loom.server.workspace.WorkspaceDtos.UpdateLlmConfigRequest;
 import com.loom.server.workspace.WorkspaceDtos.UpdateConversationRequest;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -92,6 +97,16 @@ public class WorkspaceController {
         return ApiEnvelope.of(workspaceStateService.getContext(projectId, conversationId));
     }
 
+    @GetMapping("/api/projects/{projectId}/conversations/{conversationId}/context/snapshots")
+    public ApiEnvelope<CursorPage<ContextSnapshotView>> listContextSnapshots(
+            @PathVariable String projectId,
+            @PathVariable String conversationId,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit
+    ) {
+        return ApiEnvelope.of(workspaceStateService.listContextSnapshots(projectId, conversationId, cursor, limit));
+    }
+
     @PostMapping("/api/projects/{projectId}/conversations/{conversationId}/context/refresh")
     public ApiEnvelope<ContextRefreshResponse> refreshContext(@PathVariable String projectId, @PathVariable String conversationId) {
         return ApiEnvelope.of(workspaceStateService.refreshContext(projectId, conversationId));
@@ -131,8 +146,72 @@ public class WorkspaceController {
     }
 
     @GetMapping("/api/projects/{projectId}/memory")
-    public ApiEnvelope<CursorPage<MemoryItemView>> listMemory(@PathVariable String projectId) {
-        return ApiEnvelope.of(workspaceStateService.listMemory(projectId));
+    public ApiEnvelope<CursorPage<MemoryItemView>> listMemory(
+            @PathVariable String projectId,
+            @RequestParam(required = false) String conversationId,
+            @RequestParam(required = false) String scope,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit
+    ) {
+        return ApiEnvelope.of(workspaceStateService.listMemory(projectId, conversationId, scope, cursor, limit));
+    }
+
+    @PostMapping("/api/projects/{projectId}/memory")
+    public ApiEnvelope<MemoryItemView> createMemory(
+            @PathVariable String projectId,
+            @RequestBody MemoryItemCommand request
+    ) {
+        return ApiEnvelope.of(workspaceStateService.createMemoryItem(projectId, request));
+    }
+
+    @PatchMapping("/api/projects/{projectId}/memory/{memoryId}")
+    public ApiEnvelope<MemoryItemView> updateMemory(
+            @PathVariable String projectId,
+            @PathVariable String memoryId,
+            @RequestBody MemoryItemCommand request
+    ) {
+        return ApiEnvelope.of(workspaceStateService.updateMemoryItem(projectId, memoryId, request));
+    }
+
+    @DeleteMapping("/api/projects/{projectId}/memory/{memoryId}")
+    public ApiEnvelope<Void> deleteMemory(@PathVariable String projectId, @PathVariable String memoryId) {
+        workspaceStateService.deleteMemoryItem(projectId, memoryId);
+        return ApiEnvelope.of(null);
+    }
+
+    @GetMapping("/api/projects/{projectId}/memory/suggestions")
+    public ApiEnvelope<CursorPage<MemorySuggestionView>> listMemorySuggestions(
+            @PathVariable String projectId,
+            @RequestParam(required = false) String conversationId,
+            @RequestParam(required = false) String scope,
+            @RequestParam(required = false) String cursor,
+            @RequestParam(required = false) Integer limit
+    ) {
+        return ApiEnvelope.of(workspaceStateService.listMemorySuggestions(projectId, conversationId, scope, cursor, limit));
+    }
+
+    @PostMapping("/api/projects/{projectId}/memory/suggestions")
+    public ApiEnvelope<MemorySuggestionView> createMemorySuggestion(
+            @PathVariable String projectId,
+            @RequestBody MemorySuggestionCommand request
+    ) {
+        return ApiEnvelope.of(workspaceStateService.createMemorySuggestion(projectId, request));
+    }
+
+    @PostMapping("/api/projects/{projectId}/memory/suggestions/{suggestionId}/accept")
+    public ApiEnvelope<MemorySuggestionView> acceptMemorySuggestion(
+            @PathVariable String projectId,
+            @PathVariable String suggestionId
+    ) {
+        return ApiEnvelope.of(workspaceStateService.acceptMemorySuggestion(projectId, suggestionId));
+    }
+
+    @PostMapping("/api/projects/{projectId}/memory/suggestions/{suggestionId}/reject")
+    public ApiEnvelope<MemorySuggestionView> rejectMemorySuggestion(
+            @PathVariable String projectId,
+            @PathVariable String suggestionId
+    ) {
+        return ApiEnvelope.of(workspaceStateService.rejectMemorySuggestion(projectId, suggestionId));
     }
 
     @GetMapping("/api/settings/overview")

@@ -20,6 +20,8 @@ import type {
   ConversationStreamEvent,
   LlmConnectionTestView,
   LoomBootstrapPayload,
+  MemoryItemView,
+  MemorySuggestionView,
   MessageView,
   ProjectListItem,
   ProjectSummary,
@@ -334,6 +336,7 @@ interface StreamOverlayState {
   traceSummary: string
   traceSteps: TraceStep[]
   contextBlocks: ContextBlock[]
+  memorySuggestions: MemorySuggestionView[]
 }
 
 function createOverlayState(
@@ -342,6 +345,7 @@ function createOverlayState(
   traceSummary: string,
   traceSteps: TraceStep[],
   contextBlocks: ContextBlock[],
+  memorySuggestions: MemorySuggestionView[] = [],
 ): StreamOverlayState {
   return {
     conversationId,
@@ -349,7 +353,26 @@ function createOverlayState(
     traceSummary,
     traceSteps,
     contextBlocks,
+    memorySuggestions,
   }
+}
+
+function toMemorySuggestion(event: Extract<ConversationStreamEvent, { event: 'memory.suggested' }>): MemorySuggestionView {
+  return event.suggestion
+}
+
+function mergeMemorySuggestions(
+  current: MemorySuggestionView[],
+  next: MemorySuggestionView[],
+): MemorySuggestionView[] {
+  const merged = new Map<string, MemorySuggestionView>()
+  for (const item of current) {
+    merged.set(item.id, item)
+  }
+  for (const item of next) {
+    merged.set(item.id, item)
+  }
+  return [...merged.values()].sort((left, right) => right.createdAt.localeCompare(left.createdAt))
 }
 
 function upsertStreamingMessage(
@@ -485,6 +508,11 @@ function applyConversationStreamEvent(overlay: StreamOverlayState, event: Conver
         ...overlay,
         contextBlocks: toContextBlocks(event.context),
       }
+    case 'memory.suggested':
+      return {
+        ...overlay,
+        memorySuggestions: mergeMemorySuggestions(overlay.memorySuggestions, [toMemorySuggestion(event)]),
+      }
     case 'run.failed':
       return {
         ...overlay,
@@ -514,6 +542,7 @@ export function LoomWorkbenchProvider({
   const [leftSidebarCollapsed, setLeftSidebarCollapsed] = useState(false)
   const [runtimeError, setRuntimeError] = useState<string | null>(null)
   const [streamOverlay, setStreamOverlay] = useState<StreamOverlayState | null>(null)
+  const [streamMemorySuggestions, setStreamMemorySuggestions] = useState<MemorySuggestionView[]>([])
   const [remoteProjects, setRemoteProjects] = useState<ProjectListItem[] | null>(null)
   const [remoteProject, setRemoteProject] = useState<ProjectView | null>(null)
   const [remoteConversations, setRemoteConversations] = useState<ConversationListItem[] | null>(null)
@@ -521,6 +550,8 @@ export function LoomWorkbenchProvider({
   const [remoteMessages, setRemoteMessages] = useState<MessageView[] | null>(null)
   const [remoteTrace, setRemoteTrace] = useState<TracePanelView | null>(null)
   const [remoteContext, setRemoteContext] = useState<ContextPanelView | null>(null)
+  const [remoteMemory, setRemoteMemory] = useState<MemoryItemView[] | null>(null)
+  const [memoryError, setMemoryError] = useState<string | null>(null)
   const [remoteSettings, setRemoteSettings] = useState<SettingsOverviewView | null>(null)
   const [remoteCapabilities, setRemoteCapabilities] = useState<CapabilityOverviewView | null>(null)
   const [draftsByConversation, setDraftsByConversation] = useState<Record<string, ComposerDraftState>>({})
@@ -600,6 +631,7 @@ export function LoomWorkbenchProvider({
 
   useEffect(() => {
     setStreamOverlay(null)
+    setStreamMemorySuggestions([])
   }, [activeConversationId, payload])
 
   useEffect(() => {
@@ -607,6 +639,9 @@ export function LoomWorkbenchProvider({
       setRemoteProjects(null)
       setRemoteProject(null)
       setRemoteConversations(null)
+      setRemoteMemory(null)
+      setMemoryError(null)
+      setStreamMemorySuggestions([])
       setRemoteSettings(null)
       setRemoteCapabilities(null)
       return
@@ -616,6 +651,9 @@ export function LoomWorkbenchProvider({
     setRemoteProjects(null)
     setRemoteProject(null)
     setRemoteConversations(null)
+    setRemoteMemory(null)
+    setMemoryError(null)
+    setStreamMemorySuggestions([])
     setRemoteSettings(null)
     setRemoteCapabilities(null)
 
@@ -637,7 +675,31 @@ export function LoomWorkbenchProvider({
         setRemoteSettings(settings)
         setRemoteCapabilities(capabilities)
       })
-      .catch(() => undefined)
+      .catch((fetchError) => {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        setRuntimeError(fetchError instanceof Error ? fetchError.message : '远端业务数据加载失败')
+      })
+
+    void sdk.workspace
+      .getMemory(activeProjectId, controller.signal)
+      .then((memory) => {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        setRemoteMemory(memory.items)
+      })
+      .catch((fetchError) => {
+        if (controller.signal.aborted) {
+          return
+        }
+
+        setRemoteMemory([])
+        setMemoryError(fetchError instanceof Error ? fetchError.message : '记忆数据读取失败')
+      })
 
     return () => controller.abort()
   }, [activeProjectId, sdk])
@@ -818,6 +880,7 @@ export function LoomWorkbenchProvider({
           baseTraceSummary,
           baseTraceSteps,
           baseContextBlocks,
+          streamMemorySuggestions,
         ),
       )
 
@@ -839,6 +902,7 @@ export function LoomWorkbenchProvider({
             current?.traceSummary ?? baseTraceSummary,
             current?.traceSteps ?? baseTraceSteps,
             current?.contextBlocks ?? baseContextBlocks,
+            current?.memorySuggestions ?? streamMemorySuggestions,
           )
         })
         let receivedFirstEvent = false
@@ -857,6 +921,9 @@ export function LoomWorkbenchProvider({
             }
             if (event.event === 'run.failed') {
               setRuntimeError(event.error.message)
+            }
+            if (event.event === 'memory.suggested') {
+              setStreamMemorySuggestions((current) => mergeMemorySuggestions(current, [event.suggestion]))
             }
             setStreamOverlay((current) =>
               applyConversationStreamEvent(
@@ -888,7 +955,16 @@ export function LoomWorkbenchProvider({
         }))
       } catch (submitError) {
         setRuntimeError(submitError instanceof Error ? submitError.message : '发送消息失败')
-        setStreamOverlay(createOverlayState(conversationId, baseMessages, baseTraceSummary, baseTraceSteps, baseContextBlocks))
+        setStreamOverlay(
+          createOverlayState(
+            conversationId,
+            baseMessages,
+            baseTraceSummary,
+            baseTraceSteps,
+            baseContextBlocks,
+            streamMemorySuggestions,
+          ),
+        )
         setDraftsByConversation((current) => ({
           ...current,
           [key]: {
@@ -1076,7 +1152,7 @@ export function LoomWorkbenchProvider({
     },
   ]
 
-  const state = useMemo(
+  const baseState = useMemo(
     () =>
       adaptBootstrapToWorkbench(effectivePayload, {
         route,
@@ -1091,6 +1167,26 @@ export function LoomWorkbenchProvider({
         leftSidebarCollapsed,
       }),
     [availableProjects, bootstrapSource, combinedError, commandPaletteOpen, draftsByConversation, effectivePayload, globalSearchOpen, leftSidebarCollapsed, loading, route, scrollPositions],
+  )
+
+  const memory = useMemo(() => {
+    const remoteItems = remoteMemory ?? baseState.memory.items
+    const suggestions = streamMemorySuggestions
+    return {
+      activeProjectId,
+      activeConversationId,
+      items: remoteItems,
+      suggestions,
+      error: memoryError,
+    }
+  }, [activeConversationId, activeProjectId, baseState.memory.items, memoryError, remoteMemory, streamMemorySuggestions])
+
+  const state = useMemo(
+    () => ({
+      ...baseState,
+      memory,
+    }),
+    [baseState, memory],
   )
 
   return <WorkbenchContext.Provider value={{ state, actions }}>{children}</WorkbenchContext.Provider>

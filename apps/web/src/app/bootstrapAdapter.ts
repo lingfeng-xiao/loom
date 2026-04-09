@@ -106,6 +106,13 @@ export function adaptBootstrapToWorkbench(payload: LoomBootstrapPayload, options
     capabilities: buildCapabilitiesState(payload),
     openClaw: buildOpenClawState(payload),
     settings: buildSettingsState(payload, options.route.settingsSection ?? payload.settings.tabs[0] ?? 'Models'),
+    memory: {
+      activeProjectId: options.route.projectId ?? payload.project.id,
+      activeConversationId: conversation.activeConversationId,
+      items: null,
+      suggestions: [],
+      error: null,
+    },
     ui: buildUiState(options),
   }
 }

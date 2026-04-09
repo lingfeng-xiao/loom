@@ -137,3 +137,53 @@
 - `QA-005`：发布前 `go / no-go` 检查单已补齐，状态更新为 `Done`。
 - `PM-001`、`PM-003`、`PM-004`：文档、风险台账、分支恢复与集成分支编排持续维护中，生产服务器尚未进入使用窗口。
 - 当前下一批待推进需求：`FE-001 / FE-002 / FE-003` 与 `BE-001 / BE-002 / BE-003` 的进一步产品化收口，以及 `QA-003` 的前端关键路径自动化或更完整手测证据。
+## 0. Refactor Wave Supplement (2026-04-09)
+
+### 0.1 Additional requirements
+
+#### Architecture / PM
+
+| Requirement ID | Priority | Status | Title | Source | Dependency | Acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| PM-006 | P0 | Done | Orchestrate the refactor wave, maintain stage gates, integration status, and acceptance delivery. | 2026-04-09 refactor execution plan | ARC-006 | The requirement pool, implementation status, validation summary, and acceptance entry are kept current through the whole wave. |
+| ARC-006 | P0 | Done | Freeze the convergence plan from the temporary `workspace` aggregate to facade-only bootstrap assembly plus domain modules. | 2026-04-09 refactor execution plan | ARC-003, ARC-005 | The backend keeps `workspace` only as a transition facade/bootstrap assembler, and new domain ownership is explicit for conversation, context, memory, trace, and stream. |
+
+#### Backend
+
+| Requirement ID | Priority | Status | Title | Source | Dependency | Acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| BE-008 | P0 | In Progress | Persist `project / conversation / message / action / run / run_step` and replace in-memory business truth. | 2026-04-09 refactor execution plan | ARC-006 | Restart-safe project, conversation, message, and trace data are stored in DB and no longer owned by `WorkspaceStateService` collections. |
+| BE-009 | P0 | Done | Implement the `context` module with turn-based assembly and persisted `context_snapshot`. | 2026-04-09 refactor execution plan | BE-008 | Context reads come from assembled/persisted snapshots, and `context snapshot` history is queryable by conversation. |
+| BE-010 | P0 | Done | Implement the `memory` module with project/conversation memory CRUD, suggestion lifecycle, and accept/reject flow. | 2026-04-09 refactor execution plan | BE-008 | Memory items and memory suggestions are persisted, scoped, queryable, and writable through stable APIs. |
+| BE-011 | P1 | In Progress | Demote `WorkspaceStateService` to a facade and demote `/api/bootstrap` to hydration-only snapshot assembly. | 2026-04-09 refactor execution plan | BE-008, BE-009, BE-010 | Bootstrap no longer acts as long-lived business truth, and `workspace` no longer owns the business state collections. |
+
+#### Frontend
+
+| Requirement ID | Priority | Status | Title | Source | Dependency | Acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| FE-007 | P0 | Done | Converge the frontend business data source to `workspace API + SSE overlay`, with bootstrap only for first-screen hydration. | 2026-04-09 refactor execution plan | BE-008 | After remote data is loaded, conversation/context/trace/settings/capabilities/memory are rendered from real APIs instead of bootstrap business payloads. |
+| FE-008 | P1 | Done | Move Memory page and memory suggestions into the unified provider data flow. | 2026-04-09 refactor execution plan | FE-007, BE-010 | Memory page and suggestion UX read from shared provider state and no longer maintain page-local fallback business logic. |
+| FE-009 | P1 | In Progress | Remove bootstrap business override logic from `effectivePayload` and keep overlay only for the active streaming conversation. | 2026-04-09 refactor execution plan | FE-007, BE-011 | `payload + remote + overlay` three-way business mixing is removed; overlay is scoped to the active stream only. |
+
+#### QA / Ops
+
+| Requirement ID | Priority | Status | Title | Source | Dependency | Acceptance |
+| --- | --- | --- | --- | --- | --- | --- |
+| QA-006 | P0 | Done | Add backend integration coverage for restart persistence, context assembly, memory lifecycle, and stream replay. | 2026-04-09 refactor execution plan | BE-008, BE-009, BE-010 | Automated backend tests cover persistence across restart/bootstrap, context snapshot reads, memory CRUD/suggestions, and successful/failed SSE flows. |
+| QA-007 | P0 | In Progress | Add frontend validation for single-source rendering, SSE overlay, memory suggestions, and bootstrap downgrade behavior. | 2026-04-09 refactor execution plan | FE-007, FE-008, FE-009 | Frontend validation proves remote-data takeover, stream updates, memory suggestion UX, and non-regression of route/project/session switching. |
+| OPS-001 | P1 | Done | Prepare local acceptance deployment steps, smoke commands, and final verification notes. | 2026-04-09 refactor execution plan | QA-006, QA-007 | Local backend and web services can be started with documented commands, smoke-checked, and handed over for acceptance. |
+
+### 0.2 Dependency order
+
+1. `ARC-006`
+2. `BE-008`
+3. `BE-009` and `BE-010` in parallel
+4. `FE-007`
+5. `FE-008` and `FE-009`
+6. `QA-006` and `QA-007`
+7. `OPS-001`
+
+### 0.3 Execution notes
+
+- This wave uses a single integration branch and a single baseline checkpoint commit: `PM-006 chore: checkpoint pre-refactor integration baseline`.
+- Runtime directories such as `.codex-runtime/` and `apps/server/.local/` stay outside version control and are excluded from delivery artifacts.

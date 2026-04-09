@@ -1,102 +1,77 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
+import { useMemoryStore } from '../domains/memory/useMemoryStore'
 import { useProjectStore } from '../domains/project/useProjectStore'
-import { createLoomSdk } from '../sdk/loomApiClient'
-import type { MemoryItemView } from '../types'
+import type { MemoryItemView, MemorySuggestionView } from '../types'
 
-const API_BASE = import.meta.env.VITE_API_BASE ?? ''
-const sdk = createLoomSdk({ baseUrl: API_BASE })
+function scopeLabel(scope: MemoryItemView['scope']) {
+  return scope === 'project' ? '项目' : scope === 'conversation' ? '会话' : '全局'
+}
 
-const fallbackMemory: MemoryItemView[] = [
-  {
-    id: 'fallback-memory-project',
-    scope: 'project',
-    projectId: 'project-loom',
-    conversationId: null,
-    content: '保持会话优先、轨迹可见和文档先行。',
-    source: 'explicit',
-    updatedAt: 'fallback',
-  },
-  {
-    id: 'fallback-memory-conversation',
-    scope: 'conversation',
-    projectId: 'project-loom',
-    conversationId: 'conversation-v1',
-    content: '当前会话聚焦上下文、设置、能力页面与联调闭环。',
-    source: 'assisted',
-    updatedAt: 'fallback',
-  },
-]
+function sourceLabel(source: MemoryItemView['source']) {
+  return source === 'explicit' ? '显式写入' : source === 'assisted' ? '辅助沉淀' : '系统写入'
+}
+
+function suggestionStatusLabel(status: MemorySuggestionView['status']) {
+  return status === 'pending' ? '待处理' : status === 'accepted' ? '已接受' : '已拒绝'
+}
 
 export function MemoryPage() {
   const project = useProjectStore()
-  const projectId = project.currentProject.id
-  const [items, setItems] = useState<MemoryItemView[]>(fallbackMemory)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const sourceLabel = useMemo(() => (error ? '本地回退' : '远端数据'), [error])
+  const memory = useMemoryStore()
 
-  useEffect(() => {
-    if (!projectId) {
-      setItems([])
-      setLoading(false)
-      return
-    }
-
-    const controller = new AbortController()
-    setLoading(true)
-    setError(null)
-
-    sdk.workspace
-      .getMemory(projectId, controller.signal)
-      .then((response) => {
-        setItems(response.items)
-        setLoading(false)
-      })
-      .catch((fetchError) => {
-        setItems(fallbackMemory)
-        setError(fetchError instanceof Error ? fetchError.message : '记忆数据读取失败')
-        setLoading(false)
-      })
-
-    return () => controller.abort()
-  }, [projectId])
+  const items = memory.items ?? []
+  const projectItems = useMemo(() => items.filter((item) => item.scope === 'project'), [items])
+  const conversationItems = useMemo(() => items.filter((item) => item.scope === 'conversation'), [items])
+  const globalItems = useMemo(() => items.filter((item) => item.scope === 'global'), [items])
+  const pendingSuggestions = useMemo(
+    () => memory.suggestions.filter((suggestion) => suggestion.status === 'pending'),
+    [memory.suggestions],
+  )
+  const loading = memory.items === null && !memory.error
 
   return (
     <section className="toolSurface">
       <div className="toolPageHeader">
         <h2>记忆</h2>
-        <p>分层长期记忆的首版浏览页，优先展示项目级和会话级的当前沉淀内容。</p>
+        <p>统一展示当前项目的长期记忆条目，以及流式返回的记忆建议。</p>
       </div>
 
-      {error ? <section className="infoBanner">记忆远程读取失败，已回退到 {sourceLabel}：{error}</section> : null}
+      <div className="infoBanner">
+        当前项目：{project.currentProject.name} | 状态：{memory.error ? '远端读取失败' : loading ? '正在加载' : '远端数据已接管'}
+        {pendingSuggestions.length > 0 ? ` | 待处理建议：${pendingSuggestions.length}` : ''}
+      </div>
+
+      {memory.error ? <section className="infoBanner">记忆读取失败：{memory.error}</section> : null}
 
       {loading ? (
         <div className="emptyPage">
           <p className="eyebrow">记忆</p>
-          <h3>正在加载分层记忆</h3>
-          <p>当前优先读取工作区 API，失败时展示本地基线样例。</p>
+          <h3>正在加载项目记忆</h3>
+          <p>页面已经切换到 provider 统一状态流，当前仅等待远端 memory 读模型返回。</p>
         </div>
-      ) : items.length === 0 ? (
+      ) : items.length === 0 && memory.suggestions.length === 0 ? (
         <div className="emptyPage">
           <p className="eyebrow">记忆</p>
-          <h3>当前还没有记忆条目</h3>
-          <p>后续可以接入显式写入、自动建议和审核流。</p>
+          <h3>当前还没有可展示的记忆</h3>
+          <p>后续记忆写入、建议确认和系统沉淀都会在这里汇总。</p>
         </div>
       ) : (
         <div className="toolPageGrid">
           <div className="toolPanel">
             <div className="toolPanelHeader">
-              <h3>记忆条目</h3>
-              <span>
-                {items.length} 条 / {sourceLabel}
-              </span>
+              <h3>长期记忆条目</h3>
+              <span>{items.length} 条</span>
             </div>
             <ul className="toolList">
               {items.map((item) => (
                 <li key={item.id}>
-                  <strong>{item.scope === 'project' ? '项目' : item.scope === 'conversation' ? '会话' : item.scope}</strong>
-                  <span>{item.source === 'explicit' ? '显式写入' : item.source === 'assisted' ? '辅助沉淀' : item.source}</span>
+                  <strong>
+                    {scopeLabel(item.scope)} · {sourceLabel(item.source)}
+                  </strong>
                   <small>{item.content}</small>
+                  <span>
+                    {item.projectId ?? '全局'}{item.conversationId ? ` / ${item.conversationId}` : ''}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -104,18 +79,74 @@ export function MemoryPage() {
 
           <div className="toolPanel">
             <div className="toolPanelHeader">
-              <h3>作用域映射</h3>
-              <span>便于后续联调</span>
+              <h3>记忆建议</h3>
+              <span>{memory.suggestions.length} 条</span>
             </div>
-            <div className="toolDetailStack">
-              {items.map((item) => (
-                <div className="toolDetailRow" key={`${item.id}-scope`}>
-                  <span>{item.id}</span>
-                  <strong>{item.conversationId ?? item.projectId ?? '全局'}</strong>
-                </div>
+            <ul className="toolList">
+              {memory.suggestions.map((suggestion) => (
+                <li key={suggestion.id}>
+                  <strong>
+                    {scopeLabel(suggestion.scope)} · {suggestionStatusLabel(suggestion.status)}
+                  </strong>
+                  <small>{suggestion.content}</small>
+                  <span>{suggestion.createdAt}</span>
+                </li>
               ))}
-            </div>
+            </ul>
+            {pendingSuggestions.length > 0 ? (
+              <p className="toolNote">建议的接受 / 拒绝操作后续可以接到 memory 领域 action 上，这里已经预留好展示位。</p>
+            ) : null}
           </div>
+
+          <div className="toolPanel">
+            <div className="toolPanelHeader">
+              <h3>项目级</h3>
+              <span>{projectItems.length} 条</span>
+            </div>
+            <ul className="toolList">
+              {projectItems.map((item) => (
+                <li key={item.id}>
+                  <strong>{sourceLabel(item.source)}</strong>
+                  <small>{item.content}</small>
+                  <span>{item.updatedAt}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div className="toolPanel">
+            <div className="toolPanelHeader">
+              <h3>会话级</h3>
+              <span>{conversationItems.length} 条</span>
+            </div>
+            <ul className="toolList">
+              {conversationItems.map((item) => (
+                <li key={item.id}>
+                  <strong>{sourceLabel(item.source)}</strong>
+                  <small>{item.content}</small>
+                  <span>{item.conversationId ?? '当前会话'}</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {globalItems.length > 0 ? (
+            <div className="toolPanel">
+              <div className="toolPanelHeader">
+                <h3>全局</h3>
+                <span>{globalItems.length} 条</span>
+              </div>
+              <ul className="toolList">
+                {globalItems.map((item) => (
+                  <li key={item.id}>
+                    <strong>{sourceLabel(item.source)}</strong>
+                    <small>{item.content}</small>
+                    <span>{item.updatedAt}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
         </div>
       )}
     </section>

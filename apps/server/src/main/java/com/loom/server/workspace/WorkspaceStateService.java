@@ -2,6 +2,13 @@ package com.loom.server.workspace;
 
 import com.loom.server.api.ApiException;
 import com.loom.server.config.LoomLlmProperties;
+import com.loom.server.context.ConversationContextInputs;
+import com.loom.server.context.ConversationContextService;
+import com.loom.server.memory.MemoryItemCommand;
+import com.loom.server.memory.MemoryQuery;
+import com.loom.server.memory.MemoryService;
+import com.loom.server.memory.MemorySuggestionCommand;
+import com.loom.server.memory.MemorySuggestionView;
 import com.loom.server.model.BootstrapPayload;
 import com.loom.server.workspace.MinimaxChatClient.ChatCompletionRequest;
 import com.loom.server.workspace.MinimaxChatClient.ChatCompletionResult;
@@ -83,12 +90,22 @@ public class WorkspaceStateService {
     private final List<LlmProviderPresetView> providerPresets = providerPresets();
     private final MinimaxChatClient minimaxChatClient;
     private final LlmSettingsRepository llmSettingsRepository;
+    private final ConversationContextService conversationContextService;
+    private final MemoryService memoryService;
     private final LinkedHashMap<String, LlmConfigState> llmConfigs = new LinkedHashMap<>();
     private LlmConnectionTestView lastConnectionTest;
 
-    public WorkspaceStateService(LoomLlmProperties llmProperties, MinimaxChatClient minimaxChatClient, LlmSettingsRepository llmSettingsRepository) {
+    public WorkspaceStateService(
+            LoomLlmProperties llmProperties,
+            MinimaxChatClient minimaxChatClient,
+            LlmSettingsRepository llmSettingsRepository,
+            ConversationContextService conversationContextService,
+            MemoryService memoryService
+    ) {
         this.minimaxChatClient = minimaxChatClient;
         this.llmSettingsRepository = llmSettingsRepository;
+        this.conversationContextService = conversationContextService;
+        this.memoryService = memoryService;
         LoomLlmProperties.Minimax minimax = llmProperties.getMinimax();
         String now = now();
         LlmConfigState defaultConfig = new LlmConfigState(
@@ -207,6 +224,7 @@ public class WorkspaceStateService {
                 action.id,
                 action.runId,
                 userBody,
+                request.allowMemory() == null || request.allowMemory(),
                 startedAt,
                 "message-" + UUID.randomUUID(),
                 "message-" + UUID.randomUUID()
@@ -233,7 +251,12 @@ public class WorkspaceStateService {
     }
 
     public ContextPanelView getContext(String projectId, String conversationId) {
-        return contextFor(requireConversation(projectId, conversationId));
+        return assembleContextPanel(requireConversation(projectId, conversationId));
+    }
+
+    public CursorPage<ContextSnapshotView> listContextSnapshots(String projectId, String conversationId, String cursor, Integer limit) {
+        ConversationState state = requireConversation(projectId, conversationId);
+        return page(mergedContextSnapshots(state), cursor, limit);
     }
 
     public ContextRefreshResponse refreshContext(String projectId, String conversationId) {
@@ -249,9 +272,10 @@ public class WorkspaceStateService {
                 new ContextReferenceItem("ref-settings", "LLM settings", "memory", "MiniMax preset, endpoint, model, and API key."),
                 new ContextReferenceItem("ref-message", "Latest user request", "conversation", latestUserSummary(state))
         );
-        state.context.snapshots = appendSnapshot(state.context.snapshots, new ContextSnapshotView("snapshot-active-context-" + UUID.randomUUID(), projectId, conversationId, "active_context", state.context.conversationSummary, refreshedAt));
+        ContextSnapshotView snapshot = conversationContextService.storeSnapshot(contextInputsFor(state, "active_context", refreshedAt));
+        state.context.snapshots = mergeSnapshots(state.context.snapshots, List.of(snapshot));
         state.updatedAt = refreshedAt;
-        return new ContextRefreshResponse(contextFor(state));
+        return new ContextRefreshResponse(assembleContextPanel(state));
     }
 
     public TracePanelView getTrace(String projectId, String conversationId) {
@@ -312,9 +336,53 @@ public class WorkspaceStateService {
         return new CursorPage<>(fileAssetsByProject.getOrDefault(projectId, List.of()), null, false);
     }
 
-    public CursorPage<MemoryItemView> listMemory(String projectId) {
+    public CursorPage<MemoryItemView> listMemory(String projectId, String conversationId, String scope, String cursor, Integer limit) {
         requireProject(projectId);
-        return new CursorPage<>(memoryItems.stream().filter(item -> item.projectId() == null || Objects.equals(item.projectId(), projectId)).toList(), null, false);
+        CursorPage<MemoryItemView> persisted = memoryService.listMemory(new MemoryQuery(projectId, conversationId, scope, cursor, limit));
+        if (!persisted.items().isEmpty()) {
+            return persisted;
+        }
+        List<MemoryItemView> fallbackItems = memoryItems.stream()
+                .filter(item -> item.projectId() == null || Objects.equals(item.projectId(), projectId))
+                .filter(item -> matchesMemoryScope(scope, conversationId, item))
+                .sorted(Comparator.comparing(MemoryItemView::updatedAt).reversed())
+                .toList();
+        return page(fallbackItems, cursor, limit);
+    }
+
+    public MemoryItemView createMemoryItem(String projectId, MemoryItemCommand command) {
+        requireProject(projectId);
+        return memoryService.createMemoryItem(new MemoryItemCommand(projectId, command.conversationId(), command.scope(), command.content(), command.source()));
+    }
+
+    public MemoryItemView updateMemoryItem(String projectId, String memoryId, MemoryItemCommand command) {
+        requireProject(projectId);
+        return memoryService.updateMemoryItem(projectId, memoryId, new MemoryItemCommand(projectId, command.conversationId(), command.scope(), command.content(), command.source()));
+    }
+
+    public void deleteMemoryItem(String projectId, String memoryId) {
+        requireProject(projectId);
+        memoryService.deleteMemoryItem(projectId, memoryId);
+    }
+
+    public CursorPage<MemorySuggestionView> listMemorySuggestions(String projectId, String conversationId, String scope, String cursor, Integer limit) {
+        requireProject(projectId);
+        return memoryService.listSuggestions(new MemoryQuery(projectId, conversationId, scope, cursor, limit));
+    }
+
+    public MemorySuggestionView createMemorySuggestion(String projectId, MemorySuggestionCommand command) {
+        requireProject(projectId);
+        return memoryService.suggestMemory(new MemorySuggestionCommand(projectId, command.conversationId(), command.scope(), command.content()));
+    }
+
+    public MemorySuggestionView acceptMemorySuggestion(String projectId, String suggestionId) {
+        requireProject(projectId);
+        return memoryService.acceptSuggestion(projectId, suggestionId);
+    }
+
+    public MemorySuggestionView rejectMemorySuggestion(String projectId, String suggestionId) {
+        requireProject(projectId);
+        return memoryService.rejectSuggestion(projectId, suggestionId);
     }
 
     public SettingsOverviewView getSettingsOverview(String scope) {
@@ -329,7 +397,7 @@ public class WorkspaceStateService {
                                 "model-profile-" + config.id,
                                 config.presetId,
                                 resolvedScope,
-                                config.displayName,
+                                config.isConfigured() ? config.displayName : config.displayName + " (setup required)",
                                 config.provider,
                                 config.modelId,
                                 config.isConfigured(),
@@ -356,7 +424,10 @@ public class WorkspaceStateService {
     public SettingsOverviewView updateLlmConfiguration(UpdateLlmConfigRequest request) {
         LlmConfigState config = upsertLlmConfig(request);
         config.updatedAt = now();
-        if (config.active) {
+        boolean shouldActivate = config.active
+                || Boolean.TRUE.equals(request == null ? null : request.activate())
+                || (request != null && request.apiKey() != null && !request.apiKey().isBlank());
+        if (shouldActivate) {
             activateConfig(config.id);
         }
         persistLlmConfigs();
@@ -458,6 +529,7 @@ public class WorkspaceStateService {
             state.traceSummary = blankTo(streamedTurn.reasoningSummary(), "Reply streamed successfully.");
             state.traceUpdatedAt = completedAt;
             updateContextAfterMessage(projectId, state, pendingTurn.userInput, assistantMessage.body(), completedAt);
+            ContextPanelView context = persistContextSnapshot(state, "turn", completedAt);
 
             action.status = "completed";
             action.summary = summarize(assistantMessage.body());
@@ -465,7 +537,13 @@ public class WorkspaceStateService {
             markTraceStep(projectId, conversationId, runId, "trace-publish-" + conversationId, "success", "Conversation state and context are updated.", completedAt, sink);
 
             TracePanelView trace = getTrace(projectId, conversationId);
-            sink.accept(event("context.updated", projectId, conversationId, completedAt, Map.of("context", getContext(projectId, conversationId))));
+            sink.accept(event("context.updated", projectId, conversationId, completedAt, Map.of("context", context)));
+            if (pendingTurn.allowMemory) {
+                MemorySuggestionView suggestion = createMemorySuggestion(projectId, conversationId, pendingTurn.userInput, assistantMessage.body());
+                if (suggestion != null) {
+                    sink.accept(event("memory.suggested", projectId, conversationId, completedAt, Map.of("suggestion", suggestion)));
+                }
+            }
             sink.accept(event("run.completed", projectId, conversationId, completedAt, Map.of("run", trace.activeRun())));
 
             project.updatedAt = completedAt;
@@ -509,7 +587,7 @@ public class WorkspaceStateService {
     public BootstrapPayload buildBootstrapPayload() {
         ConversationState active = conversations.values().stream().sorted(Comparator.comparing((ConversationState c) -> c.updatedAt).reversed()).findFirst().orElseThrow();
         ProjectState project = requireProject(active.projectId);
-        ContextPanelView context = contextFor(active);
+        ContextPanelView context = assembleContextPanel(active);
         TracePanelView trace = getTrace(project.id, active.id);
         SettingsOverviewView settings = getSettingsOverview("project");
 
@@ -932,6 +1010,80 @@ public class WorkspaceStateService {
         state.context.snapshots = appendSnapshot(state.context.snapshots, new ContextSnapshotView("snapshot-decision-" + UUID.randomUUID(), projectId, state.id, "decisions", String.join(" | ", state.context.decisions), updatedAt));
     }
 
+    private ContextPanelView assembleContextPanel(ConversationState state) {
+        return conversationContextService.assemble(contextInputsFor(state, "active_context", blankTo(state.context.updatedAt, state.updatedAt)));
+    }
+
+    private ContextPanelView persistContextSnapshot(ConversationState state, String snapshotKind, String updatedAt) {
+        ContextSnapshotView snapshot = conversationContextService.storeSnapshot(contextInputsFor(state, snapshotKind, updatedAt));
+        state.context.snapshots = mergeSnapshots(state.context.snapshots, List.of(snapshot));
+        return assembleContextPanel(state);
+    }
+
+    private ConversationContextInputs contextInputsFor(ConversationState state, String snapshotKind, String updatedAt) {
+        return new ConversationContextInputs(
+                state.projectId,
+                state.id,
+                state.context.conversationSummary,
+                state.context.decisions,
+                state.context.openLoops,
+                state.context.activeGoals,
+                state.context.constraints,
+                state.context.references,
+                recentMessages(state, 6),
+                memoryItemsForContext(state),
+                mergedContextSnapshots(state),
+                snapshotKind,
+                updatedAt
+        );
+    }
+
+    private List<MessageView> recentMessages(ConversationState state, int limit) {
+        if (state.messages.isEmpty()) {
+            return List.of();
+        }
+        int fromIndex = Math.max(0, state.messages.size() - Math.max(1, limit));
+        return List.copyOf(state.messages.subList(fromIndex, state.messages.size()));
+    }
+
+    private List<MemoryItemView> memoryItemsForContext(ConversationState state) {
+        List<MemoryItemView> persisted = memoryService.listMemory(new MemoryQuery(state.projectId, state.id, "all", null, 100)).items();
+        if (!persisted.isEmpty()) {
+            return persisted;
+        }
+        return memoryItems.stream()
+                .filter(item -> item.projectId() == null || Objects.equals(item.projectId(), state.projectId))
+                .filter(item -> item.conversationId() == null || Objects.equals(item.conversationId(), state.id))
+                .sorted(Comparator.comparing(MemoryItemView::updatedAt).reversed())
+                .toList();
+    }
+
+    private List<ContextSnapshotView> mergedContextSnapshots(ConversationState state) {
+        return mergeSnapshots(state.context.snapshots, conversationContextService.listSnapshots(state.projectId, state.id));
+    }
+
+    private List<ContextSnapshotView> mergeSnapshots(List<ContextSnapshotView> primary, List<ContextSnapshotView> secondary) {
+        LinkedHashMap<String, ContextSnapshotView> merged = new LinkedHashMap<>();
+        for (ContextSnapshotView snapshot : primary == null ? List.<ContextSnapshotView>of() : primary) {
+            merged.put(snapshot.id(), snapshot);
+        }
+        for (ContextSnapshotView snapshot : secondary == null ? List.<ContextSnapshotView>of() : secondary) {
+            merged.put(snapshot.id(), snapshot);
+        }
+        return merged.values().stream()
+                .sorted(Comparator.comparing(ContextSnapshotView::updatedAt).reversed())
+                .limit(12)
+                .toList();
+    }
+
+    private MemorySuggestionView createMemorySuggestion(String projectId, String conversationId, String userInput, String assistantBody) {
+        String content = summarize(userInput) + " -> " + summarize(assistantBody);
+        if (content.isBlank()) {
+            return null;
+        }
+        return memoryService.suggestMemory(new MemorySuggestionCommand(projectId, conversationId, "conversation", content));
+    }
+
     private List<ContextSnapshotView> appendSnapshot(List<ContextSnapshotView> snapshots, ContextSnapshotView nextSnapshot) {
         List<ContextSnapshotView> next = new ArrayList<>(snapshots);
         next.add(0, nextSnapshot);
@@ -959,8 +1111,37 @@ public class WorkspaceStateService {
         return null;
     }
 
-    private ContextPanelView contextFor(ConversationState state) {
-        return new ContextPanelView(state.context.conversationSummary, state.context.decisions, state.context.openLoops, state.context.activeGoals, state.context.constraints, state.context.references, state.context.snapshots, state.context.updatedAt);
+    private <T> CursorPage<T> page(List<T> items, String cursor, Integer limit) {
+        int offset = parseCursor(cursor);
+        int pageSize = limit == null || limit <= 0 ? 50 : limit;
+        if (offset >= items.size()) {
+            return new CursorPage<>(List.of(), null, false);
+        }
+        List<T> page = items.subList(offset, Math.min(items.size(), offset + pageSize));
+        boolean hasMore = offset + page.size() < items.size();
+        String nextCursor = hasMore ? String.valueOf(offset + page.size()) : null;
+        return new CursorPage<>(List.copyOf(page), nextCursor, hasMore);
+    }
+
+    private int parseCursor(String cursor) {
+        if (cursor == null || cursor.isBlank()) {
+            return 0;
+        }
+        try {
+            return Math.max(0, Integer.parseInt(cursor.trim()));
+        } catch (NumberFormatException exception) {
+            return 0;
+        }
+    }
+
+    private boolean matchesMemoryScope(String scope, String conversationId, MemoryItemView item) {
+        String normalized = scope == null ? "" : scope.trim().toLowerCase(Locale.ROOT);
+        return switch (normalized) {
+            case "conversation" -> conversationId != null && conversationId.equals(item.conversationId());
+            case "global" -> "global".equals(item.scope());
+            case "all" -> true;
+            default -> "project".equals(item.scope()) || "global".equals(item.scope()) || (conversationId != null && conversationId.equals(item.conversationId()));
+        };
     }
 
     private ProjectListItem toProjectListItem(ProjectState state) {

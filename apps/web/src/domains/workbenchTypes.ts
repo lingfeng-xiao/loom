@@ -5,6 +5,8 @@ import type {
   ConversationMessage,
   ConversationMode,
   OpenClawOverview,
+  MemoryItemView,
+  MemorySuggestionView,
   ProjectListItem,
   ProjectSummary,
   SettingsOverview,
@@ -90,6 +92,14 @@ export interface SettingsDomainState extends SettingsOverview {
   activeSection: string
 }
 
+export interface MemoryDomainState {
+  activeProjectId: string | null
+  activeConversationId: string | null
+  items: MemoryItemView[] | null
+  suggestions: MemorySuggestionView[]
+  error: string | null
+}
+
 export interface UiDomainState {
   loading: boolean
   error: string | null
@@ -110,5 +120,6 @@ export interface WorkbenchDomainState {
   capabilities: CapabilitiesDomainState
   openClaw: OpenClawDomainState
   settings: SettingsDomainState
+  memory: MemoryDomainState
   ui: UiDomainState
 }
