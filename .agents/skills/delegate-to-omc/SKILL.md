@@ -12,11 +12,12 @@ Use this skill to hand execution work from local Codex to server-side `claude -p
 Keep Codex in the `planner / reviewer / closer` role:
 
 - decide whether the task is safe to delegate
-- run the environment preflight and sync Claude user config when needed
+- run the environment preflight and verify remote Claude first, syncing user config only when needed
 - generate a delegation packet
 - call the local wrapper that reaches the server through `ssh jd`
 - review the result against the brief
-- either close the task or request a minimal fix pass
+- keep issuing minimal fix passes until the review passes or the retry budget is exhausted
+- close the task only after the review passes
 
 ## When To Use
 
@@ -70,7 +71,7 @@ Every delegated task must have a brief with these fields:
 
 Use the template in [assets/task-brief-template.md](assets/task-brief-template.md). The brief is created locally, uploaded to the server, and treated as the source of truth for the remote worker.
 
-Before any live run, sync the local Claude user config to the server with `sync-claude-user-config` so the remote `claude -p` path has the same Minmax and user-level settings as the local machine.
+Before any live run, verify remote `claude -p` first. Sync the local Claude user config to the server only if verification fails, local config changed, or you explicitly want to refresh the remote Minmax / user settings.
 
 ## Output Contract
 
@@ -90,6 +91,7 @@ The remote scripts now also write:
 
 - `preflight.json` with remote environment checks
 - `result.json` with contract and diff verdicts
+- `review-result.json` with Codex's machine-readable review verdict and fix list
 - `closeout.json` after Codex marks the review as `PASS`
 
 ## Codex Review Flow
@@ -101,10 +103,17 @@ After the remote worker finishes:
 3. Inspect the diff and reject out-of-scope edits.
 4. Confirm validation commands were actually run, or that the worker explicitly explained why they were not.
 5. Write `PASS` or `NEEDS_FIX` in `review-notes.md`.
-6. Write `closeout.json` only after `PASS`.
-7. If fixes are needed, request the smallest fix list only. Do not broaden scope.
+6. When the review fails, append the minimal fix list to a retry brief and re-dispatch the same task.
+7. Stop only after the review passes, the retry budget is exhausted, or you hit a real ambiguity that needs user input.
+8. Write `closeout.json` only after `PASS`.
 
 Use [assets/review-checklist.md](assets/review-checklist.md) as the fixed checklist.
+
+## Runtime Guardrails
+
+- Default to `ensure-remote-claude-ready` before live delegation. It verifies `claude -p` first and syncs local user config only when the remote environment drifted.
+- Pass `TimeoutSeconds` and `IdleTimeoutSeconds` through the wrappers so server-side Claude runs fail closed instead of spinning forever.
+- Treat timeout or idle timeout as hard review failures and feed them back into the minimal fix loop.
 
 ## Worktree Rule
 

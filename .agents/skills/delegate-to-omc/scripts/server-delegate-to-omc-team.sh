@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: ./server-delegate-to-omc-team.sh --task-id <task-id> (--task-file <brief.md> | --tasks-dir <dir>) --repo-root <repo> [--base-ref <ref>] [--worktree-root <path>] [--delegation-root <path>] [--dry-run]"
+  echo "Usage: ./server-delegate-to-omc-team.sh --task-id <task-id> (--task-file <brief.md> | --tasks-dir <dir>) --repo-root <repo> [--base-ref <ref>] [--worktree-root <path>] [--delegation-root <path>] [--timeout-seconds <seconds>] [--idle-timeout-seconds <seconds>] [--dry-run]"
 }
 
 json_escape() {
@@ -18,6 +18,8 @@ repo_root="$(pwd -P)"
 base_ref="main"
 worktree_root="/home/lingfeng/worktrees"
 delegation_root=""
+timeout_seconds=1800
+idle_timeout_seconds=300
 dry_run=0
 
 while [[ $# -gt 0 ]]; do
@@ -29,6 +31,8 @@ while [[ $# -gt 0 ]]; do
     --base-ref) base_ref="$2"; shift 2 ;;
     --worktree-root) worktree_root="$2"; shift 2 ;;
     --delegation-root) delegation_root="$2"; shift 2 ;;
+    --timeout-seconds) timeout_seconds="$2"; shift 2 ;;
+    --idle-timeout-seconds) idle_timeout_seconds="$2"; shift 2 ;;
     --dry-run) dry_run=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
@@ -120,8 +124,8 @@ printf ']\n' >> "$worktrees_file"
     if [[ ${#task_paths[@]} -gt 1 ]]; then
       subtask_id="$task_id-$(basename "$source_path" .md)"
     fi
-    printf './.agents/skills/delegate-to-omc/scripts/server-delegate-to-claude.sh --task-id %q --task-file %q --repo-root %q --base-ref %q --worktree-root %q --delegation-root %q\n' \
-      "$subtask_id" "$source_path" "$repo_root" "$base_ref" "$worktree_root" "$subtasks_root"
+    printf './.agents/skills/delegate-to-omc/scripts/server-delegate-to-claude.sh --task-id %q --task-file %q --repo-root %q --base-ref %q --worktree-root %q --delegation-root %q --timeout-seconds %q --idle-timeout-seconds %q\n' \
+      "$subtask_id" "$source_path" "$repo_root" "$base_ref" "$worktree_root" "$subtasks_root" "$timeout_seconds" "$idle_timeout_seconds"
   done
 } > "$command_file"
 
@@ -174,7 +178,9 @@ else
           --repo-root "$repo_root" \
           --base-ref "$base_ref" \
           --worktree-root "$worktree_root" \
-          --delegation-root "$subtasks_root"
+          --delegation-root "$subtasks_root" \
+          --timeout-seconds "$timeout_seconds" \
+          --idle-timeout-seconds "$idle_timeout_seconds"
       ) > "$subtasks_root/$subtask_id/runner.log" 2>&1 &
       pids+=("$!")
     fi
@@ -258,6 +264,8 @@ cat > "$result_file" <<EOF
   "preflight_file": "$(json_escape "$preflight_file")",
   "preflight_status": "$(json_escape "$preflight_status")",
   "review_required": $review_required,
+  "timeout_seconds": $timeout_seconds,
+  "idle_timeout_seconds": $idle_timeout_seconds,
   "subtasks_root": "$(json_escape "$subtasks_root")",
   "subtask_count": ${#task_paths[@]},
   "worker_status": "$(json_escape "$worker_status")",

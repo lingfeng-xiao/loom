@@ -10,13 +10,17 @@ param(
     [string]$RemoteRepoRoot = "/home/lingfeng/loom",
     [string]$RemoteWorktreeRoot = "/home/lingfeng/worktrees",
     [string]$RemoteDelegationRoot = "/home/lingfeng/loom/.delegations",
+    [int]$TimeoutSeconds = 1800,
+    [int]$IdleTimeoutSeconds = 300,
+    [switch]$SkipEnsureClaudeReady,
+    [switch]$ForceSyncClaudeConfig,
     [switch]$DryRun,
     [Alias("h")]
     [switch]$Help
 )
 
 function Show-Usage {
-    Write-Host "Usage: ./delegate-to-omc-team.ps1 -TaskId <task-id> (-TaskFile <brief.md> | -TasksDir <dir>) [-RepoRoot <repo>] [-BaseRef <ref>] [-DelegationRoot <path>] [-SshHost <host>] [-RemoteRepoRoot <path>] [-RemoteWorktreeRoot <path>] [-RemoteDelegationRoot <path>] [-DryRun]"
+    Write-Host "Usage: ./delegate-to-omc-team.ps1 -TaskId <task-id> (-TaskFile <brief.md> | -TasksDir <dir>) [-RepoRoot <repo>] [-BaseRef <ref>] [-DelegationRoot <path>] [-SshHost <host>] [-RemoteRepoRoot <path>] [-RemoteWorktreeRoot <path>] [-RemoteDelegationRoot <path>] [-TimeoutSeconds <seconds>] [-IdleTimeoutSeconds <seconds>] [-SkipEnsureClaudeReady] [-ForceSyncClaudeConfig] [-DryRun]"
 }
 
 if ($Help -or [string]::IsNullOrWhiteSpace($TaskId) -or ([string]::IsNullOrWhiteSpace($TaskFile) -and [string]::IsNullOrWhiteSpace($TasksDir))) {
@@ -94,6 +98,21 @@ REVIEW_RESULT: PENDING
 Require-Command "ssh"
 Require-Command "scp"
 
+if (-not $SkipEnsureClaudeReady) {
+    $ensureArgs = @{
+        SshHost = $SshHost
+        RemoteRepoRoot = $RemoteRepoRoot
+    }
+    if ($ForceSyncClaudeConfig) {
+        $ensureArgs["ForceSync"] = $true
+    }
+
+    & (Join-Path $PSScriptRoot "ensure-remote-claude-ready.ps1") @ensureArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Remote Claude environment is not ready on ${SshHost}"
+    }
+}
+
 $repoRootPath = Get-AbsolutePath $RepoRoot
 if ([string]::IsNullOrWhiteSpace($DelegationRoot)) {
     $DelegationRoot = Join-Path $repoRootPath ".delegations"
@@ -141,7 +160,7 @@ if (-not [string]::IsNullOrWhiteSpace($TaskFile)) {
 }
 
 $remoteTaskArg = if ([string]::IsNullOrWhiteSpace($TaskFile)) { "--tasks-dir '$remoteTasksRoot'" } else { "--task-file '$remoteTaskDir/brief.md'" }
-$serverCommand = "bash './.agents/skills/delegate-to-omc/scripts/server-delegate-to-omc-team.sh' --task-id '$TaskId' --repo-root '$RemoteRepoRoot' --base-ref '$BaseRef' --worktree-root '$RemoteWorktreeRoot' --delegation-root '$RemoteDelegationRoot' $remoteTaskArg"
+$serverCommand = "bash './.agents/skills/delegate-to-omc/scripts/server-delegate-to-omc-team.sh' --task-id '$TaskId' --repo-root '$RemoteRepoRoot' --base-ref '$BaseRef' --worktree-root '$RemoteWorktreeRoot' --delegation-root '$RemoteDelegationRoot' --timeout-seconds '$TimeoutSeconds' --idle-timeout-seconds '$IdleTimeoutSeconds' $remoteTaskArg"
 if ($DryRun) {
     $serverCommand += " --dry-run"
 }

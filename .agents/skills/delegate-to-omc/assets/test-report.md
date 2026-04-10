@@ -13,6 +13,8 @@
 ## Layer 1: static structure tests
 
 - Added `sync-claude-user-config.ps1/.sh` to make local Minmax and Claude user-level config sync explicit.
+- Added `ensure-remote-claude-ready.ps1/.sh` so daily runs verify remote `claude -p` first and sync local config only on drift or explicit refresh.
+- Added `review-delegation.ps1` so Codex review writes `review-result.json` and a minimal fix list that can feed the next retry brief.
 - Added `server-delegation-preflight.sh` to record `preflight.json` before each live run.
 - Added `close-delegation.ps1/.sh` to gate `closeout.json` on `REVIEW_RESULT: PASS`.
 - Updated single-task result handling to require:
@@ -25,6 +27,8 @@
   - capture per-subtask `result.json`, `git.status.txt`, and `git.diff.stat.txt`
   - aggregate parent status only after all child workers finish
 - PowerShell help and Bash syntax checks passed for the new and modified scripts.
+- `sync-claude-user-config.ps1 -VerifyOnly` passed against `jd`.
+- `ensure-remote-claude-ready.ps1` passed against `jd` and skipped sync because remote Claude was already healthy.
 
 ## Layer 2: dry-run tests
 
@@ -106,9 +110,34 @@
   - artifacts were still pulled back for inspection
 - Note: this exercises wrapper-level failure rather than server preflight because the script path itself depends on a valid remote repo root
 
+### Timeout and auto-fix loop live smoke
+
+- Task id: `timeout-auto-fix`
+- Remote validation repo: `/home/lingfeng/worktrees/delegate-runtime-check`
+- Command: `delegate-to-claude.ps1 -TimeoutSeconds 1 -IdleTimeoutSeconds 1 -MaxFixAttempts 1`
+- Result: final local exit code `2` after two attempts
+- Evidence:
+  - first live attempt timed out with `timed_out=true` and `exit_code=124`
+  - `review-delegation.ps1` produced `REVIEW_RESULT: NEEDS_FIX`
+  - wrapper generated a retry brief and automatically re-dispatched attempt 2
+  - second attempt also failed closed and the wrapper stopped after exhausting the retry budget
+  - `attempts/attempt-01` and `attempts/attempt-02` snapshots were written locally for audit
+
+### Team dry-run with timeout metadata
+
+- Task id: `team-timeout-dry`
+- Remote validation repo: `/home/lingfeng/worktrees/delegate-runtime-check`
+- Command: `delegate-to-omc-team.ps1 -DryRun -TimeoutSeconds 7 -IdleTimeoutSeconds 3`
+- Result: `DRY_RUN`
+- Evidence:
+  - parent `result.json` records `timeout_seconds=7`
+  - parent `result.json` records `idle_timeout_seconds=3`
+  - wrapper verified remote Claude readiness before delegation and skipped redundant config sync
+
 ## Current conclusion
 
 - Single-task delegation is stable for server-first dry-run and live smoke use.
+- Single-task delegation now has verify-first config handling, strict local review, automatic minimal fix retries, and server-side timeout / idle timeout protection.
 - Parallel delegation is also stable through isolated remote Claude workers.
 - The environment sync path for local Minmax / Claude config to the server is working.
 - The review and closeout gates are enforced by machine-readable artifacts for both single-task and team paths.

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: ./delegate-to-omc-team.sh --task-id <task-id> (--task-file <brief.md> | --tasks-dir <dir>) [--repo-root <repo>] [--base-ref <ref>] [--delegation-root <path>] [--ssh-host <host>] [--remote-repo-root <path>] [--remote-worktree-root <path>] [--remote-delegation-root <path>] [--dry-run]"
+  echo "Usage: ./delegate-to-omc-team.sh --task-id <task-id> (--task-file <brief.md> | --tasks-dir <dir>) [--repo-root <repo>] [--base-ref <ref>] [--delegation-root <path>] [--ssh-host <host>] [--remote-repo-root <path>] [--remote-worktree-root <path>] [--remote-delegation-root <path>] [--timeout-seconds <seconds>] [--idle-timeout-seconds <seconds>] [--skip-ensure-claude-ready] [--force-sync-claude-config] [--dry-run]"
 }
 
 require_cmd() {
@@ -22,6 +22,10 @@ ssh_host="jd"
 remote_repo_root="/home/lingfeng/loom"
 remote_worktree_root="/home/lingfeng/worktrees"
 remote_delegation_root="/home/lingfeng/loom/.delegations"
+timeout_seconds=1800
+idle_timeout_seconds=300
+skip_ensure_claude_ready=0
+force_sync_claude_config=0
 dry_run=0
 
 while [[ $# -gt 0 ]]; do
@@ -36,6 +40,10 @@ while [[ $# -gt 0 ]]; do
     --remote-repo-root) remote_repo_root="$2"; shift 2 ;;
     --remote-worktree-root) remote_worktree_root="$2"; shift 2 ;;
     --remote-delegation-root) remote_delegation_root="$2"; shift 2 ;;
+    --timeout-seconds) timeout_seconds="$2"; shift 2 ;;
+    --idle-timeout-seconds) idle_timeout_seconds="$2"; shift 2 ;;
+    --skip-ensure-claude-ready) skip_ensure_claude_ready=1; shift ;;
+    --force-sync-claude-config) force_sync_claude_config=1; shift ;;
     --dry-run) dry_run=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
@@ -50,6 +58,14 @@ fi
 require_cmd ssh
 require_cmd tar
 require_cmd base64
+
+if [[ "$skip_ensure_claude_ready" -eq 0 ]]; then
+  ensure_args=(--ssh-host "$ssh_host" --remote-repo-root "$remote_repo_root")
+  if [[ "$force_sync_claude_config" -eq 1 ]]; then
+    ensure_args+=(--force-sync)
+  fi
+  "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)/ensure-remote-claude-ready.sh" "${ensure_args[@]}"
+fi
 
 repo_root="$(cd "$repo_root" && pwd -P)"
 [[ -n "$delegation_root" ]] || delegation_root="$repo_root/.delegations"
@@ -78,7 +94,7 @@ if [[ -n "$tasks_dir" ]]; then
   remote_task_arg="--tasks-dir '$remote_tasks_root'"
 fi
 
-remote_command="export PATH=\$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:\$PATH; cd '$remote_repo_root'; bash './.agents/skills/delegate-to-omc/scripts/server-delegate-to-omc-team.sh' --task-id '$task_id' --repo-root '$remote_repo_root' --base-ref '$base_ref' --worktree-root '$remote_worktree_root' --delegation-root '$remote_delegation_root' $remote_task_arg $dry_arg"
+remote_command="export PATH=\$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:\$PATH; cd '$remote_repo_root'; bash './.agents/skills/delegate-to-omc/scripts/server-delegate-to-omc-team.sh' --task-id '$task_id' --repo-root '$remote_repo_root' --base-ref '$base_ref' --worktree-root '$remote_worktree_root' --delegation-root '$remote_delegation_root' --timeout-seconds '$timeout_seconds' --idle-timeout-seconds '$idle_timeout_seconds' $remote_task_arg $dry_arg"
 printf 'ssh %q "%s"\n' "$ssh_host" "$remote_command" > "$task_dir/command.preview.txt"
 
 ssh "$ssh_host" "$remote_command" || true

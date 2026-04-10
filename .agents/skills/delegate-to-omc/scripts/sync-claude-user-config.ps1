@@ -4,13 +4,15 @@ param(
     [string]$SshHost = "jd",
     [string]$RemoteRoot = "~/.claude",
     [string[]]$IncludePaths = @(".credentials.json", ".omc-config.json", "settings.json", "settings.local.json"),
+    [switch]$ForceSync,
+    [switch]$VerifyOnly,
     [switch]$SkipVerify,
     [Alias("h")]
     [switch]$Help
 )
 
 if ($Help) {
-    Write-Host "Usage: ./sync-claude-user-config.ps1 [-SourceRoot <path>] [-SshHost <host>] [-RemoteRoot <path>] [-IncludePaths <paths...>] [-SkipVerify]"
+    Write-Host "Usage: ./sync-claude-user-config.ps1 [-SourceRoot <path>] [-SshHost <host>] [-RemoteRoot <path>] [-IncludePaths <paths...>] [-ForceSync] [-VerifyOnly] [-SkipVerify]"
     exit 0
 }
 
@@ -32,6 +34,26 @@ function Get-AbsolutePath {
 
 Require-Command "ssh"
 Require-Command "scp"
+
+$verifyCommand = "export PATH=`$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:`$PATH; printf 'Reply with CLAUDE_P_OK only.`n' | claude -p --setting-sources 'user,project'"
+$verifyOutput = & ssh $SshHost $verifyCommand 2>&1
+$verifyExitCode = $LASTEXITCODE
+$verifySucceeded = ($verifyExitCode -eq 0 -and ($verifyOutput -join "`n") -match "CLAUDE_P_OK")
+
+if ($VerifyOnly) {
+    if ($verifySucceeded) {
+        Write-Host "Remote claude -p verification succeeded."
+        exit 0
+    }
+
+    Write-Error "Remote claude -p verification failed."
+    exit 2
+}
+
+if ($verifySucceeded -and -not $ForceSync) {
+    Write-Host "Remote claude -p is already healthy on ${SshHost}. Skipping config sync."
+    exit 0
+}
 
 $sourceRootPath = Get-AbsolutePath $SourceRoot
 if (-not (Test-Path $sourceRootPath)) {
@@ -77,7 +99,6 @@ foreach ($item in $itemsToCopy) {
 Write-Host "Synced $($itemsToCopy.Count) Claude user config file(s) to ${SshHost}:$RemoteRoot"
 
 if (-not $SkipVerify) {
-    $verifyCommand = "export PATH=`$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:`$PATH; printf 'Reply with CLAUDE_P_OK only.`n' | claude -p --setting-sources 'user,project'"
     & ssh $SshHost $verifyCommand
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "Remote claude -p verification failed. Treat delegation as degraded until the preflight checks pass."

@@ -9,13 +9,18 @@ param(
     [string]$RemoteRepoRoot = "/home/lingfeng/loom",
     [string]$RemoteWorktreeRoot = "/home/lingfeng/worktrees",
     [string]$RemoteDelegationRoot = "/home/lingfeng/loom/.delegations",
+    [int]$TimeoutSeconds = 1800,
+    [int]$IdleTimeoutSeconds = 300,
+    [int]$MaxFixAttempts = 3,
+    [switch]$SkipEnsureClaudeReady,
+    [switch]$ForceSyncClaudeConfig,
     [switch]$DryRun,
     [Alias("h")]
     [switch]$Help
 )
 
 function Show-Usage {
-    Write-Host "Usage: ./delegate-to-claude.ps1 -TaskId <task-id> -TaskFile <brief.md> [-RepoRoot <repo>] [-BaseRef <ref>] [-DelegationRoot <path>] [-SshHost <host>] [-RemoteRepoRoot <path>] [-RemoteWorktreeRoot <path>] [-RemoteDelegationRoot <path>] [-DryRun]"
+    Write-Host "Usage: ./delegate-to-claude.ps1 -TaskId <task-id> -TaskFile <brief.md> [-RepoRoot <repo>] [-BaseRef <ref>] [-DelegationRoot <path>] [-SshHost <host>] [-RemoteRepoRoot <path>] [-RemoteWorktreeRoot <path>] [-RemoteDelegationRoot <path>] [-TimeoutSeconds <seconds>] [-IdleTimeoutSeconds <seconds>] [-MaxFixAttempts <n>] [-SkipEnsureClaudeReady] [-ForceSyncClaudeConfig] [-DryRun]"
 }
 
 if ($Help -or [string]::IsNullOrWhiteSpace($TaskId) -or [string]::IsNullOrWhiteSpace($TaskFile)) {
@@ -108,6 +113,122 @@ REVIEW_RESULT: PENDING
     }
 }
 
+function Save-AttemptSnapshot {
+    param(
+        [string]$TaskDir,
+        [int]$Attempt
+    )
+
+    $snapshotDir = Join-Path $TaskDir ("attempts\attempt-{0:D2}" -f $Attempt)
+    New-Item -ItemType Directory -Path $snapshotDir -Force | Out-Null
+    foreach ($name in @(
+        "brief.md",
+        "claude.response.md",
+        "git.status.txt",
+        "git.diff.stat.txt",
+        "preflight.json",
+        "result.json",
+        "review-notes.md",
+        "review-result.json",
+        "command.preview.txt"
+    )) {
+        $sourcePath = Join-Path $TaskDir $name
+        if (Test-Path $sourcePath) {
+            Copy-Item -Path $sourcePath -Destination (Join-Path $snapshotDir $name) -Force
+        }
+    }
+}
+
+function New-FixBrief {
+    param(
+        [string]$TaskDir,
+        [int]$Attempt
+    )
+
+    $originalBriefPath = Join-Path $TaskDir "brief.original.md"
+    $reviewResultPath = Join-Path $TaskDir "review-result.json"
+    $fixBriefPath = Join-Path $TaskDir ("brief.fix-{0:D2}.md" -f $Attempt)
+
+    if (-not (Test-Path $originalBriefPath)) {
+        throw "Original brief not found: $originalBriefPath"
+    }
+
+    if (-not (Test-Path $reviewResultPath)) {
+        throw "Review result not found: $reviewResultPath"
+    }
+
+    $baseBrief = (Get-Content $originalBriefPath -Raw).TrimEnd()
+    $reviewResult = Get-Content $reviewResultPath -Raw | ConvertFrom-Json
+    $issues = @($reviewResult.issues)
+    $fixes = @($reviewResult.minimal_fix_list)
+
+    $content = @(
+        $baseBrief,
+        "",
+        "## Auto fix pass",
+        "",
+        "This is automated retry attempt $Attempt after Codex review rejected the previous run.",
+        "",
+        "### Issues to fix",
+        ""
+    ) + ($issues | ForEach-Object { "- $_" }) + @(
+        "",
+        "### Required corrections",
+        ""
+    ) + ($fixes | ForEach-Object { "- $_" }) + @(
+        "",
+        "### Retry rules",
+        "",
+        "- Keep the original goal, constraints, done-when items, and non-goals unchanged.",
+        "- Apply only the minimum changes needed to satisfy the review findings.",
+        "- Re-run concrete validation and report it in TESTS_RUN.",
+        "- Return the full output contract again."
+    )
+
+    Set-Content -Path $fixBriefPath -Value ($content -join "`r`n") -Encoding utf8
+    return $fixBriefPath
+}
+
+function Invoke-RemoteAttempt {
+    param(
+        [string]$AttemptTaskFilePath,
+        [string]$TaskDir,
+        [string]$DelegationRootPath
+    )
+
+    $briefOutputPath = Join-Path $TaskDir "brief.md"
+    $commandFile = Join-Path $TaskDir "command.preview.txt"
+    $remoteTaskDir = "$RemoteDelegationRoot/$TaskId"
+    $remoteBriefPath = "$remoteTaskDir/brief.md"
+
+    if (-not ($AttemptTaskFilePath.Equals($briefOutputPath, [System.StringComparison]::OrdinalIgnoreCase))) {
+        Copy-Item -Path $AttemptTaskFilePath -Destination $briefOutputPath -Force
+    }
+
+    $serverCommand = "bash './.agents/skills/delegate-to-omc/scripts/server-delegate-to-claude.sh' --task-id '$TaskId' --task-file '$remoteBriefPath' --repo-root '$RemoteRepoRoot' --base-ref '$BaseRef' --worktree-root '$RemoteWorktreeRoot' --delegation-root '$RemoteDelegationRoot' --timeout-seconds '$TimeoutSeconds' --idle-timeout-seconds '$IdleTimeoutSeconds'"
+    if ($DryRun) {
+        $serverCommand += " --dry-run"
+    }
+
+    $remoteCommand = @(
+        "export PATH=`$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:`$PATH",
+        "cd '$RemoteRepoRoot'",
+        $serverCommand
+    ) -join "; "
+    Set-Content -Path $commandFile -Value "ssh $SshHost `"$remoteCommand`"" -Encoding utf8
+
+    Send-FileToRemote -LocalFile $briefOutputPath -RemoteFile $remoteBriefPath -RemoteHost $SshHost
+    & ssh $SshHost $remoteCommand
+    if ($LASTEXITCODE -ne 0) {
+        Write-Warning "Remote Claude command exited with code $LASTEXITCODE. Pulling artifacts anyway."
+    }
+
+    & (Join-Path $PSScriptRoot "pull-delegation-artifacts.ps1") -TaskId $TaskId -DelegationRoot $DelegationRootPath -SshHost $SshHost -RemoteDelegationRoot $RemoteDelegationRoot
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to pull delegation artifacts for $TaskId"
+    }
+}
+
 Require-Command "ssh"
 Require-Command "scp"
 
@@ -123,34 +244,66 @@ if ([string]::IsNullOrWhiteSpace($DelegationRoot)) {
 
 $delegationRootPath = Get-AbsolutePath $DelegationRoot
 $taskDir = Join-Path $delegationRootPath $TaskId
-$briefOutputPath = Join-Path $taskDir "brief.md"
-$commandFile = Join-Path $taskDir "command.preview.txt"
-$remoteTaskDir = "$RemoteDelegationRoot/$TaskId"
-$remoteBriefPath = "$remoteTaskDir/brief.md"
 
 New-Item -ItemType Directory -Path $taskDir -Force | Out-Null
 Ensure-ReviewScaffold -TaskDir $taskDir
-if (-not ($taskFilePath.Equals($briefOutputPath, [System.StringComparison]::OrdinalIgnoreCase))) {
-    Copy-Item -Path $taskFilePath -Destination $briefOutputPath -Force
+
+$originalBriefPath = Join-Path $taskDir "brief.original.md"
+if (-not (Test-Path $originalBriefPath)) {
+    Copy-Item -Path $taskFilePath -Destination $originalBriefPath -Force
 }
 
-$serverCommand = "bash './.agents/skills/delegate-to-omc/scripts/server-delegate-to-claude.sh' --task-id '$TaskId' --task-file '$remoteBriefPath' --repo-root '$RemoteRepoRoot' --base-ref '$BaseRef' --worktree-root '$RemoteWorktreeRoot' --delegation-root '$RemoteDelegationRoot'"
+if (-not $SkipEnsureClaudeReady) {
+    $ensureArgs = @{
+        SshHost = $SshHost
+        RemoteRepoRoot = $RemoteRepoRoot
+    }
+    if ($ForceSyncClaudeConfig) {
+        $ensureArgs["ForceSync"] = $true
+    }
+
+    & (Join-Path $PSScriptRoot "ensure-remote-claude-ready.ps1") @ensureArgs
+    if ($LASTEXITCODE -ne 0) {
+        throw "Remote Claude environment is not ready on ${SshHost}"
+    }
+}
+
+Invoke-RemoteAttempt -AttemptTaskFilePath $taskFilePath -TaskDir $taskDir -DelegationRootPath $delegationRootPath
 if ($DryRun) {
-    $serverCommand += " --dry-run"
+    Write-Host "Pulled remote artifacts into $taskDir"
+    exit 0
 }
 
-$remoteCommand = @(
-    "export PATH=`$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:`$PATH",
-    "cd '$RemoteRepoRoot'",
-    $serverCommand
-) -join "; "
-Set-Content -Path $commandFile -Value "ssh $SshHost `"$remoteCommand`"" -Encoding utf8
+$reviewScript = Join-Path $PSScriptRoot "review-delegation.ps1"
+$finalReviewResult = "NEEDS_FIX"
+$totalAttempts = [Math]::Max(1, $MaxFixAttempts + 1)
+$attemptTaskFile = $taskFilePath
 
-Send-FileToRemote -LocalFile $briefOutputPath -RemoteFile $remoteBriefPath -RemoteHost $SshHost
-& ssh $SshHost $remoteCommand
-if ($LASTEXITCODE -ne 0) {
-    Write-Warning "Remote Claude command exited with code $LASTEXITCODE. Pulling artifacts anyway."
+for ($attempt = 1; $attempt -le $totalAttempts; $attempt++) {
+    if ($attempt -gt 1) {
+        Invoke-RemoteAttempt -AttemptTaskFilePath $attemptTaskFile -TaskDir $taskDir -DelegationRootPath $delegationRootPath
+    }
+
+    & $reviewScript -TaskId $TaskId -DelegationRoot $delegationRootPath -Attempt $attempt
+    $reviewPath = Join-Path $taskDir "review-result.json"
+    $reviewResult = Get-Content $reviewPath -Raw | ConvertFrom-Json
+    $finalReviewResult = $reviewResult.review_result
+    Save-AttemptSnapshot -TaskDir $taskDir -Attempt $attempt
+
+    if ($finalReviewResult -eq "PASS") {
+        break
+    }
+
+    if ($attempt -ge $totalAttempts) {
+        break
+    }
+
+    $attemptTaskFile = New-FixBrief -TaskDir $taskDir -Attempt ($attempt + 1)
+    Write-Warning "Codex review requested a fix pass. Re-dispatching attempt $($attempt + 1) for task $TaskId."
 }
 
-& (Join-Path $PSScriptRoot "pull-delegation-artifacts.ps1") -TaskId $TaskId -DelegationRoot $delegationRootPath -SshHost $SshHost -RemoteDelegationRoot $RemoteDelegationRoot
 Write-Host "Pulled remote artifacts into $taskDir"
+if ($finalReviewResult -ne "PASS") {
+    Write-Warning "Task $TaskId still needs fixes after $totalAttempts attempt(s). Inspect review-notes.md and review-result.json."
+    exit 2
+}

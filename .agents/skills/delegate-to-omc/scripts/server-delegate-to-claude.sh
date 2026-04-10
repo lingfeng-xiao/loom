@@ -2,7 +2,7 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: ./server-delegate-to-claude.sh --task-id <task-id> --task-file <brief.md> --repo-root <repo> [--base-ref <ref>] [--worktree-root <path>] [--delegation-root <path>] [--dry-run]"
+  echo "Usage: ./server-delegate-to-claude.sh --task-id <task-id> --task-file <brief.md> --repo-root <repo> [--base-ref <ref>] [--worktree-root <path>] [--delegation-root <path>] [--timeout-seconds <seconds>] [--idle-timeout-seconds <seconds>] [--dry-run]"
 }
 
 require_cmd() {
@@ -55,6 +55,8 @@ repo_root="$(pwd -P)"
 base_ref="main"
 worktree_root="/home/lingfeng/worktrees"
 delegation_root=""
+timeout_seconds=1800
+idle_timeout_seconds=300
 dry_run=0
 
 while [[ $# -gt 0 ]]; do
@@ -65,6 +67,8 @@ while [[ $# -gt 0 ]]; do
     --base-ref) base_ref="$2"; shift 2 ;;
     --worktree-root) worktree_root="$2"; shift 2 ;;
     --delegation-root) delegation_root="$2"; shift 2 ;;
+    --timeout-seconds) timeout_seconds="$2"; shift 2 ;;
+    --idle-timeout-seconds) idle_timeout_seconds="$2"; shift 2 ;;
     --dry-run) dry_run=1; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
@@ -119,7 +123,9 @@ created_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 cat > "$command_file" <<EOF
 cd "$worktree_path"
-claude -p --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" < "$prompt_file"
+claude -p --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" <prompt from "$prompt_file">
+timeout_seconds="$timeout_seconds"
+idle_timeout_seconds="$idle_timeout_seconds"
 EOF
 
 exit_code=0
@@ -130,6 +136,8 @@ diff_present=false
 validation_reported=false
 review_required=true
 preflight_status="PENDING"
+timed_out=false
+idle_timed_out=false
 
 if bash "$script_dir/server-delegation-preflight.sh" --task-id "$task_id" --mode "claude" --repo-root "$repo_root" --worktree-root "$worktree_root" --delegation-root "$delegation_root"; then
   preflight_status="PASS"
@@ -169,7 +177,52 @@ else
     fi
   fi
 
-  if (cd "$worktree_path" && claude -p --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" < "$prompt_file") >"$response_file" 2>&1; then
+  prompt_text="$(cat "$prompt_file")"
+  : > "$response_file"
+  (
+    cd "$worktree_path" &&
+    claude -p --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" "$prompt_text"
+  ) >"$response_file" 2>&1 &
+  claude_pid=$!
+  started_epoch="$(date +%s)"
+  last_activity_epoch="$started_epoch"
+  last_seen_mtime=0
+
+  while kill -0 "$claude_pid" >/dev/null 2>&1; do
+    now_epoch="$(date +%s)"
+    if [[ -f "$response_file" ]]; then
+      current_mtime="$(stat -c %Y "$response_file" 2>/dev/null || printf '0')"
+      if [[ "$current_mtime" -gt "$last_seen_mtime" ]]; then
+        last_seen_mtime="$current_mtime"
+        last_activity_epoch="$now_epoch"
+      fi
+    fi
+
+    if [[ "$timeout_seconds" -gt 0 ]] && (( now_epoch - started_epoch >= timeout_seconds )); then
+      timed_out=true
+      break
+    fi
+
+    if [[ "$idle_timeout_seconds" -gt 0 ]] && (( now_epoch - last_activity_epoch >= idle_timeout_seconds )); then
+      idle_timed_out=true
+      break
+    fi
+
+    sleep 5
+  done
+
+  if [[ "$timed_out" == "true" || "$idle_timed_out" == "true" ]]; then
+    kill "$claude_pid" >/dev/null 2>&1 || true
+    sleep 2
+    kill -9 "$claude_pid" >/dev/null 2>&1 || true
+    wait "$claude_pid" >/dev/null 2>&1 || true
+    exit_code=124
+    if [[ "$timed_out" == "true" ]]; then
+      printf '\nRESULT: FAILED\nSUMMARY: Claude run exceeded the overall timeout of %s seconds.\nCHANGED_FILES: See git status and diff artifacts.\nTESTS_RUN: Not completed because the worker timed out.\nRISKS: Partial edits may exist in the remote worktree.\nBLOCKERS: Overall timeout reached.\nNEXT_ACTIONS: Reduce scope or split the task, then rerun.\n' "$timeout_seconds" >> "$response_file"
+    else
+      printf '\nRESULT: FAILED\nSUMMARY: Claude run produced no fresh output for %s seconds and was terminated.\nCHANGED_FILES: See git status and diff artifacts.\nTESTS_RUN: Not completed because the worker idled out.\nRISKS: Partial edits may exist in the remote worktree.\nBLOCKERS: Idle timeout reached.\nNEXT_ACTIONS: Reduce scope, tighten the brief, or split the task before rerunning.\n' "$idle_timeout_seconds" >> "$response_file"
+    fi
+  elif wait "$claude_pid"; then
     exit_code=0
   else
     exit_code=$?
@@ -198,7 +251,7 @@ else
   fi
 
   declared_result="$(extract_contract_value "RESULT" "$response_file" || true)"
-  if [[ $exit_code -ne 0 || "$declared_result" == "FAILED" ]]; then
+  if [[ "$timed_out" == "true" || "$idle_timed_out" == "true" || $exit_code -ne 0 || "$declared_result" == "FAILED" ]]; then
     worker_status="FAILED"
   elif [[ "$declared_result" == "SUCCESS" && "$contract_complete" == "true" && "$diff_present" == "true" && "$validation_reported" == "true" ]]; then
     worker_status="SUCCESS"
@@ -221,6 +274,10 @@ cat > "$result_file" <<EOF
   "contract_complete": $contract_complete,
   "diff_present": $diff_present,
   "validation_reported": $validation_reported,
+  "timeout_seconds": $timeout_seconds,
+  "idle_timeout_seconds": $idle_timeout_seconds,
+  "timed_out": $timed_out,
+  "idle_timed_out": $idle_timed_out,
   "review_required": $review_required,
   "worker_status": "$(json_escape "$worker_status")",
   "exit_code": $exit_code,

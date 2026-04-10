@@ -11,9 +11,10 @@
 
 - write briefs and review notes
 - sync the server mirror into `.mirror/server-head/`
-- sync the local Claude user config into the server `~/.claude/`
+- verify remote Claude first and sync the local Claude user config into the server `~/.claude/` only when needed
 - trigger remote `claude -p` workers for single-task and parallel-task execution
 - pull delegation artifacts back for review
+- auto-loop minimal fix passes until the review is green or the retry budget is exhausted
 - write `closeout.json` after review passes
 
 Do not use the local workspace as the primary place to change business code.
@@ -29,9 +30,9 @@ Do not use the local workspace as the primary place to change business code.
 
 ```powershell
 ./.agents/skills/delegate-to-omc/scripts/sync-server-mirror.ps1
-./.agents/skills/delegate-to-omc/scripts/sync-claude-user-config.ps1
+./.agents/skills/delegate-to-omc/scripts/ensure-remote-claude-ready.ps1
 ./.agents/skills/delegate-to-omc/scripts/new-delegation.ps1 -TaskId "task-1" -Title "Short title"
-./.agents/skills/delegate-to-omc/scripts/delegate-to-claude.ps1 -TaskId "task-1" -TaskFile ".\.delegations\task-1\brief.md"
+./.agents/skills/delegate-to-omc/scripts/delegate-to-claude.ps1 -TaskId "task-1" -TaskFile ".\.delegations\task-1\brief.md" -MaxFixAttempts 3 -TimeoutSeconds 1800 -IdleTimeoutSeconds 300
 ./.agents/skills/delegate-to-omc/scripts/pull-delegation-artifacts.ps1 -TaskId "task-1"
 ./.agents/skills/delegate-to-omc/scripts/close-delegation.ps1 -TaskId "task-1"
 ```
