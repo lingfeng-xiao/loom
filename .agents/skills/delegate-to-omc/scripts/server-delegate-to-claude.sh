@@ -87,7 +87,7 @@ created_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 cat > "$command_file" <<EOF
 cd "$worktree_path"
-claude -p --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" <prompt from "$prompt_file">
+claude -p --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" < "$prompt_file"
 EOF
 
 exit_code=0
@@ -111,8 +111,7 @@ else
     fi
   fi
 
-  prompt_text="$(cat "$prompt_file")"
-  if (cd "$worktree_path" && claude -p --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" "$prompt_text") >"$response_file" 2>&1; then
+  if (cd "$worktree_path" && claude -p --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" < "$prompt_file") >"$response_file" 2>&1; then
     exit_code=0
   else
     exit_code=$?

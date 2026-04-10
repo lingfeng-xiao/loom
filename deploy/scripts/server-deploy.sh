@@ -15,7 +15,7 @@ if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
 fi
 
 service_visible=0
-if command -v systemctl >/dev/null 2>&1 && systemctl status loom.service >/dev/null 2>&1; then
+if command -v systemctl >/dev/null 2>&1 && systemctl cat loom.service >/dev/null 2>&1; then
   service_visible=1
 fi
 
@@ -34,7 +34,7 @@ fi
     if [[ "$service_visible" -eq 1 && "$has_passwordless_sudo" -ne 1 ]]; then
       echo "[deploy] loom.service is visible, but passwordless sudo is unavailable. Falling back to direct docker compose."
     fi
-    docker compose --env-file "$ROOT/.env" up -d --build --remove-orphans
+    docker compose -f "$ROOT/docker-compose.yml" --env-file "$ROOT/.env" up -d --build --remove-orphans
   fi
   date -u +"[deploy] finished_at=%Y-%m-%dT%H:%M:%SZ"
 } 2>&1 | tee "$LOG_FILE"
