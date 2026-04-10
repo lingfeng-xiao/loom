@@ -15,6 +15,24 @@ fail() {
   exit 1
 }
 
+run_sudo() {
+  if ! command -v sudo >/dev/null 2>&1; then
+    fail "sudo is required for legacy cleanup"
+  fi
+
+  if sudo -n true >/dev/null 2>&1; then
+    sudo "$@"
+    return
+  fi
+
+  if [[ -n "${SUDO_PASSWORD:-}" ]]; then
+    printf '%s\n' "$SUDO_PASSWORD" | sudo -S -p '' "$@"
+    return
+  fi
+
+  fail "sudo access is required for legacy cleanup"
+}
+
 [[ -f "$RESULT_FILE" ]] || fail "release result not found: $RESULT_FILE"
 grep -Fq '"status": "SUCCESS"' "$RESULT_FILE" || fail "release $RELEASE_ID is not marked SUCCESS"
 grep -Fq '"validated": true' "$RESULT_FILE" || fail "release $RELEASE_ID did not finish validated=true"
@@ -28,12 +46,8 @@ grep -Fq '"healthcheck_passed": true' "$RESULT_FILE" || fail "release $RELEASE_I
   date -u +"[cleanup] started_at=%Y-%m-%dT%H:%M:%SZ"
 
   if [[ -e "$LEGACY_ROOT" ]]; then
-    if command -v sudo >/dev/null 2>&1 && sudo -n true >/dev/null 2>&1; then
-      sudo rm -rf "$LEGACY_ROOT"
-      echo "[cleanup] removed_legacy_root=true"
-    else
-      fail "legacy root $LEGACY_ROOT exists but passwordless sudo is unavailable"
-    fi
+    run_sudo rm -rf "$LEGACY_ROOT"
+    echo "[cleanup] removed_legacy_root=true"
   else
     echo "[cleanup] removed_legacy_root=already-absent"
   fi
