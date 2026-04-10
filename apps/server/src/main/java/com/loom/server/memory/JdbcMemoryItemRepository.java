@@ -82,16 +82,6 @@ public class JdbcMemoryItemRepository implements MemoryItemRepository {
     }
 
     @Override
-    public List<MemoryItemRecord> listAll() {
-        return jdbcTemplate.query("""
-                        SELECT id, scope, project_id, conversation_id, content, source, updated_at
-                        FROM loom_memory_items
-                        ORDER BY updated_at DESC, id DESC
-                        """,
-                this::mapRow);
-    }
-
-    @Override
     public void deleteById(String id) {
         jdbcTemplate.update("DELETE FROM loom_memory_items WHERE id = ?", id);
     }
