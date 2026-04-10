@@ -1,65 +1,114 @@
 # Delegate To OMC Test Report
 
-## Preconditions checked
+## Environment baseline
 
-- Repo state checked before edits; existing user changes were left untouched.
-- `git`, `claude`, and `omc` commands are available on this machine.
-- User settings existed at `C:\Users\16343\.claude\settings.json`.
-- User settings were backed up to `C:\Users\16343\.claude\settings.json.bak.20260410-153924`.
-- Windows Git Bash was detected at `C:\Program Files\Git\bin\bash.exe`.
-- Existing project-local `.claude/settings.local.json` is restrictive, so the Claude delegation script uses `--setting-sources "user,project"`.
+- Test branch: `codex/delegate-to-omc-stabilization`
+- Local execution root: `C:\Users\16343\Desktop\loom\.worktrees\codex-delegate-to-omc-stabilization`
+- Remote validation repo: `/home/lingfeng/worktrees/codex-delegate-to-omc-stabilization-repo`
+- Remote delegation root for validation: `/home/lingfeng/worktrees/codex-delegate-to-omc-stabilization-repo/.delegations`
+- Local Claude user config was synced to `jd:~/.claude` with `sync-claude-user-config.ps1`
+- Remote `claude -p --setting-sources user,project` returned `CLAUDE_P_OK`
+- Remote `tmux` and `omc` were present on the server, but the stable delegation path now uses remote Claude workers directly
 
 ## Layer 1: static structure tests
 
-- Target files were created successfully.
-- `.claude/settings.json`, `.claude/settings.local.example.json`, and the user-level settings file all parse as valid JSON.
-- `SKILL.md` includes all required sections:
-  - `Purpose`
-  - `When To Use`
-  - `Decision Policy`
-  - `Delegation Packet Contract`
-  - `Output Contract`
-  - `Codex Review Flow`
-  - `Worktree Rule`
-- PowerShell scripts print usage help successfully with `-Help`.
-- Shell scripts pass syntax validation with `C:\Program Files\Git\bin\bash.exe -n`.
-- `.gitignore` now ignores `.delegations/`, `.worktrees/`, and `.tmp/delegation-smoke/`.
+- Added `sync-claude-user-config.ps1/.sh` to make local Minmax and Claude user-level config sync explicit.
+- Added `server-delegation-preflight.sh` to record `preflight.json` before each live run.
+- Added `close-delegation.ps1/.sh` to gate `closeout.json` on `REVIEW_RESULT: PASS`.
+- Updated single-task result handling to require:
+  - full output contract
+  - explicit validation reporting
+  - real git diff or git status evidence
+- Updated team handling to:
+  - allocate isolated worktrees per subtask
+  - launch one remote `claude -p` worker per subtask in parallel
+  - capture per-subtask `result.json`, `git.status.txt`, and `git.diff.stat.txt`
+  - aggregate parent status only after all child workers finish
+- PowerShell help and Bash syntax checks passed for the new and modified scripts.
 
 ## Layer 2: dry-run tests
 
-- `new-delegation.ps1` created `.delegations/_smoke-single/`.
-- `delegate-to-claude.ps1 -DryRun` passed for `_smoke-single`.
-  - Artifacts created: `brief.md`, `prompt.sent.md`, `claude.response.md`, `git.status.txt`, `git.diff.stat.txt`, `result.json`, `command.preview.txt`
-- `delegate-to-omc-team.ps1 -DryRun` passed for `_smoke-team`.
-  - Artifacts created: `team.prompt.md`, `worktrees.json`, `omc.response.md`, `git.status.txt`, `git.diff.stat.txt`, `result.json`, `command.preview.txt`
+### Single-task dry-run
+
+- Task id: `_stabilize_dry_single`
+- Command: `delegate-to-claude.ps1 -DryRun`
+- Result: `DRY_RUN`
+- Verified artifacts:
+  - `brief.md`
+  - `preflight.json`
+  - `prompt.sent.md`
+  - `command.preview.txt`
+  - `claude.response.md`
+  - `git.status.txt`
+  - `git.diff.stat.txt`
+  - `result.json`
+
+### Team dry-run
+
+- Task id: `_stabilize_team_dry`
+- Command: `delegate-to-omc-team.ps1 -DryRun`
+- Result: `DRY_RUN`
+- Verified artifacts:
+  - `team.prompt.md`
+  - `worktrees.json`
+  - `preflight.json`
+  - `omc.response.md`
+  - `git.status.txt`
+  - `git.diff.stat.txt`
+  - `result.json`
 
 ## Layer 3: live tests
 
-### Live Claude single-task test
+### Live Claude single-task positive smoke
 
-- Task id: `_smoke-live-single`
-- Scope: `.tmp/delegation-smoke/sample-project/**`
-- Command ran successfully through the local Claude CLI.
-- Final script result: `PARTIAL`
-- Why `PARTIAL`:
-  - Claude returned a structured `RESULT: SUCCESS` response.
-  - Manual verification found no `generated-by-claude.txt` under the assigned worktree.
-  - `git status` and `git diff --stat` were empty.
-- Review outcome: `.delegations/_smoke-live-single/review-notes.md` marks this run as `NEEDS_FIX`.
-- Conclusion: the delegation chain runs end-to-end, but this environment still needs Codex review because the worker can claim success without a real filesystem change.
+- Task id: `_stabilize_live_single`
+- Scope: create `delegate-smoke-positive.txt` inside the assigned remote worktree
+- Result: `SUCCESS`
+- Evidence:
+  - `preflight_status=PASS`
+  - `contract_complete=true`
+  - `diff_present=true`
+  - `validation_reported=true`
+  - `git.status.txt` shows `A  delegate-smoke-positive.txt`
+- Review result: `PASS`
+- Closeout result: `close-delegation.ps1` succeeded and wrote `closeout.json`
 
-### Live OMC team test
+### Live Claude single-task negative smoke
 
-- Final runtime check task id: `_smoke-team-runtime-check`
-- Final script result: `FAILED`
-- Reason:
-  - Native Windows runtime has no `tmux` or `psmux`.
-  - The script now blocks before launching `omc team` and writes a clear failure artifact instead of pretending to run successfully.
-- Response artifact: `.delegations/_smoke-team-runtime-check/omc.response.md`
-- Conclusion: dry-run works; live team execution is blocked until the machine has `psmux` or a WSL2 + tmux setup.
+- Task id: `_stabilize_live_negative`
+- Scope: intentionally return a success-style contract without making any real change
+- Result: `PARTIAL`
+- Evidence:
+  - worker declared `RESULT: SUCCESS`
+  - `diff_present=false`
+  - wrapper downgraded the run to `PARTIAL`
+- Review result: `NEEDS_FIX`
+- Closeout result: blocked as expected because review did not pass
 
-## User follow-up
+### Live parallel Claude team smoke
 
-- Single-task delegation is ready to use for dry-run and best-effort live runs.
-- Keep Codex review enabled after Claude runs; do not trust the worker response alone.
-- To unlock live OMC team execution on this machine, install `psmux` or run the workflow from WSL2 with tmux.
+- Task id: `_stabilize_team_parallel_live`
+- Scope: two isolated subtasks creating `delegate-team-a.txt` and `delegate-team-b.txt`
+- Result: `SUCCESS`
+- Evidence:
+  - parent `result.json` reports `worker_status=SUCCESS`
+  - both subtask `result.json` files report `worker_status=SUCCESS`
+  - each subtask has its own isolated worktree and preflight/result artifacts
+  - parent `git.status.txt` aggregates both subtask worktrees
+
+### Team invalid-path negative smoke
+
+- Task id: `_stabilize_team_negative`
+- Scope: invoke the wrapper with an invalid remote repo root
+- Result: remote command failed before live execution
+- Evidence:
+  - remote shell reported missing repo path
+  - artifacts were still pulled back for inspection
+- Note: this exercises wrapper-level failure rather than server preflight because the script path itself depends on a valid remote repo root
+
+## Current conclusion
+
+- Single-task delegation is stable for server-first dry-run and live smoke use.
+- Parallel delegation is also stable through isolated remote Claude workers.
+- The environment sync path for local Minmax / Claude config to the server is working.
+- The review and closeout gates are enforced by machine-readable artifacts for both single-task and team paths.

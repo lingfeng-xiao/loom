@@ -40,9 +40,59 @@ function Require-Command {
     }
 }
 
+function Ensure-ReviewScaffold {
+    param(
+        [string]$TaskDir,
+        [string]$TaskId
+    )
+
+    $reviewPath = Join-Path $TaskDir "review-notes.md"
+    $closeoutPath = Join-Path $TaskDir "closeout.json"
+    if (-not (Test-Path $reviewPath)) {
+        Set-Content -Path $reviewPath -Encoding utf8 -Value @"
+# Review Notes
+
+REVIEW_RESULT: PENDING
+
+## Scope check
+
+- TODO
+
+## Validation check
+
+- TODO
+
+## Risk check
+
+- TODO
+
+## Minimal fix list
+
+- TODO
+"@
+    }
+
+    if (-not (Test-Path $closeoutPath)) {
+        @{
+            task_id = $TaskId
+            review_result = "PENDING"
+            worker_status = "PENDING"
+            preflight_status = "PENDING"
+            closeable = $false
+            closed = $false
+            final_state = "PENDING_REVIEW"
+            release_id = ""
+            rollback_ref = ""
+            review_file = $reviewPath
+            result_file = (Join-Path $TaskDir "result.json")
+            preflight_file = (Join-Path $TaskDir "preflight.json")
+            closed_at = ""
+        } | ConvertTo-Json | Set-Content -Path $closeoutPath -Encoding utf8
+    }
+}
+
 Require-Command "ssh"
 Require-Command "scp"
-Require-Command "tar"
 
 $repoRootPath = Get-AbsolutePath $RepoRoot
 if ([string]::IsNullOrWhiteSpace($DelegationRoot)) {
@@ -54,6 +104,7 @@ $taskDir = Join-Path $delegationRootPath $TaskId
 $remoteTaskDir = "$RemoteDelegationRoot/$TaskId"
 $remoteTasksRoot = "$remoteTaskDir/tasks"
 New-Item -ItemType Directory -Path $taskDir -Force | Out-Null
+Ensure-ReviewScaffold -TaskDir $taskDir -TaskId $TaskId
 
 if (-not [string]::IsNullOrWhiteSpace($TaskFile)) {
     $taskFilePath = Get-AbsolutePath $TaskFile
@@ -72,14 +123,33 @@ if (-not [string]::IsNullOrWhiteSpace($TaskFile)) {
 } else {
     $tasksDirPath = Get-AbsolutePath $TasksDir
     & ssh $SshHost "rm -rf '$remoteTasksRoot' && mkdir -p '$remoteTasksRoot'"
-    & tar -cf - -C $tasksDirPath . | & ssh $SshHost "tar -xf - -C '$remoteTasksRoot'"
+    if ($LASTEXITCODE -ne 0) {
+        throw "Failed to prepare remote tasks directory ${SshHost}:$remoteTasksRoot"
+    }
+
+    $taskFiles = Get-ChildItem -LiteralPath $tasksDirPath -Filter *.md | Sort-Object Name
+    if ($taskFiles.Count -eq 0) {
+        throw "No markdown task files found under $tasksDirPath"
+    }
+
+    foreach ($task in $taskFiles) {
+        & scp $task.FullName "${SshHost}:$remoteTasksRoot/$($task.Name)"
+        if ($LASTEXITCODE -ne 0) {
+            throw "Failed to upload $($task.FullName) to ${SshHost}:$remoteTasksRoot/$($task.Name)"
+        }
+    }
 }
 
 $remoteTaskArg = if ([string]::IsNullOrWhiteSpace($TaskFile)) { "--tasks-dir '$remoteTasksRoot'" } else { "--task-file '$remoteTaskDir/brief.md'" }
+$serverCommand = "bash './.agents/skills/delegate-to-omc/scripts/server-delegate-to-omc-team.sh' --task-id '$TaskId' --repo-root '$RemoteRepoRoot' --base-ref '$BaseRef' --worktree-root '$RemoteWorktreeRoot' --delegation-root '$RemoteDelegationRoot' $remoteTaskArg"
+if ($DryRun) {
+    $serverCommand += " --dry-run"
+}
+
 $remoteCommand = @(
     "export PATH=`$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:`$PATH",
     "cd '$RemoteRepoRoot'",
-    "bash './.agents/skills/delegate-to-omc/scripts/server-delegate-to-omc-team.sh' --task-id '$TaskId' --repo-root '$RemoteRepoRoot' --base-ref '$BaseRef' --worktree-root '$RemoteWorktreeRoot' --delegation-root '$RemoteDelegationRoot' $remoteTaskArg" + $(if ($DryRun) { " --dry-run" } else { "" })
+    $serverCommand
 ) -join "; "
 Set-Content -Path (Join-Path $taskDir "command.preview.txt") -Value "ssh $SshHost `"$remoteCommand`"" -Encoding utf8
 

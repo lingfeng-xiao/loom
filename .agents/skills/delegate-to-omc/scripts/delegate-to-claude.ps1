@@ -58,6 +58,56 @@ function Send-FileToRemote {
     }
 }
 
+function Ensure-ReviewScaffold {
+    param(
+        [string]$TaskDir
+    )
+
+    $reviewPath = Join-Path $TaskDir "review-notes.md"
+    $closeoutPath = Join-Path $TaskDir "closeout.json"
+    if (-not (Test-Path $reviewPath)) {
+        Set-Content -Path $reviewPath -Encoding utf8 -Value @"
+# Review Notes
+
+REVIEW_RESULT: PENDING
+
+## Scope check
+
+- TODO
+
+## Validation check
+
+- TODO
+
+## Risk check
+
+- TODO
+
+## Minimal fix list
+
+- TODO
+"@
+    }
+
+    if (-not (Test-Path $closeoutPath)) {
+        @{
+            task_id = [System.IO.Path]::GetFileName($TaskDir)
+            review_result = "PENDING"
+            worker_status = "PENDING"
+            preflight_status = "PENDING"
+            closeable = $false
+            closed = $false
+            final_state = "PENDING_REVIEW"
+            release_id = ""
+            rollback_ref = ""
+            review_file = $reviewPath
+            result_file = (Join-Path $TaskDir "result.json")
+            preflight_file = (Join-Path $TaskDir "preflight.json")
+            closed_at = ""
+        } | ConvertTo-Json | Set-Content -Path $closeoutPath -Encoding utf8
+    }
+}
+
 Require-Command "ssh"
 Require-Command "scp"
 
@@ -79,14 +129,20 @@ $remoteTaskDir = "$RemoteDelegationRoot/$TaskId"
 $remoteBriefPath = "$remoteTaskDir/brief.md"
 
 New-Item -ItemType Directory -Path $taskDir -Force | Out-Null
+Ensure-ReviewScaffold -TaskDir $taskDir
 if (-not ($taskFilePath.Equals($briefOutputPath, [System.StringComparison]::OrdinalIgnoreCase))) {
     Copy-Item -Path $taskFilePath -Destination $briefOutputPath -Force
+}
+
+$serverCommand = "bash './.agents/skills/delegate-to-omc/scripts/server-delegate-to-claude.sh' --task-id '$TaskId' --task-file '$remoteBriefPath' --repo-root '$RemoteRepoRoot' --base-ref '$BaseRef' --worktree-root '$RemoteWorktreeRoot' --delegation-root '$RemoteDelegationRoot'"
+if ($DryRun) {
+    $serverCommand += " --dry-run"
 }
 
 $remoteCommand = @(
     "export PATH=`$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:`$PATH",
     "cd '$RemoteRepoRoot'",
-    "bash './.agents/skills/delegate-to-omc/scripts/server-delegate-to-claude.sh' --task-id '$TaskId' --task-file '$remoteBriefPath' --repo-root '$RemoteRepoRoot' --base-ref '$BaseRef' --worktree-root '$RemoteWorktreeRoot' --delegation-root '$RemoteDelegationRoot'" + $(if ($DryRun) { " --dry-run" } else { "" })
+    $serverCommand
 ) -join "; "
 Set-Content -Path $commandFile -Value "ssh $SshHost `"$remoteCommand`"" -Encoding utf8
 

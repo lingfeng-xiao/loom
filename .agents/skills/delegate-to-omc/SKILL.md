@@ -7,11 +7,12 @@ description: Delegate bounded execution work from local Codex to remote Claude C
 
 ## Purpose
 
-Use this skill to hand execution work from local Codex to server-side `claude -p` or `omc team` without manual copy-paste.
+Use this skill to hand execution work from local Codex to server-side `claude -p` workers without manual copy-paste.
 
 Keep Codex in the `planner / reviewer / closer` role:
 
 - decide whether the task is safe to delegate
+- run the environment preflight and sync Claude user config when needed
 - generate a delegation packet
 - call the local wrapper that reaches the server through `ssh jd`
 - review the result against the brief
@@ -42,14 +43,14 @@ Avoid delegation when the task is still unclear or the risk is high:
 Choose one path before creating the packet:
 
 - Use remote `claude -p` for one bounded task with a clear file surface, low coupling, and low risk.
-- Use remote `omc team` for several low-coupling subtasks that can run in isolated server worktrees without touching the same files.
+- Use parallel remote `claude -p` workers for several low-coupling subtasks that can run in isolated server worktrees without touching the same files.
 - Generate the brief only when tools are missing, the runtime is unstable, or the task is specified enough to package but not safe to auto-run.
 - Keep the work in Codex when the task needs strong architecture judgment, heavy uncertainty handling, or high-risk decision making.
 
 Default bias:
 
 - single task: `claude -p`
-- parallel subtasks: `omc team`
+- parallel subtasks: isolated parallel `claude -p` workers
 - uncertain or high-risk task: Codex handles it directly
 
 ## Delegation Packet Contract
@@ -69,6 +70,8 @@ Every delegated task must have a brief with these fields:
 
 Use the template in [assets/task-brief-template.md](assets/task-brief-template.md). The brief is created locally, uploaded to the server, and treated as the source of truth for the remote worker.
 
+Before any live run, sync the local Claude user config to the server with `sync-claude-user-config` so the remote `claude -p` path has the same Minmax and user-level settings as the local machine.
+
 ## Output Contract
 
 Require the worker response to include:
@@ -83,6 +86,12 @@ Require the worker response to include:
 
 If any section is missing, treat the run as incomplete and review it as `NEEDS_FIX`.
 
+The remote scripts now also write:
+
+- `preflight.json` with remote environment checks
+- `result.json` with contract and diff verdicts
+- `closeout.json` after Codex marks the review as `PASS`
+
 ## Codex Review Flow
 
 After the remote worker finishes:
@@ -92,7 +101,8 @@ After the remote worker finishes:
 3. Inspect the diff and reject out-of-scope edits.
 4. Confirm validation commands were actually run, or that the worker explicitly explained why they were not.
 5. Write `PASS` or `NEEDS_FIX` in `review-notes.md`.
-6. If fixes are needed, request the smallest fix list only. Do not broaden scope.
+6. Write `closeout.json` only after `PASS`.
+7. If fixes are needed, request the smallest fix list only. Do not broaden scope.
 
 Use [assets/review-checklist.md](assets/review-checklist.md) as the fixed checklist.
 
@@ -100,7 +110,7 @@ Use [assets/review-checklist.md](assets/review-checklist.md) as the fixed checkl
 
 Parallel work must be isolated on the server:
 
-- every parallel subtask gets its own remote git worktree
+- every parallel subtask gets its own remote git worktree and its own `claude -p` run
 - do not run multiple workers in the same worktree against the same file set
 - prefer `/home/lingfeng/worktrees/<task-id>` so the isolation is visible and stable
 

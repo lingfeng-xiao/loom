@@ -45,6 +45,7 @@ $briefContent = $briefTemplate.Replace("{{TASK_ID}}", $TaskId).Replace("{{TASK_T
 $briefPath = Join-Path $taskDir "brief.md"
 $handoffPath = Join-Path $taskDir "handoff-to-claude.md"
 $reviewPath = Join-Path $taskDir "review-notes.md"
+$closeoutPath = Join-Path $taskDir "closeout.json"
 
 Set-Content -Path $briefPath -Value $briefContent -Encoding utf8
 Set-Content -Path $handoffPath -Encoding utf8 -Value @"
@@ -78,7 +79,27 @@ REVIEW_RESULT: PENDING
 ## Minimal fix list
 
 - TODO
+
+## Closeout gate
+
+- Close only after `REVIEW_RESULT: PASS`.
+- Use `close-delegation.ps1` to write `closeout.json`.
 "@
+@{
+    task_id = $TaskId
+    review_result = "PENDING"
+    worker_status = "PENDING"
+    preflight_status = "PENDING"
+    closeable = $false
+    closed = $false
+    final_state = "PENDING_REVIEW"
+    release_id = ""
+    rollback_ref = ""
+    review_file = $reviewPath
+    result_file = (Join-Path $taskDir "result.json")
+    preflight_file = (Join-Path $taskDir "preflight.json")
+    closed_at = ""
+} | ConvertTo-Json | Set-Content -Path $closeoutPath -Encoding utf8
 
 Write-Host "Created delegation scaffold at $taskDir"
 Write-Host "Next:"

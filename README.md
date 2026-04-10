@@ -11,8 +11,10 @@
 
 - write briefs and review notes
 - sync the server mirror into `.mirror/server-head/`
-- trigger remote `claude -p` and remote `omc team`
+- sync the local Claude user config into the server `~/.claude/`
+- trigger remote `claude -p` workers for single-task and parallel-task execution
 - pull delegation artifacts back for review
+- write `closeout.json` after review passes
 
 Do not use the local workspace as the primary place to change business code.
 
@@ -27,9 +29,11 @@ Do not use the local workspace as the primary place to change business code.
 
 ```powershell
 ./.agents/skills/delegate-to-omc/scripts/sync-server-mirror.ps1
+./.agents/skills/delegate-to-omc/scripts/sync-claude-user-config.ps1
 ./.agents/skills/delegate-to-omc/scripts/new-delegation.ps1 -TaskId "task-1" -Title "Short title"
 ./.agents/skills/delegate-to-omc/scripts/delegate-to-claude.ps1 -TaskId "task-1" -TaskFile ".\.delegations\task-1\brief.md"
 ./.agents/skills/delegate-to-omc/scripts/pull-delegation-artifacts.ps1 -TaskId "task-1"
+./.agents/skills/delegate-to-omc/scripts/close-delegation.ps1 -TaskId "task-1"
 ```
 
 ```bash
