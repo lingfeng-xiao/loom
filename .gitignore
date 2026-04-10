@@ -11,3 +11,14 @@ apps/server/.local/
 deploy/data/
 .codex-runtime/
 *.log
+.env
+logs/
+vault/
+.delegations/
+.worktrees/
+.release/
+.mirror/
+.tmp/
+.tmp/delegation-smoke/
+.omc/
+.claude/settings.local.json

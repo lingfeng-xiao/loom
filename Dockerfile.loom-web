@@ -1,0 +1,18 @@
+FROM node:20-bullseye AS build
+WORKDIR /workspace
+
+COPY apps/ apps/
+COPY packages/contracts/ packages/contracts/
+RUN if [ -d /workspace/apps/web ]; then ln -s /workspace/apps/web /workspace/apps/current-web; \
+    elif [ -d /workspace/apps/loom-web ]; then ln -s /workspace/apps/loom-web /workspace/apps/current-web; \
+    else echo "Missing web source under apps/web or apps/loom-web" >&2; exit 1; fi
+WORKDIR /workspace/apps/current-web
+ARG VITE_API_BASE=
+ENV VITE_API_BASE=${VITE_API_BASE}
+RUN npm ci
+RUN npm run build
+
+FROM nginx:1.27-alpine
+COPY --from=build /workspace/apps/current-web/nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /workspace/apps/current-web/dist /usr/share/nginx/html
+EXPOSE 80

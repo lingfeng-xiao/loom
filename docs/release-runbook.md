@@ -1,48 +1,63 @@
-# Template Release Runbook
+# Server Release Runbook
 
 ## Before You Release
 
-1. Make sure the local validation commands pass.
-2. Confirm `.env.example` still matches the runtime variables used by compose and scripts.
-3. Confirm the target host has Docker, Docker Compose, and systemd available.
-4. Confirm GitHub Actions secrets for deploy and GHCR are configured.
-5. If this is a development-time production validation, ensure the action is being executed by PM and has a rollback plan recorded.
+1. Confirm `/home/lingfeng/loom` is the writable source of truth and has a valid git `HEAD`.
+2. Confirm `/home/lingfeng/loom/.env` matches the variables expected by `docker-compose.yml`.
+3. Confirm the host can run `docker compose`, `claude`, and, for parallel tasks, `omc team`.
+4. Confirm `/home/lingfeng/worktrees` exists for isolated task worktrees.
+5. Confirm there is a rollback target, typically `HEAD~1` or the previous known good commit.
 
-## What The Workflow Does
+## Fixed Server Release Flow
 
-1. Runs `deploy/scripts/release-preflight.sh`.
-2. Builds `template-server`, `template-web`, and `template-node`.
-3. Pushes the images to GHCR.
-4. Uploads the deploy bundle to the target host.
-5. Executes `remote-release.sh` on the host.
-
-## Manual Remote Release
-
-If you need to run the host-side flow manually:
+Run the release from the server main worktree:
 
 ```bash
-DEPLOY_STAGE_ROOT="$HOME/template-deploy" \
-INSTALL_ROOT=/opt/template \
-TEMPLATE_SERVER_IMAGE=ghcr.io/<owner>/template-server:<sha> \
-TEMPLATE_WEB_IMAGE=ghcr.io/<owner>/template-web:<sha> \
-TEMPLATE_NODE_IMAGE=ghcr.io/<owner>/template-node:<sha> \
-GHCR_USERNAME=<username> \
-GHCR_TOKEN=<token> \
-/opt/template/scripts/remote-release.sh
+ssh jd 'cd /home/lingfeng/loom && ./deploy/scripts/server-release.sh'
 ```
 
-## Development-time Production Debugging Rule
+The release script performs four steps in order:
 
-When using `ssh jd` during development:
+1. `deploy/scripts/server-validate.sh`
+2. `deploy/scripts/server-deploy.sh`
+3. `deploy/scripts/server-healthcheck.sh`
+4. `deploy/scripts/server-release-report.sh`
 
-- PM is the only allowed operator.
-- Prefer read-only checks first: `docker ps`, health endpoints, and logs.
-- Do not perform ad hoc writes that bypass `remote-release.sh`, `remote-smoke-test.sh`, or `remote-rollback.sh`.
-- If the validation is not tied to a candidate release or smoke goal, do it locally instead of on production.
+## Release Evidence
 
-## Success Criteria
+Each release writes `/home/lingfeng/loom/.release/<release-id>/` and includes at least:
 
-- `remote-preflight.sh` passes.
-- `remote-deploy.sh` starts the candidate stack.
-- `remote-smoke-test.sh` succeeds for the web entrypoint and API health endpoints.
-- `/opt/template/state/last_successful.env` is updated.
+- `release.json`
+- `validate.log`
+- `deploy.log`
+- `healthcheck.log`
+- `rollback.md`
+
+`release.json` records:
+
+- `release_id`
+- `started_at`
+- `finished_at`
+- `operator`
+- `repo_head`
+- `validated`
+- `deployed`
+- `healthcheck_passed`
+- `rollback_ready`
+- `status`
+
+## Rollback
+
+Rollback is server-first and uses the main worktree:
+
+```bash
+ssh jd 'cd /home/lingfeng/loom && ./deploy/scripts/server-rollback.sh HEAD~1'
+```
+
+The rollback command resets the server worktree to the requested ref, redeploys, reruns healthchecks, and writes a rollback report under `.release/rollback-<timestamp>/`.
+
+## Operating Rule
+
+- Prefer read-only checks first: `git status`, `docker compose ps`, `docker ps`, and health endpoints.
+- Do not use legacy GitHub Actions, GHCR bundles, or `/opt/loom`-style side channels.
+- If `loom.service` is present but passwordless `sudo` is unavailable, the deploy script falls back to direct `docker compose` and records that fact in `deploy.log`.

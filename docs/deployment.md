@@ -6,13 +6,13 @@ Use this flow when you want to validate the current loom shell locally without r
 
 Backend:
 
-1. Run from [apps/server](C:/Users/16343/Desktop/loom/apps/server) with the `local` profile.
+1. Run from `apps/server` with the `local` profile.
 2. The `local` profile uses an embedded H2 database stored under `.loom-local`.
 3. Default API URL: `http://127.0.0.1:8080`
 
 Frontend:
 
-1. Run from [apps/web](C:/Users/16343/Desktop/loom/apps/web) with Vite dev server.
+1. Run from `apps/web` with Vite dev server.
 2. Default acceptance URL: `http://127.0.0.1:4173`
 3. `/api` requests proxy to the local backend during development.
 
@@ -28,54 +28,46 @@ cd C:\Users\16343\Desktop\loom\apps\web
 npm run dev -- --host 127.0.0.1 --port 4173
 ```
 
-## Production Baseline
+## Server Deployment Baseline
 
-The production deployment still targets the template-style host layout until the loom infra docs are fully renamed:
+The server host is the only writable deployment source:
 
-- install root: `/opt/template`
-- compose file: `/opt/template/compose/docker-compose.production.yml`
-- environment file: `/opt/template/env/.env.production`
-- state directory: `/opt/template/state`
-- systemd unit: `template.service`
+- repo root: `/home/lingfeng/loom`
+- compose file: `/home/lingfeng/loom/docker-compose.yml`
+- environment file: `/home/lingfeng/loom/.env`
+- systemd unit: `loom.service`
+- worktree root: `/home/lingfeng/worktrees`
+- release records: `/home/lingfeng/loom/.release`
 
 ## Development-time Production Access
 
-开发期间允许使用 `ssh jd` 连接生产机，但必须遵守以下规则：
-
-- 只有 PM / Orchestrator 可以执行生产机命令
-- 并发开发智能体不得直接登录生产机
-- 默认先本地验证，再进入生产机调试窗口
-- 生产机上优先执行只读检查，再决定是否进入写操作
-- 任何写操作都必须具备可执行回退路径
+- Prefer read-only checks first: `docker compose ps`, `docker ps`, health endpoints, and logs.
+- Keep all writes inside the fixed `validate -> deploy -> healthcheck -> report` chain.
+- Do not use legacy GitHub Actions, GHCR bundles, or `/opt/template` scripts.
 
 ## Runtime Topology
 
-- `template-edge`: public nginx entrypoint on port `80`
-- `template-web`: internal static web container
-- `template-server`: internal Spring Boot API
-- `template-node`: internal probe and heartbeat agent
-- `template-mysql`: internal MySQL database
+- `loom-web`: public web container on `${LOOM_PUBLIC_PORT:-80}`
+- `loom-server`: Spring Boot API on `${LOOM_SERVER_PORT:-8080}`
+- `loom-node`: node agent for probes and heartbeat
+- `loom-mysql`: MySQL database
+- runtime state under `/home/lingfeng/loom`: `.env`, `logs/`, `vault/`, `.delegations/`, `.release/`, `.tmp/`
 
 ## Release Flow
 
-1. GitHub Actions builds the server, web, and node images.
-2. The release workflow pushes images to GHCR.
-3. A deploy bundle is uploaded to the target host.
-4. `remote-release.sh` renders a candidate env file and runs preflight checks.
-5. The candidate deployment is started, smoke-tested, and then promoted to the current env snapshot.
-6. The systemd unit is reloaded or started after deployment succeeds.
-
-开发期若需要在生产机做候选验证，仍按同一条 release / smoke / rollback 链路执行，不允许跳过现有脚本直接改运行态。
+1. Run `deploy/scripts/server-validate.sh` in `/home/lingfeng/loom`.
+2. Run `deploy/scripts/server-deploy.sh` in `/home/lingfeng/loom`.
+3. Run `deploy/scripts/server-healthcheck.sh` in `/home/lingfeng/loom`.
+4. Run `deploy/scripts/server-release-report.sh` in `/home/lingfeng/loom`.
 
 ## Files That Must Stay Aligned
 
-- `deploy/compose/docker-compose.production.yml`
-- `deploy/compose/edge/nginx.conf`
-- `deploy/systemd/template.service`
-- `deploy/scripts/remote-*.sh`
+- `docker-compose.yml`
+- `deploy/systemd/loom.service`
+- `deploy/scripts/server-*.sh`
 - `.env.example`
 
 ## Notes
 
-- Local acceptance now prefers the `local` profile so reviewers can start the backend without provisioning MySQL first.
-- If image names, service names, ports, or startup modes change, update this file together with the release and rollback docs.
+- Local acceptance still prefers the `local` profile so reviewers can start the backend without provisioning MySQL first.
+- If service names, ports, or startup modes change, update this file together with the release and rollback docs.

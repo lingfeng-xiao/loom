@@ -1,62 +1,40 @@
-# Template Infrastructure Monorepo
+# Loom Server-Driven Workflow
 
-A clean three-app monorepo template with:
+`loom` now uses a server-first development model:
 
-- `apps/server`: Spring Boot API with Flyway, JDBC, and node registration endpoints
-- `apps/web`: React + Vite infrastructure dashboard shell
-- `apps/node`: Java node agent that runs probes and reports heartbeat state
-- `packages/contracts`: shared TypeScript contracts for the template surface
-- Docker Compose, release scripts, and GitHub Actions for CI/CD
+- business code is maintained on the server in `/home/lingfeng/loom`
+- the server is the only writable source of truth for code and deploys
+- local Codex stays in planner / reviewer / closer mode
+- local work keeps docs, skills, helper scripts, and a read-only mirror for search and review
 
-## Repository Layout
+## Local responsibilities
 
-```text
-apps/
-  server/
-  web/
-  node/
-packages/
-  contracts/
-deploy/
-  compose/
-  scripts/
-  systemd/
-docs/
+- write briefs and review notes
+- sync the server mirror into `.mirror/server-head/`
+- trigger remote `claude -p` and remote `omc team`
+- pull delegation artifacts back for review
+
+Do not use the local workspace as the primary place to change business code.
+
+## Server responsibilities
+
+- keep the main git workspace in `/home/lingfeng/loom`
+- run isolated task worktrees from `/home/lingfeng/worktrees`
+- execute validation, deploy, healthcheck, and rollback
+- store release evidence in `/home/lingfeng/loom/.release/<release-id>/`
+
+## Common commands
+
+```powershell
+./.agents/skills/delegate-to-omc/scripts/sync-server-mirror.ps1
+./.agents/skills/delegate-to-omc/scripts/new-delegation.ps1 -TaskId "task-1" -Title "Short title"
+./.agents/skills/delegate-to-omc/scripts/delegate-to-claude.ps1 -TaskId "task-1" -TaskFile ".\.delegations\task-1\brief.md"
+./.agents/skills/delegate-to-omc/scripts/pull-delegation-artifacts.ps1 -TaskId "task-1"
 ```
-
-## Common Commands
 
 ```bash
-./apps/server/mvnw -q test
-./apps/server/mvnw -q -DskipTests package
-./apps/node/mvnw -q test
-./apps/node/mvnw -q -DskipTests package
-cd apps/web && npm install && npm run build
-npx -p typescript@5.6.3 tsc -p packages/contracts/tsconfig.json --noEmit
-docker compose config
-docker compose -f docker-compose.yml -f docker-compose.dev.yml config
-docker compose -f deploy/compose/docker-compose.production.yml --env-file .env.example config
+ssh jd 'cd /home/lingfeng/loom && ./deploy/scripts/server-release.sh'
+ssh jd 'cd /home/lingfeng/loom && ./deploy/scripts/server-rollback.sh HEAD~1'
 ```
 
-## What This Template Keeps
-
-- a generic API bootstrap/settings surface
-- node registration, heartbeat, and probe persistence
-- a minimal web shell for setup, release metadata, and node inventory
-- full image build, release, deploy, smoke-test, and rollback scaffolding
-
-## What You Are Expected To Replace
-
-- the placeholder dashboard in `apps/web/src`
-- the placeholder setup tasks and extension point descriptions from the API bootstrap payload
-- any server modules beyond the infrastructure endpoints
-- any node probes beyond the default server/web health checks
-
-## Deployment Defaults
-
-- install root: `/opt/template`
-- systemd unit: `template.service`
-- public entrypoint: host port `80`
-- registry target: `ghcr.io/<owner>/template-server|template-web|template-node`
-
-See [docs/README.md](./docs/README.md) for the deployment guide, release runbook, rollback notes, and customization references.
+See [docs/server-driven-workflow.md](docs/server-driven-workflow.md) for the full operating model.

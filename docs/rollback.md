@@ -1,35 +1,35 @@
-# Template Rollback
+# Loom Rollback
 
-Rollback uses the last successful promoted env snapshot:
+Rollback is executed from the server main worktree:
 
-- current env: `/opt/template/env/.env.production`
-- last successful env: `/opt/template/state/last_successful.env`
+- repo root: `/home/lingfeng/loom`
+- release records: `/home/lingfeng/loom/.release`
+- default target: `HEAD~1`
 
 ## Host Command
 
 ```bash
-/opt/template/scripts/remote-rollback.sh
+cd /home/lingfeng/loom
+./deploy/scripts/server-rollback.sh HEAD~1
 ```
 
 ## Development-time Guardrail
 
-在开发期使用 `ssh jd` 做生产验证时，任何写操作前都必须先确认：
-
-- 当前操作由 PM 执行
-- `/opt/template/state/last_successful.env` 存在
-- 本轮变更已经在本地通过基础验证
-- 本次验证目标和失败后的回退动作已记录
+- Confirm the rollback target is a known good commit before writing anything.
+- Prefer inspecting the latest release logs first.
+- Keep rollback execution on the server main worktree so the deployed source and the git state stay aligned.
 
 ## What Rollback Does
 
-1. Brings the stack back up with the image tags stored in `last_successful.env`.
-2. Restores the active env file from the successful snapshot.
-3. Restarts the systemd unit if it is active.
+1. Resolves the requested git ref in `/home/lingfeng/loom`.
+2. Resets the server main worktree to that commit.
+3. Reruns `server-deploy.sh`.
+4. Reruns `server-healthcheck.sh`.
+5. Writes a rollback report to `.release/rollback-<timestamp>/`.
 
-## If No Successful Snapshot Exists
+## If Rollback Fails
 
-The rollback script fails closed. In that case:
-
-1. Inspect `/opt/template/state` for the last candidate env.
-2. Inspect container logs and smoke-test output.
-3. Re-run deploy with known good image tags.
+1. Inspect `.release/rollback-<timestamp>/rollback.log`.
+2. Inspect `.release/rollback-<timestamp>/deploy.log`.
+3. Inspect `.release/rollback-<timestamp>/healthcheck.log`.
+4. Confirm the target ref was a known good commit before retrying.

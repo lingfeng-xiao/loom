@@ -1,0 +1,16 @@
+FROM maven:3.9.9-eclipse-temurin-21 AS build
+WORKDIR /workspace
+
+COPY apps/ apps/
+RUN if [ -d /workspace/apps/server ]; then ln -s /workspace/apps/server /workspace/apps/current-server; \
+    elif [ -d /workspace/apps/loom-server ]; then ln -s /workspace/apps/loom-server /workspace/apps/current-server; \
+    else echo "Missing server source under apps/server or apps/loom-server" >&2; exit 1; fi
+WORKDIR /workspace/apps/current-server
+RUN mvn -q -DskipTests package
+
+FROM eclipse-temurin:21-jre
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends curl && rm -rf /var/lib/apt/lists/*
+COPY --from=build /workspace/apps/current-server/target/*.jar /app/app.jar
+EXPOSE 8080
+ENTRYPOINT ["java", "-jar", "/app/app.jar"]
