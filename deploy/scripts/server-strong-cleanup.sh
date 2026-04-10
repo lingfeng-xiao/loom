@@ -16,21 +16,8 @@ fail() {
 }
 
 run_sudo() {
-  if ! command -v sudo >/dev/null 2>&1; then
-    fail "sudo is required for legacy cleanup"
-  fi
-
-  if sudo -n true >/dev/null 2>&1; then
-    sudo "$@"
-    return
-  fi
-
-  if [[ -n "${SUDO_PASSWORD:-}" ]]; then
-    printf '%s\n' "$SUDO_PASSWORD" | sudo -S -p '' "$@"
-    return
-  fi
-
-  fail "sudo access is required for legacy cleanup"
+  command -v sudo >/dev/null 2>&1 || fail "sudo is required for legacy cleanup"
+  sudo -n "$@"
 }
 
 [[ -f "$RESULT_FILE" ]] || fail "release result not found: $RESULT_FILE"
@@ -46,6 +33,7 @@ grep -Fq '"healthcheck_passed": true' "$RESULT_FILE" || fail "release $RELEASE_I
   date -u +"[cleanup] started_at=%Y-%m-%dT%H:%M:%SZ"
 
   if [[ -e "$LEGACY_ROOT" ]]; then
+    run_sudo true >/dev/null 2>&1 || fail "passwordless sudo is required for legacy cleanup"
     run_sudo rm -rf "$LEGACY_ROOT"
     echo "[cleanup] removed_legacy_root=true"
   else

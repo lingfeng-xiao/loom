@@ -8,9 +8,9 @@ Wants=network-online.target
 Type=oneshot
 RemainAfterExit=yes
 WorkingDirectory=/home/lingfeng/loom
-ExecStart=/usr/bin/docker compose -f /home/lingfeng/loom/docker-compose.yml --env-file /home/lingfeng/loom/.env up -d --build --remove-orphans
+ExecStart=/usr/bin/docker compose -f /home/lingfeng/loom/docker-compose.yml --env-file /home/lingfeng/loom/.env up -d --no-build --remove-orphans
 ExecStop=/usr/bin/docker compose -f /home/lingfeng/loom/docker-compose.yml --env-file /home/lingfeng/loom/.env down
-ExecReload=/usr/bin/docker compose -f /home/lingfeng/loom/docker-compose.yml --env-file /home/lingfeng/loom/.env up -d --build --remove-orphans
+ExecReload=/usr/bin/docker compose -f /home/lingfeng/loom/docker-compose.yml --env-file /home/lingfeng/loom/.env up -d --no-build --remove-orphans
 TimeoutStartSec=0
 
 [Install]

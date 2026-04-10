@@ -9,6 +9,7 @@ EXPECTED_ROOT="/home/lingfeng/loom"
 EXPECTED_BRANCH="main"
 EXPECTED_COMPOSE_PATH="${EXPECTED_ROOT}/docker-compose.yml"
 EXPECTED_ENV_PATH="${EXPECTED_ROOT}/.env"
+EXPECTED_PROXY="http://127.0.0.1:7890/"
 
 mkdir -p "$RELEASE_DIR"
 export PATH="$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
@@ -42,9 +43,24 @@ fail() {
   docker compose -f "$EXPECTED_COMPOSE_PATH" --env-file "$EXPECTED_ENV_PATH" config >/dev/null
   echo "[validate] compose_config=ok"
 
-  if ! command -v systemctl >/dev/null 2>&1; then
-    fail "systemctl is required for loom.service validation"
-  fi
+  command -v systemctl >/dev/null 2>&1 || fail "systemctl is required for validation"
+  command -v sudo >/dev/null 2>&1 || fail "sudo is required for validation"
+  sudo -n true >/dev/null 2>&1 || fail "passwordless sudo is required"
+  echo "[validate] sudo_ready=ok"
+
+  systemctl is-active --quiet mihomo.service || fail "mihomo.service is not active"
+  echo "[validate] mihomo_service=active"
+
+  ss -ltn | grep -Fq "127.0.0.1:7890" || fail "mihomo proxy is not listening on 127.0.0.1:7890"
+  echo "[validate] proxy_listener=ok"
+
+  curl -I --max-time 15 --proxy "$EXPECTED_PROXY" "https://auth.docker.io/token?service=registry.docker.io" >/dev/null
+  echo "[validate] proxy_connectivity=ok"
+
+  docker_info="$(docker info 2>/dev/null)"
+  grep -Fq "HTTP Proxy: $EXPECTED_PROXY" <<<"$docker_info" || fail "docker daemon is missing HTTP proxy $EXPECTED_PROXY"
+  grep -Fq "HTTPS Proxy: $EXPECTED_PROXY" <<<"$docker_info" || fail "docker daemon is missing HTTPS proxy $EXPECTED_PROXY"
+  echo "[validate] docker_proxy=ok"
 
   unit_output="$(systemctl cat loom.service)"
   printf '%s\n' "$unit_output"
