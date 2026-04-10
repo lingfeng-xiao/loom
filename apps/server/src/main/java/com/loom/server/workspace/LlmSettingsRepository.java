@@ -40,8 +40,24 @@ class LlmSettingsRepository {
         for (LlmConfigState state : states) {
             jdbcTemplate.update(
                     """
-                    merge into loom_llm_profiles key(profile_id)
+                    insert into loom_llm_profiles (
+                        profile_id, preset_id, provider, display_name, api_base_url, model_id,
+                        api_key, system_prompt, temperature, max_tokens, timeout_ms, is_active, updated_at
+                    )
                     values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    on duplicate key update
+                        preset_id = values(preset_id),
+                        provider = values(provider),
+                        display_name = values(display_name),
+                        api_base_url = values(api_base_url),
+                        model_id = values(model_id),
+                        api_key = values(api_key),
+                        system_prompt = values(system_prompt),
+                        temperature = values(temperature),
+                        max_tokens = values(max_tokens),
+                        timeout_ms = values(timeout_ms),
+                        is_active = values(is_active),
+                        updated_at = values(updated_at)
                     """,
                     state.id,
                     state.presetId,
@@ -78,8 +94,23 @@ class LlmSettingsRepository {
     private void saveLegacyDefault(LlmConfigState state) {
         jdbcTemplate.update(
                 """
-                merge into loom_llm_settings key(settings_key)
+                insert into loom_llm_settings (
+                    settings_key, preset_id, provider, display_name, api_base_url, model_id,
+                    api_key, system_prompt, temperature, max_tokens, timeout_ms, updated_at
+                )
                 values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                on duplicate key update
+                    preset_id = values(preset_id),
+                    provider = values(provider),
+                    display_name = values(display_name),
+                    api_base_url = values(api_base_url),
+                    model_id = values(model_id),
+                    api_key = values(api_key),
+                    system_prompt = values(system_prompt),
+                    temperature = values(temperature),
+                    max_tokens = values(max_tokens),
+                    timeout_ms = values(timeout_ms),
+                    updated_at = values(updated_at)
                 """,
                 DEFAULT_KEY,
                 state.presetId,
@@ -132,3 +163,4 @@ class LlmSettingsRepository {
         );
     }
 }
+

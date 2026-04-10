@@ -1,5 +1,6 @@
 package com.loom.server.memory;
 
+import com.loom.server.jdbc.JdbcSchemaSupport;
 import jakarta.annotation.PostConstruct;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -30,7 +31,12 @@ public class JdbcMemoryItemRepository implements MemoryItemRepository {
                     updated_at VARCHAR(40) NOT NULL
                 )
                 """);
-        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_loom_memory_items_project ON loom_memory_items(project_id, conversation_id, scope, updated_at)");
+        JdbcSchemaSupport.ensureIndex(
+                jdbcTemplate,
+                "loom_memory_items",
+                "idx_loom_memory_items_project",
+                "project_id, conversation_id, scope, updated_at"
+        );
     }
 
     @Override
@@ -76,6 +82,16 @@ public class JdbcMemoryItemRepository implements MemoryItemRepository {
     }
 
     @Override
+    public List<MemoryItemRecord> listAll() {
+        return jdbcTemplate.query("""
+                        SELECT id, scope, project_id, conversation_id, content, source, updated_at
+                        FROM loom_memory_items
+                        ORDER BY updated_at DESC, id DESC
+                        """,
+                this::mapRow);
+    }
+
+    @Override
     public void deleteById(String id) {
         jdbcTemplate.update("DELETE FROM loom_memory_items WHERE id = ?", id);
     }
@@ -92,3 +108,4 @@ public class JdbcMemoryItemRepository implements MemoryItemRepository {
         );
     }
 }
+

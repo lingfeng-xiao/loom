@@ -1,5 +1,6 @@
 package com.loom.server.context;
 
+import com.loom.server.jdbc.JdbcSchemaSupport;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 
@@ -31,7 +32,12 @@ public class JdbcContextSnapshotRepository implements ContextSnapshotRepository 
                     updated_at VARCHAR(40) NOT NULL
                 )
                 """);
-        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_loom_context_snapshots_conversation ON loom_context_snapshots(project_id, conversation_id, updated_at)");
+        JdbcSchemaSupport.ensureIndex(
+                jdbcTemplate,
+                "loom_context_snapshots",
+                "idx_loom_context_snapshots_conversation",
+                "project_id, conversation_id, updated_at"
+        );
     }
 
     @Override
@@ -94,3 +100,4 @@ public class JdbcContextSnapshotRepository implements ContextSnapshotRepository 
         );
     }
 }
+
