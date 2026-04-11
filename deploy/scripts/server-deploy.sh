@@ -5,6 +5,8 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 RELEASE_ID="${1:-${RELEASE_ID:-$(date -u +"%Y%m%d-%H%M%S")}}"
 RELEASE_DIR="${ROOT}/.release/${RELEASE_ID}"
 LOG_FILE="${RELEASE_DIR}/deploy.log"
+COMPOSE_FILE="${ROOT}/docker-compose.yml"
+ENV_FILE="${ROOT}/.env"
 
 mkdir -p "$RELEASE_DIR"
 export PATH="$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
@@ -20,6 +22,7 @@ run_sudo() {
 }
 
 command -v systemctl >/dev/null 2>&1 || fail "systemctl is required for deploy"
+command -v docker >/dev/null 2>&1 || fail "docker is required for deploy"
 run_sudo true >/dev/null 2>&1 || fail "passwordless sudo is required for deploy"
 systemctl cat loom.service >/dev/null 2>&1 || fail "loom.service must be installed before deploy"
 
@@ -28,10 +31,12 @@ systemctl cat loom.service >/dev/null 2>&1 || fail "loom.service must be install
   echo "[deploy] release_id=$RELEASE_ID"
   date -u +"[deploy] started_at=%Y-%m-%dT%H:%M:%SZ"
   run_sudo systemctl daemon-reload
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" up -d --no-build --force-recreate --remove-orphans loom-mysql loom-server loom-web loom-node
   if run_sudo systemctl is-active --quiet loom.service; then
     run_sudo systemctl reload loom.service
   else
     run_sudo systemctl start loom.service
   fi
+  docker compose -f "$COMPOSE_FILE" --env-file "$ENV_FILE" ps
   date -u +"[deploy] finished_at=%Y-%m-%dT%H:%M:%SZ"
 } 2>&1 | tee "$LOG_FILE"

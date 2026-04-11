@@ -149,7 +149,7 @@ What makes Lovable's visual system distinctive is its opacity-driven depth model
 - Showcase/portfolio images with `1px solid #eceae4` border
 - Consistent 12px border radius on all image containers
 - Soft gradient backgrounds behind hero content (warm multi-color wash)
-- Gallery-style presentation for template/project showcases
+- Gallery-style presentation for project showcases
 
 ### Distinctive Components
 
@@ -160,7 +160,7 @@ What makes Lovable's visual system distinctive is its opacity-driven depth model
 - Warm, inviting input area — not clinical
 
 **Template Gallery**
-- Card grid showing project templates
+- Card grid showing project examples
 - Each card: image + title, `1px solid #eceae4` border, 12px radius
 - Hover: subtle shadow or border darkening
 - Category labels as text links
@@ -193,7 +193,7 @@ What makes Lovable's visual system distinctive is its opacity-driven depth model
 - Micro (4px): Small buttons, interactive elements
 - Standard (6px): Buttons, inputs, navigation menu
 - Comfortable (8px): Compact cards, divs
-- Card (12px): Standard cards, image containers, templates
+- Card (12px): Standard cards, image containers, examples
 - Container (16px): Large containers, footer sections
 - Full Pill (9999px): Action pills, icon buttons, toggles
 
@@ -284,7 +284,7 @@ What makes Lovable's visual system distinctive is its opacity-driven depth model
 ### Example Component Prompts
 - "Create a hero section on cream background (#f7f4ed). Headline at 60px Camera Plain Variable weight 600, line-height 1.10, letter-spacing -1.5px, color #1c1c1c. Subtitle at 18px weight 400, line-height 1.38, color #5f5f5d. Dark CTA button (#1c1c1c bg, #fcfbf8 text, 6px radius, 8px 16px padding, inset shadow) and ghost button (transparent bg, 1px solid rgba(28,28,28,0.4) border, 6px radius)."
 - "Design a card on cream (#f7f4ed) background. Border: 1px solid #eceae4. Radius 12px. No box-shadow. Title at 20px Camera Plain Variable weight 400, line-height 1.25, color #1c1c1c. Body at 14px weight 400, color #5f5f5d."
-- "Build a template gallery: grid of cards with 12px radius, 1px solid #eceae4 border, cream backgrounds. Each card: image with 12px top radius, title below. Hover: subtle border darkening."
+- "Build a project gallery: grid of cards with 12px radius, 1px solid #eceae4 border, cream backgrounds. Each card: image with 12px top radius, title below. Hover: subtle border darkening."
 - "Create navigation: sticky on cream (#f7f4ed). Camera Plain 16px weight 400 for links, #1c1c1c text. Dark CTA button right-aligned with inset shadow. Mobile: hamburger menu with 6px radius."
 - "Design a stats section: large numbers at 48px Camera Plain weight 600, letter-spacing -1.2px, #1c1c1c. Labels below at 16px weight 400, #5f5f5d. Horizontal layout with 32px gap."
 

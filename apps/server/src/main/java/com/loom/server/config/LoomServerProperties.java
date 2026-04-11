@@ -2,7 +2,7 @@ package com.loom.server.config;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
-@ConfigurationProperties(prefix = "template")
+@ConfigurationProperties(prefix = "loom")
 public class LoomServerProperties {
 
     private String appName;
@@ -74,8 +74,8 @@ public class LoomServerProperties {
     }
 
     public static class Release {
-        private String installRoot = "/opt/template";
-        private String systemdUnit = "template.service";
+        private String installRoot = "/opt/loom";
+        private String systemdUnit = "loom.service";
         private String registry = "ghcr.io/example";
 
         public String getInstallRoot() {

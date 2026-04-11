@@ -2,11 +2,19 @@ package com.loom.server.jdbc;
 
 import org.springframework.jdbc.core.JdbcTemplate;
 
+import java.sql.Connection;
+import java.sql.SQLException;
+
 public final class JdbcSchemaSupport {
     private JdbcSchemaSupport() {
     }
 
     public static void ensureIndex(JdbcTemplate jdbcTemplate, String tableName, String indexName, String columnsSql) {
+        if (isH2(jdbcTemplate)) {
+            jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS " + indexName + " ON " + tableName + "(" + columnsSql + ")");
+            return;
+        }
+
         Integer count = jdbcTemplate.queryForObject(
                 """
                 SELECT COUNT(*)
@@ -37,6 +45,22 @@ public final class JdbcSchemaSupport {
     }
 
     private static boolean hasColumn(JdbcTemplate jdbcTemplate, String tableName, String columnName) {
+        if (isH2(jdbcTemplate)) {
+            Integer count = jdbcTemplate.queryForObject(
+                    """
+                    SELECT COUNT(*)
+                    FROM information_schema.columns
+                    WHERE table_schema = SCHEMA()
+                      AND UPPER(table_name) = UPPER(?)
+                      AND UPPER(column_name) = UPPER(?)
+                    """,
+                    Integer.class,
+                    tableName,
+                    columnName
+            );
+            return count != null && count > 0;
+        }
+
         Integer count = jdbcTemplate.queryForObject(
                 """
                 SELECT COUNT(*)
@@ -51,5 +75,12 @@ public final class JdbcSchemaSupport {
         );
         return count != null && count > 0;
     }
-}
 
+    private static boolean isH2(JdbcTemplate jdbcTemplate) {
+        try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
+            return connection.getMetaData().getDatabaseProductName().toLowerCase().contains("h2");
+        } catch (SQLException exception) {
+            throw new IllegalStateException("Unable to inspect database metadata", exception);
+        }
+    }
+}

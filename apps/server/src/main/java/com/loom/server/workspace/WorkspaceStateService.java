@@ -82,11 +82,11 @@ public class WorkspaceStateService {
             new SkillView("skill-retrieve-context", "project", "retrieve-context", true, "internal")
     );
     private final List<McpServerView> mcpServers = List.of(
-            new McpServerView("mcp-local-dev", "project", "local-dev", "connected", 4, 2, 3),
-            new McpServerView("mcp-notion", "project", "notion-mcp", "connected", 6, 1, 0)
+            new McpServerView("mcp-local-dev", "project", "local-dev", "unconfigured", 0, 0, 0),
+            new McpServerView("mcp-notion", "project", "notion-mcp", "unconfigured", 0, 0, 0)
     );
     private final MemoryPolicyView memoryPolicy = new MemoryPolicyView("memory-default", "project", true, true, true);
-    private final RoutingPolicyView routingPolicy = new RoutingPolicyView("routing-default", "project", "internal", true, "OpenClaw");
+    private final RoutingPolicyView routingPolicy = new RoutingPolicyView("routing-default", "project", "internal", false, "not configured");
     private final List<LlmProviderPresetView> providerPresets = providerPresets();
     private final MinimaxChatClient minimaxChatClient;
     private final LlmSettingsRepository llmSettingsRepository;
@@ -465,8 +465,8 @@ public class WorkspaceStateService {
                 List.of(
                         new CapabilityCardView("cap-models", "Models", "Current project model binding.", settings.modelProfiles().stream().map(ModelProfileView::name).toList()),
                         new CapabilityCardView("cap-skills", "Skills", "Enabled internal skills.", settings.skills().stream().map(SkillView::name).toList()),
-                        new CapabilityCardView("cap-mcp", "MCP Servers", "Connected tools and resources.", settings.mcpServers().stream().map(McpServerView::name).toList()),
-                        new CapabilityCardView("cap-executors", "Executors", "Runtime and external executor routing.", List.of(settings.routingPolicy().defaultRuntime(), blankTo(settings.routingPolicy().externalExecutorLabel(), "none")))
+                        new CapabilityCardView("cap-mcp", "MCP Servers", "Configured MCP connection status.", settings.mcpServers().stream().map(McpServerView::name).toList()),
+                        new CapabilityCardView("cap-executors", "Executors", "Runtime and external executor routing.", List.of(settings.routingPolicy().defaultRuntime(), settings.routingPolicy().allowExternalExecutors() ? settings.routingPolicy().externalExecutorLabel() : "not configured"))
                 ),
                 List.of(
                         new CapabilityBindingRuleView("Default chat model", settings.modelProfiles().get(0).name(), "accent"),
@@ -630,21 +630,21 @@ public class WorkspaceStateService {
                         "The current workspace shows the active model binding, skill stack, MCP connections, and executor routing in one place.",
                         List.of(
                                 new BootstrapPayload.OverviewCard("cap-models", "Models", "Configured model profile", settings.modelProfiles().stream().map(ModelProfileView::name).toList()),
-                                new BootstrapPayload.OverviewCard("cap-mcp", "MCP Servers", "Connected servers", settings.mcpServers().stream().map(McpServerView::name).toList()),
+                                new BootstrapPayload.OverviewCard("cap-mcp", "MCP Servers", "Configured servers", settings.mcpServers().stream().map(McpServerView::name).toList()),
                                 new BootstrapPayload.OverviewCard("cap-skills", "Skills", "Enabled skills", settings.skills().stream().map(SkillView::name).toList()),
-                                new BootstrapPayload.OverviewCard("cap-executors", "Executors", "Current runtime routing", List.of("internal", "OpenClaw"))
+                                new BootstrapPayload.OverviewCard("cap-executors", "Executors", "Current runtime routing", List.of("internal", "external executor not configured"))
                         ),
                         List.of(
                                 new BootstrapPayload.StatusItem("Default chat model", settings.modelProfiles().get(0).name(), "accent"),
-                                new BootstrapPayload.StatusItem("External tasks", "OpenClaw executor", "good"),
+                                new BootstrapPayload.StatusItem("External tasks", "not configured", "warn"),
                                 new BootstrapPayload.StatusItem("Session creation", "Project-first", "neutral")
                         )
                 ),
                 new BootstrapPayload.OpenClawOverview(
-                        "OpenClaw remains the visible external execution bridge instead of a hidden backend dependency.",
-                        List.of(new BootstrapPayload.DetailItem("Gateway", "http://127.0.0.1:18789"), new BootstrapPayload.DetailItem("Status", "connected"), new BootstrapPayload.DetailItem("Last heartbeat", "12 seconds ago")),
-                        List.of(new BootstrapPayload.StatusItem("Channels", "3", "accent"), new BootstrapPayload.StatusItem("Tools", "12", "good"), new BootstrapPayload.StatusItem("Skills", "6", "accent"), new BootstrapPayload.StatusItem("Plugins", "5", "neutral")),
-                        List.of(new BootstrapPayload.StatusItem("Async work", "OpenClaw", "good"), new BootstrapPayload.StatusItem("Chat replies", activeLlmConfig().isConfigured() ? activeLlmConfig().provider : "Setup required", activeLlmConfig().isConfigured() ? "good" : "warn"), new BootstrapPayload.StatusItem("Fallback", "Local guidance", "neutral")),
+                        "External executor integration is visible here once configured.",
+                        List.of(new BootstrapPayload.DetailItem("Gateway", "not configured"), new BootstrapPayload.DetailItem("Status", "not connected"), new BootstrapPayload.DetailItem("Last heartbeat", "not available")),
+                        List.of(new BootstrapPayload.StatusItem("Channels", "0", "neutral"), new BootstrapPayload.StatusItem("Tools", "0", "neutral"), new BootstrapPayload.StatusItem("Skills", "0", "neutral"), new BootstrapPayload.StatusItem("Plugins", "0", "neutral")),
+                        List.of(new BootstrapPayload.StatusItem("Async work", "not configured", "warn"), new BootstrapPayload.StatusItem("Chat replies", activeLlmConfig().isConfigured() ? activeLlmConfig().provider : "Setup required", activeLlmConfig().isConfigured() ? "good" : "warn"), new BootstrapPayload.StatusItem("External executor", "pending setup", "neutral")),
                         trace.steps().stream().limit(3).map(step -> new BootstrapPayload.StatusItem(step.id(), step.status(), "success".equals(step.status()) ? "good" : "warn")).toList(),
                         projectConversations(project.id).stream().filter(c -> c.pinned).map(c -> c.title).toList()
                 ),
@@ -658,7 +658,7 @@ public class WorkspaceStateService {
                                 new BootstrapPayload.DetailItem("Endpoint", settings.activeLlmConfig().apiBaseUrl()),
                                 new BootstrapPayload.DetailItem("Timeout", settings.activeLlmConfig().timeoutMs() + " ms")
                         ),
-                        List.of("New sessions now start from project selection or project creation.", "MiniMax and Kimi presets are live; other providers remain placeholders.", "Run a connection test after changing the API key, endpoint, or model."),
+                        List.of("New sessions now start from project selection or project creation.", "MiniMax and Kimi presets are live; other providers remain unconfigured.", "Run a connection test after changing the API key, endpoint, or model."),
                         List.of("Do not assume the live model works before the connection test passes.", "Changing model settings affects every new reply in the active runtime.", "Capture acceptance evidence after each configuration change.")
                 )
         );

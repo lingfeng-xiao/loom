@@ -54,7 +54,7 @@ The server host is the only writable deployment source:
 
 - Prefer read-only checks first: `docker compose ps`, `docker ps`, health endpoints, and logs.
 - Keep all writes inside the fixed `validate -> deploy -> healthcheck -> report` chain.
-- Do not use legacy GitHub Actions, GHCR bundles, or `/opt/template` scripts.
+- Do not use legacy GitHub Actions, GHCR bundles, or `/opt/loom` scripts.
 
 ## Runtime Topology
 

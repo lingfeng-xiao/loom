@@ -50,7 +50,7 @@ export function buildBootstrapSourceViewModel(
       mode,
       resolution,
       label: '本地快照',
-      detail: '仅使用本地回退快照',
+      detail: '仅使用本地快照',
     }
   }
 
