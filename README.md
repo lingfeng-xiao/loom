@@ -43,3 +43,17 @@ ssh jd 'cd /home/lingfeng/loom && ./deploy/scripts/server-rollback.sh HEAD~1'
 ```
 
 See [docs/server-driven-workflow.md](docs/server-driven-workflow.md) for the full operating model.
+
+## Workflow evolution
+
+The next workflow upgrade is tracked as a separate wave so it does not mix with
+the conversation-closure requirements stream. The current production runner
+stays in place until the new Bash-first runner passes sandbox self-tests and
+rollout gates.
+
+- Upstream plan: [docs/workflow-evolution-plan.md](docs/workflow-evolution-plan.md)
+- Requirements wave: [docs/requirements-pool-spec.md](docs/requirements-pool-spec.md)
+- Runner migration: [docs/workflow-evolution-runner-migration.md](docs/workflow-evolution-runner-migration.md)
+- Telemetry model: [docs/workflow-evolution-telemetry-spec.md](docs/workflow-evolution-telemetry-spec.md)
+- Test plan: [docs/workflow-evolution-test-plan.md](docs/workflow-evolution-test-plan.md)
+- Operator guide: [docs/workflow-evolution-operator-guide.md](docs/workflow-evolution-operator-guide.md)

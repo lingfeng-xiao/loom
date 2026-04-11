@@ -18,6 +18,21 @@
 7. Write `closeout.json` only after `REVIEW_RESULT: PASS`.
 8. Run the server release flow when the task is ready.
 
+## Workflow evolution wave
+
+The workflow itself is being upgraded through a separate wave instead of being
+mixed into the conversation-closure requirements stream. During that upgrade,
+the stable runner baseline remains frozen and production dispatch must not be
+switched to the new implementation until sandbox self-tests and rollout gates
+pass.
+
+- Upstream plan: [workflow-evolution-plan.md](workflow-evolution-plan.md)
+- Requirements wave: [requirements-pool-spec.md](requirements-pool-spec.md)
+- Runner migration: [workflow-evolution-runner-migration.md](workflow-evolution-runner-migration.md)
+- Telemetry model: [workflow-evolution-telemetry-spec.md](workflow-evolution-telemetry-spec.md)
+- Test plan: [workflow-evolution-test-plan.md](workflow-evolution-test-plan.md)
+- Operator guide: [workflow-evolution-operator-guide.md](workflow-evolution-operator-guide.md)
+
 ## Remote execution roots
 
 - Main repo: `/home/lingfeng/loom`
