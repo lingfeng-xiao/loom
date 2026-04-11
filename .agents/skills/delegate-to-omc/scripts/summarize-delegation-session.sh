@@ -2,16 +2,18 @@
 set -euo pipefail
 
 usage() {
-  echo "Usage: ./summarize-delegation-session.sh --session-id <id> [--delegation-root <path>]"
+  echo "Usage: ./summarize-delegation-session.sh --session-id <id> [--delegation-root <path>] [--usage-file <path>]"
 }
 
 session_id=""
 delegation_root=".delegations"
+usage_file=""
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --session-id) session_id="$2"; shift 2 ;;
     --delegation-root) delegation_root="$2"; shift 2 ;;
+    --usage-file) usage_file="$2"; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) echo "Unknown argument: $1" >&2; usage; exit 1 ;;
   esac
@@ -35,7 +37,7 @@ summary_md="$session_dir/delegation-session-summary.md"
 mkdir -p "$session_dir"
 touch "$events_file"
 
-python3 - "$events_file" "$summary_json" "$summary_md" "$session_id" <<'PY'
+python3 - "$events_file" "$summary_json" "$summary_md" "$session_id" "$usage_file" <<'PY'
 import json
 import sys
 from collections import Counter
@@ -46,6 +48,7 @@ events_file = Path(sys.argv[1])
 summary_json = Path(sys.argv[2])
 summary_md = Path(sys.argv[3])
 session_id = sys.argv[4]
+usage_file = Path(sys.argv[5]) if sys.argv[5] else None
 
 events = []
 for line in events_file.read_text(encoding="utf-8").splitlines():
@@ -64,6 +67,25 @@ fix_pass_count = event_types.get("fix_pass", 0)
 review_reject_count = event_types.get("review_rejected", 0) + event_types.get("review.rejected", 0)
 prompt_tokens = sum(int(event.get("estimated_prompt_tokens", 0) or 0) for event in events)
 response_tokens = sum(int(event.get("estimated_response_tokens", 0) or 0) for event in events)
+token_metrics_source = "estimate"
+estimated_cost_usd = None
+
+if usage_file and usage_file.exists():
+    usage_rows = []
+    text = usage_file.read_text(encoding="utf-8")
+    try:
+        parsed = json.loads(text)
+        usage_rows = parsed if isinstance(parsed, list) else [parsed]
+    except json.JSONDecodeError:
+        usage_rows = [json.loads(line) for line in text.splitlines() if line.strip()]
+    real_prompt = sum(int(row.get("prompt_tokens", row.get("input_tokens", 0)) or 0) for row in usage_rows)
+    real_response = sum(int(row.get("response_tokens", row.get("output_tokens", 0)) or 0) for row in usage_rows)
+    real_cost = sum(float(row.get("cost_usd", row.get("total_cost_usd", 0.0)) or 0.0) for row in usage_rows)
+    if real_prompt or real_response or real_cost:
+        prompt_tokens = real_prompt
+        response_tokens = real_response
+        estimated_cost_usd = real_cost
+        token_metrics_source = "real_usage_file"
 
 estimated_codex_overhead_tokens = (len(events) * 80) + (codex_takeover_count * 600) + (review_reject_count * 250)
 if not events:
@@ -165,7 +187,8 @@ payload = {
     "quality_gate_results": quality_gate_results,
     "root_cause_hypotheses": root_cause_hypotheses,
     "candidate_lessons": candidate_lessons,
-    "token_metrics_source": "estimate",
+    "token_metrics_source": token_metrics_source,
+    "estimated_cost_usd": estimated_cost_usd,
     "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
 }
 summary_json.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -183,6 +206,7 @@ md = [
     f"- Estimated Codex overhead tokens: `{estimated_codex_overhead_tokens}`",
     f"- Token savings verdict: `{verdict}`",
     f"- Confidence: `{confidence}`",
+    f"- Token metrics source: `{token_metrics_source}`",
     "",
     "## Reflection",
     "",

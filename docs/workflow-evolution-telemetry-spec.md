@@ -140,6 +140,20 @@ Required fields:
 
 Token values should use real upstream usage if available. When real usage is not available, estimate Claude prompt and response tokens with `chars / 4`, estimate Codex overhead with stable proxy counters, and mark confidence accordingly.
 
+## V2 session artifacts
+
+V2 sessions use these additional artifacts:
+
+- `session-manifest.json`: desired task DAG/session input
+- `session-state.json`: checkpoint and resume state
+- `session-events.jsonl`: deterministic event stream
+- `gate-summary.json`: compact machine gate result for Codex review
+- `user-report.md`: report draft intended to be summarized directly to the user
+
+The runner should write checkpoints before and after every irreversible action.
+Machine gates should reduce Codex log-reading by summarizing contract, diff,
+scope, validation, preflight, timeout, and repairability.
+
 ## Reflection model
 
 Reflection is a post-run path, not a worker execution path. During execution the workflow records facts and evidence only. After all tasks complete, Codex should summarize:

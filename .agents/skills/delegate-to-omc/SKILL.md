@@ -97,6 +97,21 @@ The remote scripts now also write:
 - `closeout.json` after Codex marks the review as `PASS`
 - `workflow-report.md` and `workflow-report.json` for both closed and blocked outcomes
 - `_sessions/<session-id>/delegation-session-summary.json` and `.md` when a multi-task delegation session is summarized
+- v2 sessions may also write `session-manifest.json`, `session-state.json`, `session-events.jsonl`, `gate-summary.json`, and `user-report.md`
+
+## V2 Control Plane
+
+Use the v2 deterministic runner when a request contains multiple bounded tasks
+or when Codex should minimize orchestration work:
+
+- `run-delegation-session.sh` is the Bash entrypoint
+- `delegation_session_runner.py` owns session checkpoint/resume
+- `delegation_admission_gate.py` owns admission and machine gate decisions
+- `generate-delegation-user-report.py` produces the user-visible report draft
+
+The v2 runner is intentionally framework-free. It borrows durable execution,
+checkpoint, and gate concepts from mature workflow systems without adding a
+new runtime dependency.
 
 ## Codex Review Flow
 

@@ -11,18 +11,19 @@ This guide describes how Codex should operate the upgraded workflow. Codex owns 
 1. Sync or inspect the server source of truth.
 2. Turn the user request into a plan.
 3. Split the plan into bounded tasks with source, dependency, file surface, validation, and acceptance.
-4. Check worktree and file-surface conflicts before dispatch.
-5. Dispatch remote Claude workers to isolated worktrees.
-6. Review each result strictly against the brief.
-7. When a review gate fails, triage the failed gate, likely cause, repair size, recommended action, confidence, and evidence before retrying.
-8. Re-dispatch to Claude only when the triage action is safely bounded; otherwise resplit, clarify, fix infrastructure, let Codex take over, or block release.
-9. Run required validation.
-10. Deploy only after review and validation pass.
-11. Write closeout with release id and rollback ref.
-12. Generate `workflow-report.md` and `workflow-report.json`; do not call the work closed without them.
-13. Summarize problems, expectation mismatches, evidence paths, residual risk, and quality verdict in the user-facing final response.
-14. After all delegated tasks complete, generate the delegation session summary and post-run reflection.
-15. Review daily workflow telemetry before changing thresholds or gates.
+4. For multi-task sessions, write a `session-manifest.json` and run the v2 admission gate before any Claude dispatch.
+5. Check worktree and file-surface conflicts before dispatch.
+6. Dispatch remote Claude workers to isolated worktrees.
+7. Let the machine gate summarize contract, diff, scope, validation, preflight, timeout, and retry decision before Codex reads full worker logs.
+8. Review each result strictly against the brief and machine gate summary.
+9. When a review gate fails, triage the failed gate, likely cause, repair size, recommended action, confidence, and evidence before retrying.
+10. Re-dispatch to Claude only when the triage action is safely bounded; otherwise resplit, clarify, fix infrastructure, let Codex take over, or block release.
+11. Run required validation.
+12. Deploy only after review and validation pass.
+13. Write closeout with release id and rollback ref.
+14. Generate `workflow-report.md`/`workflow-report.json` for single tasks or `user-report.md` for v2 sessions; do not call the work closed without a user-visible report.
+15. After all delegated tasks complete, generate the delegation session summary and post-run reflection.
+16. Review daily workflow telemetry before changing thresholds or gates.
 
 ## Incident handling
 
@@ -40,6 +41,7 @@ This guide describes how Codex should operate the upgraded workflow. Codex owns 
 
 - During execution: record lightweight dispatch, result, review, validation, fix-pass, takeover, release, and issue evidence.
 - After execution: summarize evidence into the user-facing report and session reflection.
+- Prefer machine gate summaries over full worker logs; Codex should deep-read logs only for gate failures, high-risk changes, or release decisions.
 - Candidate lessons are hypotheses with confidence and a review date; promote them to rule changes only after repeated evidence or explicit adoption.
 - Token savings is a goal metric, not an excuse to lower quality gates. Prefer real usage when available; otherwise estimate worker tokens with `chars / 4` and Codex overhead with proxy counts.
 - Daily: inspect timeout rate, review reject rate, validation failure rate, deploy failure rate, and end-to-end duration.
