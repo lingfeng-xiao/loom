@@ -63,6 +63,11 @@ function Send-FileToRemote {
     }
 }
 
+function ConvertTo-BashSingleQuoted {
+    param([string]$Value)
+    return "'" + ($Value -replace "'", "'\''") + "'"
+}
+
 function Ensure-ReviewScaffold {
     param(
         [string]$TaskDir
@@ -200,25 +205,51 @@ function Invoke-RemoteAttempt {
     $commandFile = Join-Path $TaskDir "command.preview.txt"
     $remoteTaskDir = "$RemoteDelegationRoot/$TaskId"
     $remoteBriefPath = "$remoteTaskDir/brief.md"
+    $remoteRunnerPath = "$remoteTaskDir/runner.sh"
 
     if (-not ($AttemptTaskFilePath.Equals($briefOutputPath, [System.StringComparison]::OrdinalIgnoreCase))) {
         Copy-Item -Path $AttemptTaskFilePath -Destination $briefOutputPath -Force
     }
 
-    $serverCommand = "bash './.agents/skills/delegate-to-omc/scripts/server-delegate-to-claude.sh' --task-id '$TaskId' --task-file '$remoteBriefPath' --repo-root '$RemoteRepoRoot' --base-ref '$BaseRef' --worktree-root '$RemoteWorktreeRoot' --delegation-root '$RemoteDelegationRoot' --timeout-seconds '$TimeoutSeconds' --idle-timeout-seconds '$IdleTimeoutSeconds'"
+    $runnerLines = @(
+        "#!/usr/bin/env bash",
+        "set -euo pipefail",
+        "",
+        'export PATH="$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:$PATH"',
+        "cd $(ConvertTo-BashSingleQuoted $RemoteRepoRoot)",
+        "",
+        "args=(",
+        "  --task-id $(ConvertTo-BashSingleQuoted $TaskId)",
+        "  --task-file $(ConvertTo-BashSingleQuoted $remoteBriefPath)",
+        "  --repo-root $(ConvertTo-BashSingleQuoted $RemoteRepoRoot)",
+        "  --base-ref $(ConvertTo-BashSingleQuoted $BaseRef)",
+        "  --worktree-root $(ConvertTo-BashSingleQuoted $RemoteWorktreeRoot)",
+        "  --delegation-root $(ConvertTo-BashSingleQuoted $RemoteDelegationRoot)",
+        "  --timeout-seconds $(ConvertTo-BashSingleQuoted ([string]$TimeoutSeconds))",
+        "  --idle-timeout-seconds $(ConvertTo-BashSingleQuoted ([string]$IdleTimeoutSeconds))",
+        ")"
+    )
     if ($DryRun) {
-        $serverCommand += " --dry-run"
+        $runnerLines += "args+=(--dry-run)"
     }
-
-    $remoteCommand = @(
-        "export PATH=`$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:`$PATH",
-        "cd '$RemoteRepoRoot'",
-        $serverCommand
-    ) -join "; "
-    Set-Content -Path $commandFile -Value "ssh $SshHost `"$remoteCommand`"" -Encoding utf8
+    $runnerLines += 'exec bash "./.agents/skills/delegate-to-omc/scripts/server-delegate-to-claude.sh" "${args[@]}"'
+    $runnerScript = ($runnerLines -join "`n") + "`n"
+    Set-Content -Path $commandFile -Value "# Remote runner script: $remoteRunnerPath`n$runnerScript" -Encoding utf8
 
     Send-FileToRemote -LocalFile $briefOutputPath -RemoteFile $remoteBriefPath -RemoteHost $SshHost
-    & ssh $SshHost $remoteCommand
+
+    $localRunnerPath = Join-Path ([System.IO.Path]::GetTempPath()) ("loom-remote-runner-" + [System.Guid]::NewGuid().ToString("N") + ".sh")
+    try {
+        [System.IO.File]::WriteAllText($localRunnerPath, $runnerScript, [System.Text.Encoding]::UTF8)
+        Send-FileToRemote -LocalFile $localRunnerPath -RemoteFile $remoteRunnerPath -RemoteHost $SshHost
+    } finally {
+        if (Test-Path $localRunnerPath) {
+            Remove-Item -LiteralPath $localRunnerPath -Force
+        }
+    }
+
+    $remoteRunnerQuoted = ConvertTo-BashSingleQuoted $remoteRunnerPath
+    & ssh $SshHost "bash $remoteRunnerQuoted; rc=`$?; rm -f -- $remoteRunnerQuoted; exit `$rc"
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "Remote Claude command exited with code $LASTEXITCODE. Pulling artifacts anyway."
     }

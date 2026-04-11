@@ -181,7 +181,7 @@ else
   : > "$response_file"
   (
     cd "$worktree_path" &&
-    claude -p --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" "$prompt_text"
+    claude --print "$prompt_text" --output-format text --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" </dev/null
   ) >"$response_file" 2>&1 &
   claude_pid=$!
   started_epoch="$(date +%s)"

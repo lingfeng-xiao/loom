@@ -86,7 +86,7 @@ else
 fi
 
 if [[ "$claude_available" == "true" ]]; then
-  if printf 'Reply with CLAUDE_P_OK only.\n' | claude -p --setting-sources "user,project" >"$claude_verify_file" 2>&1; then
+  if claude --print "Reply with CLAUDE_P_OK only." --output-format text --setting-sources "user,project" </dev/null >"$claude_verify_file" 2>&1; then
     if grep -q 'CLAUDE_P_OK' "$claude_verify_file"; then
       claude_verify_passed=true
     else

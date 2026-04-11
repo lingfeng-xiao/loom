@@ -18,7 +18,9 @@ This guide describes how Codex should operate the upgraded workflow. Codex owns 
 8. Run required validation.
 9. Deploy only after review and validation pass.
 10. Write closeout with release id and rollback ref.
-11. Review daily workflow telemetry before changing thresholds or gates.
+11. Generate `workflow-report.md` and `workflow-report.json`; do not call the work closed without them.
+12. Summarize problems, expectation mismatches, evidence paths, and residual risk in the user-facing final response.
+13. Review daily workflow telemetry before changing thresholds or gates.
 
 ## Incident handling
 
@@ -29,6 +31,8 @@ This guide describes how Codex should operate the upgraded workflow. Codex owns 
 - Validation failure: block deploy and create a fix task.
 - Deploy failure: require rollback decision and write release failure evidence.
 - Rollback failure: stop further deploy attempts and preserve all release artifacts for manual diagnosis.
+- Shell quote or runner error: record `workflow.issue.detected`, preserve command preview and runner output, and prefer uploaded Bash scripts over inline shell.
+- Release-ahead warning: record `release_ahead_warning` and do not push remote history without a separate push audit.
 
 ## Optimization loop
 

@@ -55,6 +55,22 @@ Core event types:
 - `rollback.executed`
 - `workflow.closed`
 - `workflow.abandoned`
+- `workflow.issue.detected`
+
+Issue events use these categories:
+
+- `runner_error`
+- `claude_invocation_error`
+- `shell_quote_error`
+- `artifact_sync_error`
+- `mirror_head_mismatch`
+- `preflight_failure`
+- `timeout`
+- `idle_timeout`
+- `review_rejected`
+- `validation_failed`
+- `deploy_failed`
+- `release_ahead_warning`
 
 ## Daily rollup schema
 
@@ -81,6 +97,11 @@ Required metrics:
 - `end_to_end_duration_ms_p90`
 - `top_failure_reasons`
 - `top_slowest_phases`
+- `issue_total_by_category`
+- `issue_total_by_severity`
+- `auto_recovered_total`
+- `follow_up_required_total`
+- `top_issue_summaries`
 
 ## Reporting cadence
 

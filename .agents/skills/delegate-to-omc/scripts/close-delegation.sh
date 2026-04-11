@@ -77,6 +77,13 @@ cat > "$closeout_path" <<EOF
 }
 EOF
 
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd -P)"
+bash "$script_dir/generate-workflow-report.sh" \
+  --task-id "$task_id" \
+  --delegation-root "$delegation_root" \
+  --release-id "$release_id" \
+  --rollback-ref "$rollback_ref"
+
 if [[ "$closeable" != "true" ]]; then
   echo "Delegation cannot be closed until REVIEW_RESULT=PASS, worker_status=SUCCESS, and preflight.status=PASS." >&2
   exit 1

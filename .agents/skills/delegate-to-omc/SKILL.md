@@ -93,6 +93,7 @@ The remote scripts now also write:
 - `result.json` with contract and diff verdicts
 - `review-result.json` with Codex's machine-readable review verdict and fix list
 - `closeout.json` after Codex marks the review as `PASS`
+- `workflow-report.md` and `workflow-report.json` for both closed and blocked outcomes
 
 ## Codex Review Flow
 
@@ -106,8 +107,30 @@ After the remote worker finishes:
 6. When the review fails, append the minimal fix list to a retry brief and re-dispatch the same task.
 7. Stop only after the review passes, the retry budget is exhausted, or you hit a real ambiguity that needs user input.
 8. Write `closeout.json` only after `PASS`.
+9. Treat missing `workflow-report.md` or `workflow-report.json` as not closed.
 
 Use [assets/review-checklist.md](assets/review-checklist.md) as the fixed checklist.
+
+## Closeout Reporting
+
+No workflow report means the delegation is not closed. Every closeout, including
+blocked closeout, must produce `workflow-report.md` and
+`workflow-report.json`.
+
+Codex must summarize that report in the final user response. Include problems
+encountered, expectation mismatches, recovery actions, residual risk, and
+evidence paths even when the final deploy succeeds.
+
+New core runner, report, and telemetry behavior belongs in server-side Bash.
+PowerShell remains a legacy compatibility wrapper and should not grow separate
+business logic.
+
+## Issue Monitoring
+
+Record workflow issues as `workflow.issue.detected` telemetry when a run hits a
+runner error, Claude invocation error, shell quoting error, artifact sync error,
+mirror head mismatch, preflight failure, timeout, idle timeout, review reject,
+validation failure, deploy failure, or release-ahead warning.
 
 ## Runtime Guardrails
 

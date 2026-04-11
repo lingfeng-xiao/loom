@@ -61,6 +61,11 @@ $payload = [ordered]@{
 
 $payload | ConvertTo-Json | Set-Content -Path $closeoutPath -Encoding utf8
 
+& (Join-Path $PSScriptRoot "generate-workflow-report.ps1") -TaskId $TaskId -DelegationRoot $DelegationRoot -ReleaseId $ReleaseId -RollbackRef $RollbackRef
+if ($LASTEXITCODE -ne 0) {
+    throw "Failed to generate workflow report for $TaskId"
+}
+
 if (-not $closeable) {
     Write-Error "Delegation cannot be closed until REVIEW_RESULT=PASS, worker_status=SUCCESS, and preflight.status=PASS."
     exit 1

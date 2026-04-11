@@ -17,6 +17,11 @@
 6. Let Codex review against the brief and automatically issue minimal fix passes when the review fails.
 7. Write `closeout.json` only after `REVIEW_RESULT: PASS`.
 8. Run the server release flow when the task is ready.
+9. Publish `workflow-report.md` and `workflow-report.json`.
+
+No workflow report means the work is not closed. Codex final responses must
+summarize the report, including problems encountered, expectation mismatches,
+evidence paths, and residual risk, even when the final release succeeds.
 
 ## Workflow evolution wave
 
@@ -64,3 +69,5 @@ Each release writes a folder under `.release/<release-id>/` with validation, dep
 - Server-side Claude runs carry both an overall timeout and an idle-output timeout so hung runs fail closed.
 - Team runs fail closed if they do not produce per-subtask result files and diffs.
 - The deploy path can fall back to direct `docker compose` when `loom.service` is visible but passwordless `sudo` is not available.
+- New core runner, report, and telemetry behavior belongs in server-side Bash; PowerShell is legacy compatibility only.
+- Workflow issues must be recorded as `workflow.issue.detected` telemetry and included in the final report.
