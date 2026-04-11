@@ -180,3 +180,11 @@ Optimization questions:
 - Which validation checks fail most often?
 - Does parallel execution reduce lead time without increasing review rejects?
 - Should timeout or idle-timeout thresholds change?
+
+## Delegate-To-OMC V2 Telemetry
+
+V2 session telemetry records these phases in order: `environment_checked`, `packaged`, `admitted`, `dispatch_ready`, `dispatched`, `artifact_pulled`, `machine_gated`, `retry_decided`, `validated`, `reported`, and terminal `closed` or `blocked`.
+
+Machine gate classification values include `claude_invocation_error`, `artifact_packaging_error`, `baseline_stale`, `skill_drift`, `shell_environment_error`, `test_artifact_pollution`, `release_wait_timeout`, and `healthcheck_warmup_retry`. `Execution error` without a diff is a non-auto-retry Claude invocation error; `Execution error` with a diff becomes `artifact_needs_review`; repeated invocation errors trigger stop-loss.
+
+The user report is a required close artifact. It must include environment gate status, artifact package status, task-level machine gate verdicts, worker disabled/failure/stop-loss state, Codex takeover reason, automatic recovery, unrecovered risks, validation/release result, and token/ROI verdict with confidence.

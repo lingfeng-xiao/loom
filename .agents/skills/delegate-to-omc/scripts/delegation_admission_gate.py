@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Admission and machine gate helper for delegate-to-omc v2."""
+"""Admission, machine gate, and stop-loss helper for delegate-to-omc v2."""
 
 from __future__ import annotations
 
@@ -29,65 +29,116 @@ def normalize_files(task: dict[str, Any]) -> set[str]:
     return {str(value).rstrip("/") for value in values if str(value).strip()}
 
 
-def classify_gate(result: dict[str, Any], preflight: dict[str, Any], review: dict[str, Any], status_text: str, relevant_files: list[str]) -> dict[str, Any]:
-    failed: list[str] = []
-    recommended_action = "none"
-    repair_size = "none"
-    quality = "PASS"
+def text_blob(*values: Any) -> str:
+    return "\n".join(str(value or "") for value in values)
 
-    if preflight.get("status") not in {None, "PASS"}:
-        failed.append("preflight")
-        recommended_action = "fix_infrastructure"
-        repair_size = "not_repairable_in_current_task"
-    if result.get("timed_out"):
-        failed.append("timeout")
-        recommended_action = "resplit_task"
-        repair_size = "large"
-    if result.get("idle_timed_out"):
-        failed.append("idle_timeout")
-        recommended_action = "resplit_task"
-        repair_size = "large"
-    if result.get("contract_complete") is False:
-        failed.append("contract")
-        recommended_action = "tiny_fix"
-        repair_size = "tiny"
-    if result.get("declared_result") == "SUCCESS" and result.get("diff_present") is False:
-        failed.append("diff")
-        recommended_action = "medium_fix"
-        repair_size = "medium"
-    if result.get("validation_reported") is False:
-        failed.append("validation")
-        recommended_action = "small_fix"
-        repair_size = "small"
 
-    changed = []
+def changed_files(status_text: str) -> list[str]:
+    changed: list[str] = []
     for line in status_text.splitlines():
         parts = line.strip().split(maxsplit=1)
         if len(parts) == 2:
             changed.append(parts[1])
+    return changed
+
+
+def classify_gate(result: dict[str, Any], preflight: dict[str, Any], review: dict[str, Any], status_text: str, relevant_files: list[str], history: list[dict[str, Any]] | None = None) -> dict[str, Any]:
+    failed: list[str] = []
+    classifications: list[str] = []
+    recommended_action = "none"
+    repair_size = "none"
+    auto_retry = False
+    stop_loss = False
+    history = history or []
+    diff_present = bool(result.get("diff_present") or changed_files(status_text))
+    declared = str(result.get("declared_result", "")).upper()
+    blob = text_blob(result.get("worker_status"), result.get("error"), result.get("stderr"), result.get("stdout"), result.get("summary"))
+
+    for issue in preflight.get("issues", []) if isinstance(preflight.get("issues"), list) else []:
+        code = str(issue.get("code") or issue.get("gate") or "")
+        if code in {"baseline_stale", "skill_drift", "shell_environment_error", "test_artifact_pollution", "release_wait_timeout", "healthcheck_warmup_retry", "artifact_packaging_error"}:
+            failed.append(code)
+            classifications.append(code)
+    if preflight.get("status") not in {None, "PASS", "WARN"}:
+        failed.append("preflight")
+        recommended_action = "fix_infrastructure"
+        repair_size = "not_repairable_in_current_task"
+    if result.get("artifact_packaging_error"):
+        failed.append("artifact_packaging_error")
+        classifications.append("artifact_packaging_error")
+        recommended_action = "block_release"
+    if "Execution error" in blob:
+        failed.append("execution_error")
+        if diff_present:
+            classifications.append("artifact_needs_review")
+            recommended_action = "codex_review"
+            repair_size = "medium"
+        else:
+            classifications.append("claude_invocation_error")
+            recommended_action = "codex_takeover"
+            repair_size = "not_repairable_in_current_task"
+    if result.get("timed_out") or result.get("idle_timed_out"):
+        if result.get("timed_out"):
+            failed.append("timeout")
+        if result.get("idle_timed_out"):
+            failed.append("idle_timeout")
+        recommended_action = "resplit_task"
+        repair_size = "large"
+        classifications.append("timeout_or_idle_timeout")
+    missing_fields = result.get("missing_contract_fields") or []
+    if result.get("contract_complete") is False or missing_fields:
+        failed.append("contract")
+        classifications.append("contract_incomplete")
+        recommended_action = "tiny_fix" if len(missing_fields) <= 2 else "small_fix"
+        repair_size = "tiny" if len(missing_fields) <= 2 else "small"
+        auto_retry = True
+    if declared == "SUCCESS" and not diff_present:
+        failed.append("diff")
+        classifications.append("success_without_diff")
+        recommended_action = "block_release"
+        repair_size = "not_repairable_in_current_task"
+        auto_retry = False
+    if result.get("validation_reported") is False:
+        failed.append("validation")
+        recommended_action = "small_fix"
+        repair_size = "small"
+        auto_retry = True
+
+    changed = changed_files(status_text)
     if relevant_files and changed:
         allowed = tuple(item.rstrip("/") for item in relevant_files)
         out_of_scope = [path for path in changed if not any(path == item or path.startswith(f"{item}/") for item in allowed)]
         if out_of_scope:
             failed.append("scope")
-            recommended_action = "codex_takeover"
+            classifications.append("scope_drift")
+            recommended_action = "codex_takeover" if len(out_of_scope) <= 3 else "block_release"
             repair_size = "large"
-
+            auto_retry = False
     if review.get("review_result") and review.get("review_result") != "PASS":
         failed.append("review")
 
-    if failed:
-        quality = "FAIL"
+    primary = "claude_invocation_error" if "claude_invocation_error" in classifications else (classifications[0] if classifications else "passed")
+    same_exec_errors = sum(1 for row in history if row.get("classification") == "claude_invocation_error")
+    if primary == "claude_invocation_error" and same_exec_errors >= 1:
+        stop_loss = True
+        recommended_action = "stop_loss"
+        auto_retry = False
+    quality = "FAIL" if failed else "PASS"
+    retry = {"classification": primary, "auto_retry": bool(auto_retry and not stop_loss), "stop_loss": stop_loss, "recommended_action": recommended_action, "repair_size": repair_size}
     return {
         "quality_gate_result": quality,
+        "classification": primary,
+        "classifications": sorted(set(classifications)) or (["passed"] if quality == "PASS" else []),
         "failed_gates": sorted(set(failed)),
         "repair_size": repair_size,
         "recommended_action": recommended_action,
+        "retry_decision": retry,
         "evidence": {
             "worker_status": result.get("worker_status", ""),
             "declared_result": result.get("declared_result", ""),
             "preflight_status": preflight.get("status", result.get("preflight_status", "")),
             "review_result": review.get("review_result", ""),
+            "diff_present": diff_present,
         },
         "compact_summary": "Machine gate passed." if quality == "PASS" else f"Machine gate failed: {', '.join(sorted(set(failed)))}.",
     }
@@ -95,10 +146,9 @@ def classify_gate(result: dict[str, Any], preflight: dict[str, Any], review: dic
 
 def run_admission(manifest_path: Path, locks_root: Path, output_path: Path, allow_release_lock: bool) -> int:
     manifest = read_json(manifest_path, {})
-    tasks = manifest.get("tasks", [])
     issues: list[dict[str, str]] = []
     seen_files: dict[str, str] = {}
-    for task in tasks:
+    for task in manifest.get("tasks", []):
         tid = task_id(task)
         files = normalize_files(task)
         if not tid:
@@ -127,13 +177,17 @@ def run_admission(manifest_path: Path, locks_root: Path, output_path: Path, allo
     return 2 if issues else 0
 
 
-def run_gate(task_dir: Path, output_path: Path, relevant_files: list[str]) -> int:
+def run_gate(task_dir: Path, output_path: Path, relevant_files: list[str], history_path: Path | None, retry_output: Path | None) -> int:
     result = read_json(task_dir / "result.json", {})
     preflight = read_json(task_dir / "preflight.json", {})
     review = read_json(task_dir / "review-result.json", {})
     status_text = (task_dir / "git.status.txt").read_text(encoding="utf-8", errors="replace") if (task_dir / "git.status.txt").exists() else ""
-    payload = classify_gate(result, preflight, review, status_text, relevant_files)
+    history = read_json(history_path or (task_dir / "gate-history.json"), [])
+    if not isinstance(history, list):
+        history = []
+    payload = classify_gate(result, preflight, review, status_text, relevant_files, history)
     write_json(output_path, payload)
+    write_json(retry_output or (output_path.parent / "retry-decision.json"), payload["retry_decision"])
     return 2 if payload["quality_gate_result"] != "PASS" else 0
 
 
@@ -148,11 +202,13 @@ def main() -> int:
     gate = sub.add_parser("gate")
     gate.add_argument("--task-dir", required=True, type=Path)
     gate.add_argument("--output", required=True, type=Path)
+    gate.add_argument("--retry-output", type=Path)
+    gate.add_argument("--history", type=Path)
     gate.add_argument("--relevant-file", action="append", default=[])
     args = parser.parse_args()
     if args.command == "admission":
         return run_admission(args.manifest, args.locks_root, args.output, args.allow_release_lock)
-    return run_gate(args.task_dir, args.output, args.relevant_file)
+    return run_gate(args.task_dir, args.output, args.relevant_file, args.history, args.retry_output)
 
 
 if __name__ == "__main__":

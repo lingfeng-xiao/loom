@@ -186,3 +186,13 @@ Parallel work must be isolated on the server:
 - prefer `/home/lingfeng/worktrees/<task-id>` so the isolation is visible and stable
 
 Use the local scripts in `scripts/` so the delegation packet, remote worktree path, and result artifacts stay consistent. Refresh `.mirror/server-head/` before planning or reviewing.
+
+## V2 Hardening Policy
+
+Until live smoke is stable across repeated runs, delegate-to-omc v2 runs in Codex-only hardening mode. Remote Claude workers and `omc team` dispatch stay disabled for implementation work; Claude may only be used by the optional environment smoke when explicitly enabled.
+
+The v2 flow is: environment gate, artifact packaging, admission, dispatch-ready checkpoint, placeholder/fake-worker dispatch, artifact pull checkpoint, machine gate, retry decision, validation, user report, and close/block. Every phase writes `session-state.json` and `session-events.jsonl`; completed phases are not repeated on resume, and dispatched tasks are not dispatched again.
+
+Use uploaded Bash scripts for complex remote execution. Do not rely on inline SSH JSON, shell globs, or PowerShell path objects for artifact packaging or dispatch.
+
+A session must not close unless `user-report.md` exists. Reports must summarize environment gate results, packaging results, machine gates, Claude disabled/failure/stop-loss status, Codex takeover reasons, auto recovery, unrecovered risk, validation/release results, and token/ROI verdict.

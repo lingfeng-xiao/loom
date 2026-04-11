@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic session runner for delegate-to-omc v2.
-
-This runner intentionally keeps v1 implementation small: it checkpoints session
-state, appends machine-readable events, supports dry-run execution, and leaves
-live Claude dispatch behind a future adapter boundary.
-"""
+"""Deterministic session runner for delegate-to-omc v2."""
 
 from __future__ import annotations
 
@@ -14,30 +9,18 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-
-TASK_STATES = (
-    "planned",
+RUNNER_VERSION = "2.0"
+PHASES = (
+    "environment_checked",
+    "packaged",
     "admitted",
+    "dispatch_ready",
     "dispatched",
-    "running",
     "artifact_pulled",
-    "gate_passed",
-    "gate_failed",
+    "machine_gated",
     "retry_decided",
     "validated",
-    "closed",
-    "blocked",
-)
-
-DEFAULT_TRANSITIONS = (
-    "admitted",
-    "dispatched",
-    "running",
-    "artifact_pulled",
-    "gate_passed",
-    "retry_decided",
-    "validated",
-    "closed",
+    "reported",
 )
 
 
@@ -56,26 +39,27 @@ def write_json(path: Path, payload: Any) -> None:
     path.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
 
 
-def append_event(path: Path, event: dict[str, Any], seen: set[tuple[str, str]]) -> None:
-    key = (str(event.get("task_id", "")), str(event.get("event_type", "")))
-    if key in seen:
-        return
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("a", encoding="utf-8") as handle:
-        handle.write(json.dumps(event, sort_keys=True) + "\n")
-    seen.add(key)
-
-
-def load_seen_events(path: Path) -> set[tuple[str, str]]:
-    seen: set[tuple[str, str]] = set()
+def load_seen_events(path: Path) -> set[tuple[str, str, str]]:
+    seen: set[tuple[str, str, str]] = set()
     if not path.exists():
         return seen
     for line in path.read_text(encoding="utf-8").splitlines():
         if not line.strip():
             continue
         row = json.loads(line)
-        seen.add((str(row.get("task_id", "")), str(row.get("event_type", ""))))
+        seen.add((str(row.get("task_id", "")), str(row.get("event_type", "")), str(row.get("phase", ""))))
     return seen
+
+
+def append_event(path: Path, event: dict[str, Any], seen: set[tuple[str, str, str]]) -> None:
+    event.setdefault("occurred_at", utc_now())
+    key = (str(event.get("task_id", "")), str(event.get("event_type", "")), str(event.get("phase", "")))
+    if key in seen:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as handle:
+        handle.write(json.dumps(event, sort_keys=True) + "\n")
+    seen.add(key)
 
 
 def task_id(task: dict[str, Any]) -> str:
@@ -96,55 +80,129 @@ def default_session_root(manifest_path: Path, manifest: dict[str, Any]) -> Path:
     root = manifest.get("session_root")
     if root:
         return Path(str(root))
-    session_id = str(manifest.get("session_id", manifest_path.stem))
-    return manifest_path.parent / session_id
+    return manifest_path.parent / str(manifest.get("session_id", manifest_path.stem))
+
+
+def initial_task(task: dict[str, Any]) -> dict[str, Any]:
+    tid = task_id(task)
+    return {
+        "task_id": tid,
+        "state": "planned",
+        "attempt": int(task.get("attempt", 1)),
+        "dispatch_count": 0,
+        "adapter": str(task.get("adapter", "fake_worker")),
+        "fake_result": str(task.get("fake_result", "success")),
+        "worktree": str(task.get("worktree", "")),
+        "relevant_files": task.get("relevant_files", []),
+        "updated_at": utc_now(),
+    }
 
 
 def load_or_initialize_state(manifest: dict[str, Any], state_path: Path) -> dict[str, Any]:
     state = read_json(state_path)
     if state:
         return state
-    session_id = str(manifest.get("session_id") or "delegation-session")
-    tasks = {
-        task_id(task): {
-            "task_id": task_id(task),
-            "state": "planned",
-            "attempt": int(task.get("attempt", 1)),
-            "worktree": str(task.get("worktree", "")),
-            "relevant_files": task.get("relevant_files", []),
-            "updated_at": utc_now(),
-        }
-        for task in manifest_tasks(manifest)
-    }
     return {
-        "session_id": session_id,
+        "session_id": str(manifest.get("session_id") or "delegation-session"),
         "status": "planned",
-        "dry_run": False,
-        "tasks": tasks,
+        "runner_version": RUNNER_VERSION,
+        "live_dispatch_enabled": bool(manifest.get("live_dispatch_enabled", False)),
+        "claude_worker_enabled": bool(manifest.get("claude_worker_enabled", False)),
+        "completed_phases": [],
         "created_at": utc_now(),
         "updated_at": utc_now(),
-        "version": 1,
+        "tasks": {task_id(task): initial_task(task) for task in manifest_tasks(manifest)},
     }
 
 
-def transition_task(state: dict[str, Any], events_path: Path, seen: set[tuple[str, str]], task: dict[str, Any], new_state: str, dry_run: bool) -> None:
-    tid = task_id(task)
-    current = state["tasks"].setdefault(tid, {"task_id": tid, "state": "planned"})
-    if current.get("state") == new_state:
+def complete_phase(state: dict[str, Any], events_path: Path, seen: set[tuple[str, str, str]], phase: str) -> None:
+    if phase in state.setdefault("completed_phases", []):
         return
-    current["state"] = new_state
-    current["updated_at"] = utc_now()
-    append_event(
-        events_path,
-        {
-            "event_type": f"task.{new_state}",
-            "task_id": tid,
-            "state": new_state,
-            "dry_run": dry_run,
-            "occurred_at": utc_now(),
-        },
-        seen,
-    )
+    state["completed_phases"].append(phase)
+    state["status"] = phase
+    state["updated_at"] = utc_now()
+    append_event(events_path, {"event_type": f"phase.{phase}", "phase": phase, "task_id": "", "status": phase}, seen)
+
+
+def set_task_state(state: dict[str, Any], events_path: Path, seen: set[tuple[str, str, str]], tid: str, new_state: str, phase: str) -> None:
+    task = state["tasks"][tid]
+    if task.get("state") == new_state:
+        return
+    task["state"] = new_state
+    task["updated_at"] = utc_now()
+    append_event(events_path, {"event_type": f"task.{new_state}", "phase": phase, "task_id": tid, "state": new_state}, seen)
+
+
+def ensure_report(session_root: Path, state: dict[str, Any]) -> None:
+    report = session_root / "user-report.md"
+    if report.exists() and report.stat().st_size > 0:
+        return
+    report.write_text("\n".join([
+        "# Delegation User Report",
+        "",
+        f"- Session ID: `{state.get('session_id', 'unknown')}`",
+        "- Execution result: `runner-placeholder`",
+        "- Claude worker: `disabled`",
+        "- Codex takeover: `not required for fake-worker validation`",
+        "- Token/ROI verdict: `uncertain` Confidence: `low`",
+        "",
+    ]), encoding="utf-8")
+
+
+def apply_phase(phase: str, manifest: dict[str, Any], state: dict[str, Any], session_root: Path, events_path: Path, seen: set[tuple[str, str, str]]) -> None:
+    tasks = manifest_tasks(manifest)
+    if phase == "dispatched":
+        for task in tasks:
+            tid = task_id(task)
+            current = state["tasks"].setdefault(tid, initial_task(task))
+            if current.get("dispatched_at"):
+                continue
+            if state.get("live_dispatch_enabled") or state.get("claude_worker_enabled"):
+                current["adapter"] = "placeholder_live_dispatch_disabled"
+            current["dispatch_count"] = int(current.get("dispatch_count", 0)) + 1
+            current["dispatched_at"] = utc_now()
+            set_task_state(state, events_path, seen, tid, "dispatched", phase)
+        return
+    if phase == "artifact_pulled":
+        for task in tasks:
+            tid = task_id(task)
+            if state["tasks"][tid].get("state") == "dispatched":
+                set_task_state(state, events_path, seen, tid, "artifact_pulled", phase)
+        return
+    if phase == "machine_gated":
+        for task in tasks:
+            tid = task_id(task)
+            fake_result = str(task.get("fake_result", state["tasks"][tid].get("fake_result", "success"))).lower()
+            set_task_state(state, events_path, seen, tid, "gate_passed" if fake_result in {"success", "pass", "closed"} else "gate_failed", phase)
+        return
+    if phase == "retry_decided":
+        for task in tasks:
+            tid = task_id(task)
+            current = state["tasks"][tid]
+            current["retry_decision"] = "none" if current.get("state") == "gate_passed" else "blocked"
+            current["updated_at"] = utc_now()
+            append_event(events_path, {"event_type": "task.retry_decided", "phase": phase, "task_id": tid, "retry_decision": current["retry_decision"]}, seen)
+        return
+    if phase == "validated":
+        for task in tasks:
+            tid = task_id(task)
+            if state["tasks"][tid].get("state") == "gate_passed":
+                set_task_state(state, events_path, seen, tid, "validated", phase)
+        return
+    if phase == "reported":
+        ensure_report(session_root, state)
+        return
+    for task in tasks:
+        tid = task_id(task)
+        if state["tasks"].get(tid, {}).get("state") not in {"validated", "gate_failed", "blocked"}:
+            set_task_state(state, events_path, seen, tid, phase, phase)
+
+
+def terminal_status(state: dict[str, Any], session_root: Path) -> str:
+    task_states = [task.get("state") for task in state.get("tasks", {}).values()]
+    if task_states and all(value in {"validated", "closed"} for value in task_states) and (session_root / "user-report.md").exists():
+        return "closed"
+    return "blocked"
 
 
 def run_session(manifest_path: Path, session_root: Path | None, dry_run: bool) -> dict[str, Any]:
@@ -156,28 +214,30 @@ def run_session(manifest_path: Path, session_root: Path | None, dry_run: bool) -
     state_path = root / "session-state.json"
     events_path = root / "session-events.jsonl"
     state = load_or_initialize_state(manifest, state_path)
+    if state.get("status") == "blocked" and "blocked" in state.get("completed_phases", []):
+        return state
     state["dry_run"] = dry_run
     state["updated_at"] = utc_now()
     seen = load_seen_events(events_path)
-    append_event(events_path, {"event_type": "session.started", "task_id": "", "dry_run": dry_run, "occurred_at": utc_now()}, seen)
-
-    for task in manifest_tasks(manifest):
-        tid = task_id(task)
-        task_state = state["tasks"].setdefault(tid, {"task_id": tid, "state": "planned"})
-        if task_state.get("state") in {"closed", "blocked"}:
+    append_event(events_path, {"event_type": "session.started", "phase": "", "task_id": "", "dry_run": dry_run, "runner_version": RUNNER_VERSION}, seen)
+    for phase in PHASES:
+        if phase in state.get("completed_phases", []):
             continue
-        transitions = task.get("dry_run_transitions") or DEFAULT_TRANSITIONS
-        for new_state in transitions:
-            if new_state not in TASK_STATES:
-                raise ValueError(f"Unsupported task state: {new_state}")
-            transition_task(state, events_path, seen, task, str(new_state), dry_run)
+        apply_phase(phase, manifest, state, root, events_path, seen)
+        complete_phase(state, events_path, seen, phase)
         write_json(state_path, state)
-
-    task_states = [task.get("state") for task in state["tasks"].values()]
-    state["status"] = "closed" if task_states and all(value == "closed" for value in task_states) else "blocked"
+    final = terminal_status(state, root)
+    state["status"] = final
+    if final not in state.setdefault("completed_phases", []):
+        state["completed_phases"].append(final)
+    for tid, task in state.get("tasks", {}).items():
+        if final == "closed" and task.get("state") == "validated":
+            set_task_state(state, events_path, seen, tid, "closed", final)
+        elif final == "blocked" and task.get("state") in {"gate_failed", "blocked"}:
+            set_task_state(state, events_path, seen, tid, "blocked", final)
     state["updated_at"] = utc_now()
     write_json(state_path, state)
-    append_event(events_path, {"event_type": f"session.{state['status']}", "task_id": "", "dry_run": dry_run, "occurred_at": utc_now()}, seen)
+    append_event(events_path, {"event_type": f"session.{final}", "phase": final, "task_id": "", "dry_run": dry_run}, seen)
     return state
 
 
@@ -189,7 +249,7 @@ def main() -> int:
     args = parser.parse_args()
     state = run_session(args.manifest, args.session_root, args.dry_run)
     print(json.dumps({"session_id": state["session_id"], "status": state["status"], "tasks": state["tasks"]}, indent=2, sort_keys=True))
-    return 0
+    return 2 if state["status"] == "blocked" else 0
 
 
 if __name__ == "__main__":

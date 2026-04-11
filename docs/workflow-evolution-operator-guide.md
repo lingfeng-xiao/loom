@@ -48,3 +48,13 @@ This guide describes how Codex should operate the upgraded workflow. Codex owns 
 - Weekly: identify recurring rejection reasons, slow phases, and unstable task types.
 - Monthly: adjust retry budgets, timeout thresholds, file-overlap checks, and release gates.
 - Do not loosen review gates just to improve success rate; use telemetry to improve task splitting and prompts first.
+
+## Delegate-To-OMC V2 Hardening
+
+Delegate-to-omc v2 defaults to Codex-only hardening until live smoke proves stable. Do not use remote Claude workers, `server-delegate-to-claude.sh`, `delegate-to-claude.*`, `delegate-to-omc-team.*`, or `omc team` for implementation during this phase.
+
+Operators should run the workflow gates in order: environment gate, artifact packager, admission gate, session runner, machine gate, validation, user report, release preflight, release, and mirror sync. Complex remote execution must be uploaded as Bash scripts so zsh globbing, inline JSON quoting, and PowerShell path conversion cannot corrupt dispatch.
+
+The environment gate records server HEAD, branch, git cleanliness, baseline freshness, runner-version match, mirror mismatch, skill drift, lock files, writable worktree root, default-shell risk, test cache pollution, and optional Claude smoke. Cache pollution such as `__pycache__` is auto-cleaned when possible and recorded as `auto_recovered=true`; cleanup failure blocks release.
+
+`delegate-workflow-validate.sh` is the single validation entry point. It runs static Python/Bash checks, environment gate tests, artifact packaging tests, session runner resume tests, machine gate/stop-loss tests, telemetry/report tests, and a release-preflight git-clean check.
