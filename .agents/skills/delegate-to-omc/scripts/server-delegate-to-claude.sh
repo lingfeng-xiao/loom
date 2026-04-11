@@ -123,7 +123,7 @@ created_at="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
 cat > "$command_file" <<EOF
 cd "$worktree_path"
-claude -p --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" <prompt from "$prompt_file">
+SHELL=/bin/bash claude -p --setting-sources "user,project" --tools Bash --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" <prompt from "$prompt_file">
 timeout_seconds="$timeout_seconds"
 idle_timeout_seconds="$idle_timeout_seconds"
 EOF
@@ -138,6 +138,7 @@ review_required=true
 preflight_status="PENDING"
 timed_out=false
 idle_timed_out=false
+claude_invocation_failed=false
 
 if bash "$script_dir/server-delegation-preflight.sh" --task-id "$task_id" --mode "claude" --repo-root "$repo_root" --worktree-root "$worktree_root" --delegation-root "$delegation_root"; then
   preflight_status="PASS"
@@ -177,11 +178,10 @@ else
     fi
   fi
 
-  prompt_text="$(cat "$prompt_file")"
   : > "$response_file"
   (
     cd "$worktree_path" &&
-    claude --print "$prompt_text" --output-format text --setting-sources "user,project" --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" </dev/null
+    env SHELL=/bin/bash claude --print --input-format text --output-format text --setting-sources "user,project" --tools Bash --add-dir "$worktree_path" --permission-mode bypassPermissions --name "delegation-$task_slug" < "$prompt_file"
   ) >"$response_file" 2>&1 &
   claude_pid=$!
   started_epoch="$(date +%s)"
@@ -231,6 +231,14 @@ else
   git -C "$worktree_path" status --short > "$status_file" || true
   git -C "$worktree_path" diff --stat > "$diff_file" || true
 
+  response_without_blank="$(tr -d '\r' < "$response_file" | sed '/^[[:space:]]*$/d')"
+  if [[ -z "$response_without_blank" || "$response_without_blank" == "Execution error" ]]; then
+    claude_invocation_failed=true
+    if [[ $exit_code -eq 0 ]]; then
+      exit_code=1
+    fi
+  fi
+
   if has_contract_section "RESULT" "$response_file" \
     && has_contract_section "SUMMARY" "$response_file" \
     && has_contract_section "CHANGED_FILES" "$response_file" \
@@ -251,7 +259,9 @@ else
   fi
 
   declared_result="$(extract_contract_value "RESULT" "$response_file" || true)"
-  if [[ "$timed_out" == "true" || "$idle_timed_out" == "true" || $exit_code -ne 0 || "$declared_result" == "FAILED" ]]; then
+  if [[ "$claude_invocation_failed" == "true" ]]; then
+    worker_status="FAILED"
+  elif [[ "$timed_out" == "true" || "$idle_timed_out" == "true" || $exit_code -ne 0 || "$declared_result" == "FAILED" ]]; then
     worker_status="FAILED"
   elif [[ "$declared_result" == "SUCCESS" && "$contract_complete" == "true" && "$diff_present" == "true" && "$validation_reported" == "true" ]]; then
     worker_status="SUCCESS"
@@ -278,6 +288,7 @@ cat > "$result_file" <<EOF
   "idle_timeout_seconds": $idle_timeout_seconds,
   "timed_out": $timed_out,
   "idle_timed_out": $idle_timed_out,
+  "claude_invocation_failed": $claude_invocation_failed,
   "review_required": $review_required,
   "worker_status": "$(json_escape "$worker_status")",
   "exit_code": $exit_code,

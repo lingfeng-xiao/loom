@@ -56,6 +56,7 @@ for test_script in \
   "$tests_dir/test-delegation-environment-gate.sh" \
   "$tests_dir/test-delegation-artifact-packager.sh" \
   "$tests_dir/test-delegation-session-runner.sh" \
+  "$tests_dir/test-server-claude-invocation.sh" \
   "$tests_dir/test-delegation-admission-gate.sh" \
   "$tests_dir/test-delegation-telemetry-report.sh" \
   "$tests_dir/test-session-reflection.sh" \
