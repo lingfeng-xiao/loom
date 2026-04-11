@@ -40,6 +40,7 @@ brief_template="$skill_root/assets/task-brief-template.md"
 brief_path="$task_dir/brief.md"
 handoff_path="$task_dir/handoff-to-claude.md"
 review_path="$task_dir/review-notes.md"
+closeout_path="$task_dir/closeout.json"
 
 sed \
   -e "s/{{TASK_ID}}/$task_id/g" \
@@ -78,6 +79,29 @@ REVIEW_RESULT: PENDING
 ## Minimal fix list
 
 - TODO
+
+## Closeout gate
+
+- Close only after `REVIEW_RESULT: PASS`.
+- Use `close-delegation.sh` to write `closeout.json`.
+EOF
+
+cat > "$closeout_path" <<EOF
+{
+  "task_id": "$task_id",
+  "review_result": "PENDING",
+  "worker_status": "PENDING",
+  "preflight_status": "PENDING",
+  "closeable": false,
+  "closed": false,
+  "final_state": "PENDING_REVIEW",
+  "release_id": "",
+  "rollback_ref": "",
+  "review_file": "$review_path",
+  "result_file": "$task_dir/result.json",
+  "preflight_file": "$task_dir/preflight.json",
+  "closed_at": ""
+}
 EOF
 
 echo "Created delegation scaffold at $task_dir"

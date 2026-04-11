@@ -6,7 +6,7 @@ RUN if [ -d /workspace/apps/node ]; then ln -s /workspace/apps/node /workspace/a
     elif [ -d /workspace/apps/loom-node ]; then ln -s /workspace/apps/loom-node /workspace/apps/current-node; \
     else echo "Missing node source under apps/node or apps/loom-node" >&2; exit 1; fi
 WORKDIR /workspace/apps/current-node
-RUN mvn -q test
+RUN mvn -q clean test
 RUN mvn -q -DskipTests package
 
 FROM eclipse-temurin:21-jre

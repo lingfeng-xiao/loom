@@ -39,11 +39,22 @@ The server host is the only writable deployment source:
 - worktree root: `/home/lingfeng/worktrees`
 - release records: `/home/lingfeng/loom/.release`
 
+## Four Mandatory Gates
+
+1. Server main worktree gate:
+   Run `deploy/scripts/server-prepare-main-worktree.sh` so `/home/lingfeng/loom` is reset to `origin/main` and `git status` is clean.
+2. Deployment entry gate:
+   Run `deploy/scripts/server-install-loom-service.sh` so the installed unit references only `/home/lingfeng/loom/docker-compose.yml` and `/home/lingfeng/loom/.env`.
+3. Delegation capability gate:
+   Sync the real user-level Claude config with `./.agents/skills/delegate-to-omc/scripts/sync-claude-user-config.ps1` and verify `claude -p`. If verification still fails, record the degradation and continue the release path.
+4. Formal release gate:
+   Run `deploy/scripts/server-release.sh`. The built-in validation step is now the minimum pre-release gate only: clean `git status`, passing `docker compose config`, `sudo -n`, healthy `mihomo.service`, and `systemctl cat loom.service` pointing only at `/home/lingfeng/loom`.
+
 ## Development-time Production Access
 
 - Prefer read-only checks first: `docker compose ps`, `docker ps`, health endpoints, and logs.
 - Keep all writes inside the fixed `validate -> deploy -> healthcheck -> report` chain.
-- Do not use legacy GitHub Actions, GHCR bundles, or `/opt/template` scripts.
+- Do not use legacy GitHub Actions, GHCR bundles, or `/opt/loom` scripts.
 
 ## Runtime Topology
 
@@ -55,10 +66,20 @@ The server host is the only writable deployment source:
 
 ## Release Flow
 
-1. Run `deploy/scripts/server-validate.sh` in `/home/lingfeng/loom`.
-2. Run `deploy/scripts/server-deploy.sh` in `/home/lingfeng/loom`.
-3. Run `deploy/scripts/server-healthcheck.sh` in `/home/lingfeng/loom`.
-4. Run `deploy/scripts/server-release-report.sh` in `/home/lingfeng/loom`.
+1. Run `deploy/scripts/server-prepare-main-worktree.sh` in `/home/lingfeng/loom`.
+2. Run `deploy/scripts/server-install-loom-service.sh` in `/home/lingfeng/loom`.
+3. Run `deploy/scripts/server-release.sh` in `/home/lingfeng/loom`.
+4. After the first successful release, run `deploy/scripts/server-strong-cleanup.sh <release-id>`.
+
+`deploy/scripts/server-release.sh` still executes:
+
+1. `deploy/scripts/server-validate.sh`
+2. `deploy/scripts/server-prepare-images.sh`
+3. `deploy/scripts/server-deploy.sh`
+4. `deploy/scripts/server-healthcheck.sh`
+5. `deploy/scripts/server-release-report.sh`
+
+If you still want a heavier confidence pass before release, run `deploy/scripts/server-validate-full.sh` manually. It is no longer part of the required release gate.
 
 ## Files That Must Stay Aligned
 

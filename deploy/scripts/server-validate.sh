@@ -5,60 +5,72 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd -P)"
 RELEASE_ID="${1:-${RELEASE_ID:-$(date -u +"%Y%m%d-%H%M%S")}}"
 RELEASE_DIR="${ROOT}/.release/${RELEASE_ID}"
 LOG_FILE="${RELEASE_DIR}/validate.log"
+EXPECTED_ROOT="/home/lingfeng/loom"
+EXPECTED_BRANCH="main"
+EXPECTED_COMPOSE_PATH="${EXPECTED_ROOT}/docker-compose.yml"
+EXPECTED_ENV_PATH="${EXPECTED_ROOT}/.env"
+EXPECTED_PROXY="http://127.0.0.1:7890/"
 
 mkdir -p "$RELEASE_DIR"
 export PATH="$HOME/.npm-global/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
 
-if [[ -d "$HOME/jdk-21.0.2" && -z "${JAVA_HOME:-}" ]]; then
-  export JAVA_HOME="$HOME/jdk-21.0.2"
-  export PATH="$JAVA_HOME/bin:$PATH"
-fi
-
-resolve_app_dir() {
-  local preferred="$1"
-  local legacy="$2"
-
-  if [[ -d "$ROOT/$preferred" ]]; then
-    printf '%s\n' "$preferred"
-    return 0
-  fi
-
-  if [[ -d "$ROOT/$legacy" ]]; then
-    printf '%s\n' "$legacy"
-    return 0
-  fi
-
-  echo "Missing application directory: $preferred or $legacy" >&2
-  return 1
+fail() {
+  echo "[validate] ERROR: $*" >&2
+  exit 1
 }
-
-prepare_maven_wrapper() {
-  local app_dir="$1"
-  local wrapper_path="$ROOT/$app_dir/.mvnw.codex"
-
-  tr -d '\r' < "$ROOT/$app_dir/mvnw" > "$wrapper_path"
-  chmod +x "$wrapper_path"
-  printf '%s\n' "$wrapper_path"
-}
-
-SERVER_DIR="$(resolve_app_dir "apps/server" "apps/loom-server")"
-NODE_DIR="$(resolve_app_dir "apps/node" "apps/loom-node")"
-WEB_DIR="$(resolve_app_dir "apps/web" "apps/loom-web")"
-SERVER_MVNW="$(prepare_maven_wrapper "$SERVER_DIR")"
-NODE_MVNW="$(prepare_maven_wrapper "$NODE_DIR")"
-trap 'rm -f "$SERVER_MVNW" "$NODE_MVNW"' EXIT
 
 {
   echo "[validate] repo=$ROOT"
   echo "[validate] release_id=$RELEASE_ID"
-  echo "[validate] server_dir=$SERVER_DIR"
-  echo "[validate] node_dir=$NODE_DIR"
-  echo "[validate] web_dir=$WEB_DIR"
   date -u +"[validate] started_at=%Y-%m-%dT%H:%M:%SZ"
-  npx -p typescript@5.6.3 tsc -p packages/contracts/tsconfig.json --noEmit
-  (cd "$SERVER_DIR" && "$SERVER_MVNW" -q test && "$SERVER_MVNW" -q -DskipTests package)
-  (cd "$NODE_DIR" && "$NODE_MVNW" -q test)
-  (cd "$WEB_DIR" && npm ci && npm run build)
-  docker compose config
+
+  [[ "$ROOT" == "$EXPECTED_ROOT" ]] || fail "expected repo root $EXPECTED_ROOT but found $ROOT"
+
+  current_branch="$(git -C "$ROOT" branch --show-current)"
+  echo "[validate] branch=$current_branch"
+  [[ "$current_branch" == "$EXPECTED_BRANCH" ]] || fail "expected branch $EXPECTED_BRANCH but found $current_branch"
+
+  current_head="$(git -C "$ROOT" rev-parse HEAD)"
+  echo "[validate] head=$current_head"
+
+  status_output="$(git -C "$ROOT" status --short)"
+  if [[ -n "$status_output" ]]; then
+    printf '%s\n' "$status_output"
+    fail "git status is not clean"
+  fi
+  echo "[validate] git_status=clean"
+
+  docker compose -f "$EXPECTED_COMPOSE_PATH" --env-file "$EXPECTED_ENV_PATH" config >/dev/null
+  echo "[validate] compose_config=ok"
+
+  command -v systemctl >/dev/null 2>&1 || fail "systemctl is required for validation"
+  command -v sudo >/dev/null 2>&1 || fail "sudo is required for validation"
+  sudo -n true >/dev/null 2>&1 || fail "passwordless sudo is required"
+  echo "[validate] sudo_ready=ok"
+
+  systemctl is-active --quiet mihomo.service || fail "mihomo.service is not active"
+  echo "[validate] mihomo_service=active"
+
+  ss -ltn | grep -Fq "127.0.0.1:7890" || fail "mihomo proxy is not listening on 127.0.0.1:7890"
+  echo "[validate] proxy_listener=ok"
+
+  curl -I --max-time 15 --proxy "$EXPECTED_PROXY" "https://auth.docker.io/token?service=registry.docker.io" >/dev/null
+  echo "[validate] proxy_connectivity=ok"
+
+  docker_info="$(docker info 2>/dev/null)"
+  grep -Fq "HTTP Proxy: $EXPECTED_PROXY" <<<"$docker_info" || fail "docker daemon is missing HTTP proxy $EXPECTED_PROXY"
+  grep -Fq "HTTPS Proxy: $EXPECTED_PROXY" <<<"$docker_info" || fail "docker daemon is missing HTTPS proxy $EXPECTED_PROXY"
+  echo "[validate] docker_proxy=ok"
+
+  unit_output="$(systemctl cat loom.service)"
+  printf '%s\n' "$unit_output"
+
+  grep -Fq "$EXPECTED_COMPOSE_PATH" <<<"$unit_output" || fail "loom.service does not reference $EXPECTED_COMPOSE_PATH"
+  grep -Fq "$EXPECTED_ENV_PATH" <<<"$unit_output" || fail "loom.service does not reference $EXPECTED_ENV_PATH"
+  if grep -Fq "/opt/loom" <<<"$unit_output"; then
+    fail "loom.service still references /opt/loom"
+  fi
+  echo "[validate] loom_service=ok"
+
   date -u +"[validate] finished_at=%Y-%m-%dT%H:%M:%SZ"
 } 2>&1 | tee "$LOG_FILE"

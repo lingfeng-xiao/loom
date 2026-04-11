@@ -1,5 +1,6 @@
 package com.loom.server.memory;
 
+import com.loom.server.jdbc.JdbcSchemaSupport;
 import jakarta.annotation.PostConstruct;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
@@ -31,7 +32,12 @@ public class JdbcMemorySuggestionRepository implements MemorySuggestionRepositor
                     updated_at VARCHAR(40) NOT NULL
                 )
                 """);
-        jdbcTemplate.execute("CREATE INDEX IF NOT EXISTS idx_loom_memory_suggestions_project ON loom_memory_suggestions(project_id, conversation_id, scope, status, created_at)");
+        JdbcSchemaSupport.ensureIndex(
+                jdbcTemplate,
+                "loom_memory_suggestions",
+                "idx_loom_memory_suggestions_project",
+                "project_id, conversation_id, scope, status, created_at"
+        );
     }
 
     @Override
@@ -110,3 +116,4 @@ public class JdbcMemorySuggestionRepository implements MemorySuggestionRepositor
         );
     }
 }
+

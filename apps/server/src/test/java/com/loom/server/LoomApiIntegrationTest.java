@@ -9,9 +9,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.MvcResult;
 
 import static org.hamcrest.Matchers.containsString;
 import static org.hamcrest.Matchers.startsWith;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.asyncDispatch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -19,6 +21,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.request;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @SpringBootTest
@@ -54,14 +57,14 @@ class LoomApiIntegrationTest {
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "workspaceName": "Acme Template",
+                                  "workspaceName": "Acme Loom",
                                   "supportEmail": "platform@example.com",
                                   "docsUrl": "https://example.com/docs",
                                   "defaultRefreshIntervalSeconds": 45
                                 }
                                 """))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.data.workspaceName").value("Acme Template"));
+                .andExpect(jsonPath("$.data.workspaceName").value("Acme Loom"));
 
         mockMvc.perform(get("/api/settings"))
                 .andExpect(status().isOk())
@@ -72,11 +75,11 @@ class LoomApiIntegrationTest {
     @Test
     void nodeRegistrationAndHeartbeatPersistProbeState() throws Exception {
         String nodeId = mockMvc.perform(post("/api/nodes/register")
-                        .header("X-Template-Node-Token", "integration-test-token")
+                        .header("X-Loom-Node-Token", "integration-test-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
-                                  "name": "template-node",
+                                  "name": "loom-node",
                                   "type": "server",
                                   "host": "localhost",
                                   "tags": ["edge", "linux"],
@@ -90,16 +93,16 @@ class LoomApiIntegrationTest {
                 .replaceAll(".*\"nodeId\":\"([^\"]+)\".*", "$1");
 
         mockMvc.perform(post("/api/nodes/" + nodeId + "/heartbeat")
-                        .header("X-Template-Node-Token", "integration-test-token")
+                        .header("X-Loom-Node-Token", "integration-test-token")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
                                 {
                                   "status": "up",
                                   "probes": [
                                     {
-                                      "name": "template-server",
+                                      "name": "loom-server",
                                       "kind": "http",
-                                      "target": "http://template-server:8080/api/health",
+                                      "target": "http://loom-server:8080/api/health",
                                       "status": "up",
                                       "detail": "200 OK"
                                     }
@@ -112,7 +115,7 @@ class LoomApiIntegrationTest {
         mockMvc.perform(get("/api/nodes/" + nodeId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.data.status").value("up"))
-                .andExpect(jsonPath("$.data.probes[0].name").value("template-server"));
+                .andExpect(jsonPath("$.data.probes[0].name").value("loom-server"));
     }
 
     @Test
@@ -215,7 +218,12 @@ class LoomApiIntegrationTest {
                 .andExpect(jsonPath("$.data.runId").value(runId))
                 .andExpect(jsonPath("$.data.status").value("running"));
 
-        mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/stream"))
+        MvcResult streamResult = mockMvc.perform(get("/api/projects/project-loom/conversations/conversation-v1/stream"))
+                .andExpect(request().asyncStarted())
+                .andReturn();
+        streamResult.getAsyncResult(5_000L);
+
+        mockMvc.perform(asyncDispatch(streamResult))
                 .andExpect(status().isOk())
                 .andExpect(content().string(containsString("event:thinking.summary.delta")))
                 .andExpect(content().string(containsString("event:thinking.summary.done")))

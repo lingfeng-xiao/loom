@@ -2,28 +2,16 @@ spring:
   application:
     name: loom-server
   datasource:
-    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/template?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
-    username: ${SPRING_DATASOURCE_USERNAME:template}
-    password: ${SPRING_DATASOURCE_PASSWORD:template}
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://127.0.0.1:3306/loom?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:loom}
+    password: ${SPRING_DATASOURCE_PASSWORD:loom}
   flyway:
     enabled: true
     locations: classpath:db/migration
+    validate-on-migrate: false
 
 server:
-  port: ${TEMPLATE_SERVER_PORT:8080}
-
-template:
-  app-name: loom
-  description: Projectized AI conversation workspace with a visible trace and configurable capability shell.
-  docs-url: https://github.com/lingfeng-xiao/loom
-  support-email: loom@example.com
-  node:
-    heartbeat-timeout-seconds: ${TEMPLATE_NODE_HEARTBEAT_TIMEOUT_SECONDS:90}
-    server-token: ${TEMPLATE_SERVER_TOKEN:change-me}
-  release:
-    install-root: ${TEMPLATE_INSTALL_ROOT:/opt/template}
-    systemd-unit: ${TEMPLATE_SYSTEMD_UNIT:template.service}
-    registry: ${TEMPLATE_REGISTRY:ghcr.io/example}
+  port: ${LOOM_SERVER_PORT:8080}
 
 management:
   endpoints:
@@ -35,6 +23,17 @@ management:
       show-details: always
 
 loom:
+  app-name: loom
+  description: Projectized AI conversation workspace with a visible trace and configurable capability shell.
+  docs-url: https://github.com/lingfeng-xiao/loom
+  support-email: loom@example.com
+  node:
+    heartbeat-timeout-seconds: ${LOOM_NODE_HEARTBEAT_TIMEOUT_SECONDS:90}
+    server-token: ${LOOM_SERVER_TOKEN:change-me}
+  release:
+    install-root: ${LOOM_INSTALL_ROOT:/opt/loom}
+    systemd-unit: ${LOOM_SYSTEMD_UNIT:loom.service}
+    registry: ${LOOM_REGISTRY:ghcr.io/example}
   llm:
     minimax:
       api-base-url: ${LOOM_MINIMAX_API_BASE_URL:https://api.minimaxi.com/v1}

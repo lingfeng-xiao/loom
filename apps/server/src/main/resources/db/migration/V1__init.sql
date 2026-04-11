@@ -7,7 +7,7 @@ create table if not exists workspace_settings (
     updated_at timestamp not null
 );
 
-create table if not exists template_nodes (
+create table if not exists loom_nodes (
     node_id varchar(64) primary key,
     node_name varchar(255) not null,
     node_type varchar(64) not null,
@@ -20,7 +20,7 @@ create table if not exists template_nodes (
     updated_at timestamp not null
 );
 
-create table if not exists template_node_probes (
+create table if not exists loom_node_probes (
     node_id varchar(64) not null,
     probe_name varchar(255) not null,
     probe_kind varchar(64) not null,
@@ -29,8 +29,8 @@ create table if not exists template_node_probes (
     detail varchar(1024) null,
     recorded_at timestamp not null,
     primary key (node_id, probe_name),
-    constraint fk_template_node_probes_node
-        foreign key (node_id) references template_nodes (node_id) on delete cascade
+    constraint fk_loom_node_probes_node
+        foreign key (node_id) references loom_nodes (node_id) on delete cascade
 );
 
 insert into workspace_settings (
@@ -42,9 +42,9 @@ insert into workspace_settings (
     updated_at
 ) values (
     'default',
-    'Template Workspace',
+    'Loom Workspace',
     'team@example.com',
-    'https://github.com/lingfeng-xiao/template',
+    'https://github.com/lingfeng-xiao/loom',
     30,
     CURRENT_TIMESTAMP
 )

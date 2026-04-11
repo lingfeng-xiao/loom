@@ -1,9 +1,9 @@
 spring:
   datasource:
-    url: jdbc:h2:mem:template;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
+    url: jdbc:h2:mem:loom;MODE=MySQL;DB_CLOSE_DELAY=-1;DATABASE_TO_LOWER=TRUE
     username: sa
     password:
 
-template:
+loom:
   node:
     server-token: integration-test-token

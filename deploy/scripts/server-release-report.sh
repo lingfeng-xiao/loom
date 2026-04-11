@@ -11,6 +11,7 @@ FINISHED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 REPO_HEAD="$(git -C "$ROOT" rev-parse HEAD)"
 PREV_HEAD="$(git -C "$ROOT" rev-parse HEAD~1 2>/dev/null || true)"
 ROLLBACK_READY=false
+EVIDENCE_FILE="${RELEASE_DIR}/evidence.json"
 if [[ -n "$PREV_HEAD" ]]; then
   ROLLBACK_READY=true
 fi
@@ -24,10 +25,16 @@ cat > "$RESULT_FILE" <<EOF
   "finished_at": "$FINISHED_AT",
   "operator": "${USER:-unknown}",
   "repo_head": "$REPO_HEAD",
+  "release_mode": "${RELEASE_MODE:-server-build}",
   "validated": ${VALIDATED:-false},
+  "sudo_ready": ${SUDO_READY:-false},
+  "proxy_ready": ${PROXY_READY:-false},
+  "images_ready": ${IMAGES_READY:-false},
   "deployed": ${DEPLOYED:-false},
   "healthcheck_passed": ${HEALTHCHECK_PASSED:-false},
   "rollback_ready": $ROLLBACK_READY,
+  "rollback_ref": "${PREV_HEAD:-HEAD~1}",
+  "evidence_file": "$EVIDENCE_FILE",
   "status": "$STATUS"
 }
 EOF

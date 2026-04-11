@@ -4,6 +4,6 @@ spring:
     username: sa
     password:
 
-template:
+loom:
   node:
     server-token: local-dev-token

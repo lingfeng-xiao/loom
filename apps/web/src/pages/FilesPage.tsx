@@ -1,31 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useProjectStore } from '../domains/project/useProjectStore'
 import { createLoomSdk } from '../sdk/loomApiClient'
 import type { FileAssetSummary } from '../types'
 
 const API_BASE = import.meta.env.VITE_API_BASE ?? ''
 const sdk = createLoomSdk({ baseUrl: API_BASE })
-
-const fallbackFiles: FileAssetSummary[] = [
-  {
-    id: 'fallback-prd',
-    projectId: 'project-loom',
-    displayName: 'loom-prd.md',
-    mimeType: 'text/markdown',
-    sizeBytes: 18_240,
-    parseStatus: 'ready',
-    uploadedAt: 'fallback',
-  },
-  {
-    id: 'fallback-contract',
-    projectId: 'project-loom',
-    displayName: 'phase1-contract-freeze.md',
-    mimeType: 'text/markdown',
-    sizeBytes: 24_512,
-    parseStatus: 'ready',
-    uploadedAt: 'fallback',
-  },
-]
 
 function formatBytes(sizeBytes: number) {
   if (sizeBytes < 1024) {
@@ -37,10 +16,9 @@ function formatBytes(sizeBytes: number) {
 export function FilesPage() {
   const project = useProjectStore()
   const projectId = project.currentProject.id
-  const [files, setFiles] = useState<FileAssetSummary[]>(fallbackFiles)
+  const [files, setFiles] = useState<FileAssetSummary[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const sourceLabel = useMemo(() => (error ? '本地回退' : '远端数据'), [error])
 
   useEffect(() => {
     if (!projectId) {
@@ -60,7 +38,7 @@ export function FilesPage() {
         setLoading(false)
       })
       .catch((fetchError) => {
-        setFiles(fallbackFiles)
+        setFiles([])
         setError(fetchError instanceof Error ? fetchError.message : '文件数据读取失败')
         setLoading(false)
       })
@@ -75,13 +53,13 @@ export function FilesPage() {
         <p>项目文件池与引用资产，优先展示可供会话与上下文引用的核心文件。</p>
       </div>
 
-      {error ? <section className="infoBanner">文件远端读取失败，已回退到 {sourceLabel}：{error}</section> : null}
+      {error ? <section className="infoBanner">文件远端读取失败：{error}</section> : null}
 
       {loading ? (
         <div className="emptyPage">
           <p className="eyebrow">文件</p>
           <h3>正在加载项目文件池</h3>
-          <p>优先读取工作区 API，失败时回退到本地基线。</p>
+          <p>优先读取工作区 API，失败时显示错误与空状态。</p>
         </div>
       ) : files.length === 0 ? (
         <div className="emptyPage">
@@ -95,7 +73,7 @@ export function FilesPage() {
             <div className="toolPanelHeader">
               <h3>文件列表</h3>
               <span>
-                {files.length} 个文件 / {sourceLabel}
+                {files.length} files / remote data
               </span>
             </div>
             <ul className="toolList">

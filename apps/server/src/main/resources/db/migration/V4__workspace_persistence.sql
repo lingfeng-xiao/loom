@@ -28,7 +28,7 @@ CREATE TABLE IF NOT EXISTS loom_messages (
     conversation_id VARCHAR(80) NOT NULL,
     kind VARCHAR(40) NOT NULL,
     role VARCHAR(40) NOT NULL,
-    body CLOB NOT NULL,
+    body LONGTEXT NOT NULL,
     summary TEXT,
     status_label VARCHAR(40),
     latency_ms BIGINT,
@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS loom_context_snapshots (
     project_id VARCHAR(80) NOT NULL,
     conversation_id VARCHAR(80) NOT NULL,
     kind VARCHAR(40) NOT NULL,
-    content CLOB NOT NULL,
+    content LONGTEXT NOT NULL,
     updated_at VARCHAR(40) NOT NULL
 );
 
@@ -85,7 +85,7 @@ CREATE TABLE IF NOT EXISTS loom_memory_items (
     scope VARCHAR(40) NOT NULL,
     project_id VARCHAR(80),
     conversation_id VARCHAR(80),
-    content CLOB NOT NULL,
+    content LONGTEXT NOT NULL,
     source VARCHAR(40) NOT NULL,
     updated_at VARCHAR(40) NOT NULL
 );
@@ -95,17 +95,9 @@ CREATE TABLE IF NOT EXISTS loom_memory_suggestions (
     scope VARCHAR(40) NOT NULL,
     project_id VARCHAR(80),
     conversation_id VARCHAR(80),
-    content CLOB NOT NULL,
+    content LONGTEXT NOT NULL,
     status VARCHAR(40) NOT NULL,
     created_at VARCHAR(40) NOT NULL,
     updated_at VARCHAR(40) NOT NULL
 );
 
-CREATE INDEX IF NOT EXISTS idx_loom_conversations_project ON loom_conversations(project_id, updated_at);
-CREATE INDEX IF NOT EXISTS idx_loom_messages_conversation ON loom_messages(project_id, conversation_id, sequence_number);
-CREATE INDEX IF NOT EXISTS idx_loom_actions_conversation ON loom_actions(project_id, conversation_id, started_at);
-CREATE INDEX IF NOT EXISTS idx_loom_runs_conversation ON loom_runs(project_id, conversation_id, started_at);
-CREATE INDEX IF NOT EXISTS idx_loom_run_steps_run ON loom_run_steps(run_id, started_at);
-CREATE INDEX IF NOT EXISTS idx_loom_context_snapshots_conversation ON loom_context_snapshots(project_id, conversation_id, updated_at);
-CREATE INDEX IF NOT EXISTS idx_loom_memory_items_project ON loom_memory_items(project_id, conversation_id, scope, updated_at);
-CREATE INDEX IF NOT EXISTS idx_loom_memory_suggestions_project ON loom_memory_suggestions(project_id, conversation_id, scope, status, created_at);

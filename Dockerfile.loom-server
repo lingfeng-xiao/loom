@@ -6,7 +6,7 @@ RUN if [ -d /workspace/apps/server ]; then ln -s /workspace/apps/server /workspa
     elif [ -d /workspace/apps/loom-server ]; then ln -s /workspace/apps/loom-server /workspace/apps/current-server; \
     else echo "Missing server source under apps/server or apps/loom-server" >&2; exit 1; fi
 WORKDIR /workspace/apps/current-server
-RUN mvn -q -DskipTests package
+RUN mvn -q clean -DskipTests package
 
 FROM eclipse-temurin:21-jre
 WORKDIR /app

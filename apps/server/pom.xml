@@ -11,11 +11,11 @@
         <relativePath/>
     </parent>
 
-    <groupId>com.template</groupId>
-    <artifactId>template-server</artifactId>
+    <groupId>com.loom</groupId>
+    <artifactId>loom-server</artifactId>
     <version>0.1.0-SNAPSHOT</version>
-    <name>template-server</name>
-    <description>Infrastructure template API</description>
+    <name>loom-server</name>
+    <description>Loom API</description>
     <packaging>jar</packaging>
 
     <properties>

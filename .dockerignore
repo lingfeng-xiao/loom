@@ -1,0 +1,8 @@
+.git
+.release
+**/target
+**/node_modules
+**/dist
+**/__pycache__
+logs
+vault
