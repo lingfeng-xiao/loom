@@ -93,7 +93,7 @@ REVIEW_RESULT: PENDING
 
 - TODO
 
-## Minimal fix list
+## Recommended corrections
 
 - TODO
 "@
@@ -147,7 +147,8 @@ function Save-AttemptSnapshot {
 function New-FixBrief {
     param(
         [string]$TaskDir,
-        [int]$Attempt
+        [int]$Attempt,
+        [object]$Triage
     )
 
     $originalBriefPath = Join-Path $TaskDir "brief.original.md"
@@ -165,14 +166,14 @@ function New-FixBrief {
     $baseBrief = (Get-Content $originalBriefPath -Raw).TrimEnd()
     $reviewResult = Get-Content $reviewResultPath -Raw | ConvertFrom-Json
     $issues = @($reviewResult.issues)
-    $fixes = @($reviewResult.minimal_fix_list)
+    $fixes = if ($reviewResult.recommended_corrections) { @($reviewResult.recommended_corrections) } else { @($reviewResult.minimal_fix_list) }
 
     $content = @(
         $baseBrief,
         "",
-        "## Auto fix pass",
+        "## Auto repair pass",
         "",
-        "This is automated retry attempt $Attempt after Codex review rejected the previous run.",
+        "This is automated retry attempt $Attempt after Codex review triage selected `$($Triage.recommended_action)` with repair size `$($Triage.repair_size)`.",
         "",
         "### Issues to fix",
         ""
@@ -185,13 +186,130 @@ function New-FixBrief {
         "### Retry rules",
         "",
         "- Keep the original goal, constraints, done-when items, and non-goals unchanged.",
-        "- Apply only the minimum changes needed to satisfy the review findings.",
+        "- Apply only the bounded changes justified by the repair size and review findings.",
+        "- If the selected repair size is no longer accurate after inspection, stop and report why instead of widening scope silently.",
         "- Re-run concrete validation and report it in TESTS_RUN.",
         "- Return the full output contract again."
     )
 
     Set-Content -Path $fixBriefPath -Value ($content -join "`r`n") -Encoding utf8
     return $fixBriefPath
+}
+
+function New-FailureTriage {
+    param(
+        [string]$TaskDir,
+        [int]$Attempt
+    )
+
+    $resultPath = Join-Path $TaskDir "result.json"
+    $preflightPath = Join-Path $TaskDir "preflight.json"
+    $reviewResultPath = Join-Path $TaskDir "review-result.json"
+    $triagePath = Join-Path $TaskDir "failure-triage.json"
+
+    $result = if (Test-Path $resultPath) { Get-Content $resultPath -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
+    $preflight = if (Test-Path $preflightPath) { Get-Content $preflightPath -Raw | ConvertFrom-Json } else { [pscustomobject]@{} }
+    $review = if (Test-Path $reviewResultPath) { Get-Content $reviewResultPath -Raw | ConvertFrom-Json } else { [pscustomobject]@{ issues = @(); recommended_corrections = @(); minimal_fix_list = @() } }
+    $issues = @($review.issues)
+    $failedGates = New-Object System.Collections.Generic.List[string]
+    $likelyCauses = New-Object System.Collections.Generic.List[string]
+
+    if ($preflight.status -ne "PASS") {
+        $failedGates.Add("preflight")
+        $likelyCauses.Add("environment_or_infrastructure")
+    }
+    if ($result.worker_status -ne "SUCCESS") {
+        $failedGates.Add("worker_status")
+    }
+    if ($null -ne $result.contract_complete -and -not $result.contract_complete) {
+        $failedGates.Add("contract")
+        $likelyCauses.Add("prompt_contract_or_worker_runtime")
+    }
+    if ($null -ne $result.diff_present -and -not $result.diff_present) {
+        $failedGates.Add("diff")
+        $likelyCauses.Add("task_execution_or_prompt_scope")
+    }
+    if ($null -ne $result.validation_reported -and -not $result.validation_reported) {
+        $failedGates.Add("validation")
+        $likelyCauses.Add("validation_instruction_or_worker_followthrough")
+    }
+    if ($null -ne $result.timed_out -and $result.timed_out) {
+        $failedGates.Add("timeout")
+        $likelyCauses.Add("task_too_large_or_worker_stalled")
+    }
+    if ($null -ne $result.idle_timed_out -and $result.idle_timed_out) {
+        $failedGates.Add("idle_timeout")
+        $likelyCauses.Add("task_too_large_or_worker_stalled")
+    }
+    if ($issues -match "outside Relevant files") {
+        $failedGates.Add("scope")
+        $likelyCauses.Add("scope_drift_or_quality_risk")
+    }
+    if ($issues -match "missing concrete Done when|Relevant files is empty") {
+        $failedGates.Add("brief_quality")
+        $likelyCauses.Add("brief_ambiguity")
+    }
+
+    $uniqueGates = @($failedGates | Select-Object -Unique)
+    $uniqueCauses = @($likelyCauses | Select-Object -Unique)
+    $repairSize = "small"
+    $recommendedAction = "small_fix"
+    $confidence = "medium"
+    $needsUserInput = $false
+
+    if ($uniqueGates -contains "preflight") {
+        $repairSize = "not_repairable_in_current_task"
+        $recommendedAction = "fix_infrastructure"
+        $confidence = "high"
+    } elseif ($uniqueGates -contains "scope") {
+        $repairSize = "large"
+        $recommendedAction = "codex_takeover"
+        $confidence = "high"
+    } elseif ($uniqueGates -contains "brief_quality") {
+        $repairSize = "not_repairable_in_current_task"
+        $recommendedAction = "clarify_brief"
+        $confidence = "high"
+        $needsUserInput = $true
+    } elseif ($uniqueGates -contains "timeout" -or $uniqueGates -contains "idle_timeout") {
+        $repairSize = "large"
+        $recommendedAction = "resplit_task"
+        $confidence = "medium"
+    } elseif (($uniqueGates -contains "contract") -and ($uniqueGates -contains "diff")) {
+        $repairSize = "medium"
+        $recommendedAction = "medium_fix"
+        $confidence = "medium"
+    } elseif ($uniqueGates -contains "contract") {
+        $repairSize = "tiny"
+        $recommendedAction = "tiny_fix"
+        $confidence = "medium"
+    } elseif ($uniqueGates -contains "validation") {
+        $repairSize = "small"
+        $recommendedAction = "small_fix"
+        $confidence = "medium"
+    }
+
+    $payload = [ordered]@{
+        task_id = (Split-Path $TaskDir -Leaf)
+        attempt = $Attempt
+        failed_gates = $uniqueGates
+        likely_causes = $uniqueCauses
+        repair_size = $repairSize
+        recommended_action = $recommendedAction
+        confidence = $confidence
+        needs_user_input = $needsUserInput
+        evidence_files = [ordered]@{
+            result = $resultPath
+            preflight = $preflightPath
+            review_result = $reviewResultPath
+            review_notes = (Join-Path $TaskDir "review-notes.md")
+            response = (Join-Path $TaskDir "claude.response.md")
+            status = (Join-Path $TaskDir "git.status.txt")
+            diff = (Join-Path $TaskDir "git.diff.stat.txt")
+        }
+        generated_at = (Get-Date).ToString("o")
+    }
+    $payload | ConvertTo-Json -Depth 5 | Set-Content -Path $triagePath -Encoding utf8
+    return $payload
 }
 
 function Invoke-RemoteAttempt {
@@ -329,8 +447,15 @@ for ($attempt = 1; $attempt -le $totalAttempts; $attempt++) {
         break
     }
 
-    $attemptTaskFile = New-FixBrief -TaskDir $taskDir -Attempt ($attempt + 1)
-    Write-Warning "Codex review requested a fix pass. Re-dispatching attempt $($attempt + 1) for task $TaskId."
+    $triage = New-FailureTriage -TaskDir $taskDir -Attempt $attempt
+    $retryableActions = @("tiny_fix", "small_fix", "medium_fix")
+    if ($retryableActions -notcontains $triage.recommended_action) {
+        Write-Warning "Codex review failed and triage selected $($triage.recommended_action) with repair size $($triage.repair_size). Not re-dispatching automatically."
+        break
+    }
+
+    $attemptTaskFile = New-FixBrief -TaskDir $taskDir -Attempt ($attempt + 1) -Triage $triage
+    Write-Warning "Codex review requested $($triage.recommended_action) ($($triage.repair_size)). Re-dispatching attempt $($attempt + 1) for task $TaskId."
 }
 
 Write-Host "Pulled remote artifacts into $taskDir"

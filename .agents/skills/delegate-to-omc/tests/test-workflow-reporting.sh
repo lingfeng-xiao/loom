@@ -35,7 +35,7 @@ mkdir -p "$delegation_root"
 
 write_common_files "$delegation_root/pass" "PASS" "SUCCESS" "PASS" ""
 cat > "$delegation_root/pass/review-result.json" <<'EOF'
-{"review_result":"PASS","issues":[],"minimal_fix_list":[]}
+{"review_result":"PASS","issues":[],"recommended_corrections":[],"minimal_fix_list":[]}
 EOF
 bash "$scripts_dir/close-delegation.sh" --task-id pass --delegation-root "$delegation_root" --release-id rel-pass --rollback-ref rollback-pass
 assert_json "$delegation_root/pass/workflow-report.json"
@@ -43,7 +43,10 @@ grep -q '"final_state": "CLOSED"' "$delegation_root/pass/workflow-report.json"
 
 write_common_files "$delegation_root/blocked" "NEEDS_FIX" "PARTIAL" "PASS" ',"contract_complete":false,"diff_present":false,"validation_reported":false'
 cat > "$delegation_root/blocked/review-result.json" <<'EOF'
-{"review_result":"NEEDS_FIX","issues":["No real diff was detected.","Fake Claude returned Execution error."],"minimal_fix_list":["Make a real edit."]}
+{"review_result":"NEEDS_FIX","issues":["No real diff was detected.","Fake Claude returned Execution error."],"recommended_corrections":["Make a real edit."],"minimal_fix_list":["Make a real edit."]}
+EOF
+cat > "$delegation_root/blocked/failure-triage.json" <<'EOF'
+{"repair_size":"medium","recommended_action":"medium_fix","confidence":"medium","likely_causes":["prompt_contract_or_worker_runtime"],"failed_gates":["contract","diff"]}
 EOF
 set +e
 bash "$scripts_dir/close-delegation.sh" --task-id blocked --delegation-root "$delegation_root" --release-id rel-blocked --rollback-ref rollback-blocked
@@ -56,10 +59,22 @@ fi
 assert_json "$delegation_root/blocked/workflow-report.json"
 grep -q 'No real diff was detected' "$delegation_root/blocked/workflow-report.md"
 grep -q 'Fake Claude returned Execution error' "$delegation_root/blocked/workflow-report.md"
+grep -q 'Recommended action: `medium_fix`' "$delegation_root/blocked/workflow-report.md"
+python3 - <<'PY' "$delegation_root/blocked/workflow-report.json"
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as fh:
+    data = json.load(fh)
+
+assert data["repair_size"] == "medium"
+assert data["recommended_action"] == "medium_fix"
+assert data["failure_triage"]["confidence"] == "medium"
+PY
 
 write_common_files "$delegation_root/timeout" "NEEDS_FIX" "FAILED" "PASS" ',"timed_out":true,"idle_timed_out":true'
 cat > "$delegation_root/timeout/review-result.json" <<'EOF'
-{"review_result":"NEEDS_FIX","issues":["Timeout was detected.","Idle timeout was detected."],"minimal_fix_list":["Split the task."]}
+{"review_result":"NEEDS_FIX","issues":["Timeout was detected.","Idle timeout was detected."],"recommended_corrections":["Split the task."],"minimal_fix_list":["Split the task."]}
 EOF
 set +e
 bash "$scripts_dir/close-delegation.sh" --task-id timeout --delegation-root "$delegation_root" >/dev/null 2>&1

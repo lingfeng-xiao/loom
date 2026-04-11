@@ -56,6 +56,8 @@ Core event types:
 - `workflow.closed`
 - `workflow.abandoned`
 - `workflow.issue.detected`
+- `session.summary.generated`
+- `reflection.candidate_lesson`
 
 Issue events use these categories:
 
@@ -102,6 +104,54 @@ Required metrics:
 - `auto_recovered_total`
 - `follow_up_required_total`
 - `top_issue_summaries`
+- `delegated_task_count`
+- `worker_success_count`
+- `worker_failure_count`
+- `contract_failure_count`
+- `codex_takeover_count`
+- `fix_pass_count`
+- `estimated_claude_prompt_tokens`
+- `estimated_claude_response_tokens`
+- `estimated_codex_overhead_tokens`
+- `token_savings_verdict`
+
+## Session summary schema
+
+Session summaries are written to `.delegations/_sessions/<session-id>/delegation-session-summary.json` after all tasks in the session finish. The summary is also printed so Codex can include it directly in the final user response.
+
+Required fields:
+
+- `session_id`
+- `delegated_task_count`
+- `worker_success_count`
+- `worker_failure_count`
+- `contract_failure_count`
+- `codex_takeover_count`
+- `fix_pass_count`
+- `review_reject_count`
+- `elapsed_time_by_phase`
+- `estimated_claude_prompt_tokens`
+- `estimated_claude_response_tokens`
+- `estimated_codex_overhead_tokens`
+- `token_savings_verdict`
+- `confidence`
+- `events_by_type`
+- `statuses`
+
+Token values should use real upstream usage if available. When real usage is not available, estimate Claude prompt and response tokens with `chars / 4`, estimate Codex overhead with stable proxy counters, and mark confidence accordingly.
+
+## Reflection model
+
+Reflection is a post-run path, not a worker execution path. During execution the workflow records facts and evidence only. After all tasks complete, Codex should summarize:
+
+- quality gate result by task
+- failed gate, symptom, evidence, counter-evidence, confidence, and repairability
+- whether repair size selection was appropriate
+- whether Claude/Minmax reduced Codex effort
+- which issues are script-fixable, prompt-fixable, process-fixable, or model-boundary problems
+- `candidate_lesson` items with confidence and `review_after`
+
+Candidate lessons are not permanent rules until repeated evidence or explicit adoption promotes them to `proposed_rule_change`.
 
 ## Reporting cadence
 

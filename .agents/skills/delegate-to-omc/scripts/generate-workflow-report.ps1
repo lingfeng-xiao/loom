@@ -51,6 +51,8 @@ $result = Read-JsonOrDefault -PathValue $resultPath -DefaultValue ([pscustomobje
 $preflight = Read-JsonOrDefault -PathValue $preflightPath -DefaultValue ([pscustomobject]@{})
 $reviewData = Read-JsonOrDefault -PathValue $reviewResultPath -DefaultValue ([pscustomobject]@{})
 $closeout = Read-JsonOrDefault -PathValue $closeoutPath -DefaultValue ([pscustomobject]@{})
+$triagePath = Join-Path $taskDir "failure-triage.json"
+$triage = Read-JsonOrDefault -PathValue $triagePath -DefaultValue ([pscustomobject]@{})
 $reviewText = if (Test-Path $reviewPath) { Get-Content $reviewPath -Raw } else { "" }
 $reviewMatch = [regex]::Match($reviewText, 'REVIEW_RESULT:\s*(\S+)')
 
@@ -75,7 +77,7 @@ if ($null -ne $result.contract_complete -and -not $result.contract_complete) { A
 if ($null -ne $result.diff_present -and -not $result.diff_present) { Add-Unique -List $mismatches -Value "No real diff was detected." }
 if ($null -ne $result.validation_reported -and -not $result.validation_reported) { Add-Unique -List $mismatches -Value "Validation was not meaningfully reported." }
 
-$nextActions = @($reviewData.minimal_fix_list)
+$nextActions = if ($reviewData.recommended_corrections) { @($reviewData.recommended_corrections) } else { @($reviewData.minimal_fix_list) }
 if ($nextActions.Count -eq 0) {
     $nextActions = if ($closeable) { @("No follow-up required.") } else { @("Fix the blocking issues and rerun closeout.") }
 }
@@ -106,6 +108,9 @@ $payload = [ordered]@{
     auto_recovered = ($issues.Count -gt 0 -and $closeable)
     residual_risk = $(if ($closeable) { "None recorded." } else { "Closeout is blocked; inspect issues and evidence." })
     next_actions = @($nextActions)
+    failure_triage = $triage
+    repair_size = $(if ($triage.repair_size) { $triage.repair_size } else { "" })
+    recommended_action = $(if ($triage.recommended_action) { $triage.recommended_action } else { "" })
     evidence_files = $evidenceFiles
     generated_at = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ssZ")
 }
@@ -139,6 +144,12 @@ $md = @(
     "## Next Actions",
     ""
 ) + ($nextActions | ForEach-Object { "- $_" }) + @(
+    "",
+    "## Failure Triage",
+    "",
+    "- Repair size: $($payload.repair_size)",
+    "- Recommended action: $($payload.recommended_action)",
+    "- Confidence: $($triage.confidence)",
     "",
     "## Evidence",
     ""

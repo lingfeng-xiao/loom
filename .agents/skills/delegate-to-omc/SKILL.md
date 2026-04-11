@@ -16,8 +16,9 @@ Keep Codex in the `planner / reviewer / closer` role:
 - generate a delegation packet
 - call the local wrapper that reaches the server through `ssh jd`
 - review the result against the brief
-- keep issuing minimal fix passes until the review passes or the retry budget is exhausted
+- triage failed review gates before deciding whether Claude should retry, Codex should take over, infrastructure should be fixed, or the task should be resplit
 - close the task only after the review passes
+- summarize the execution report and post-run reflection directly to the user
 
 ## When To Use
 
@@ -92,8 +93,10 @@ The remote scripts now also write:
 - `preflight.json` with remote environment checks
 - `result.json` with contract and diff verdicts
 - `review-result.json` with Codex's machine-readable review verdict and fix list
+- `failure-triage.json` when a review gate fails and Codex must decide the next action
 - `closeout.json` after Codex marks the review as `PASS`
 - `workflow-report.md` and `workflow-report.json` for both closed and blocked outcomes
+- `_sessions/<session-id>/delegation-session-summary.json` and `.md` when a multi-task delegation session is summarized
 
 ## Codex Review Flow
 
@@ -104,10 +107,12 @@ After the remote worker finishes:
 3. Inspect the diff and reject out-of-scope edits.
 4. Confirm validation commands were actually run, or that the worker explicitly explained why they were not.
 5. Write `PASS` or `NEEDS_FIX` in `review-notes.md`.
-6. When the review fails, append the minimal fix list to a retry brief and re-dispatch the same task.
-7. Stop only after the review passes, the retry budget is exhausted, or you hit a real ambiguity that needs user input.
-8. Write `closeout.json` only after `PASS`.
-9. Treat missing `workflow-report.md` or `workflow-report.json` as not closed.
+6. When the review fails, write a failure triage with failed gate, likely cause, repair size, recommended action, confidence, and evidence files.
+7. Re-dispatch to Claude only for bounded `tiny_fix`, `small_fix`, or `medium_fix` decisions. Do not default to a "minimal fix"; choose the repair size from the actual failure.
+8. Use `fix_infrastructure`, `resplit_task`, `clarify_brief`, `codex_takeover`, or `block_release` when the failure is not safely repairable inside the current worker task.
+9. Stop only after the review passes, the retry budget is exhausted, or triage selects a non-retry action.
+10. Write `closeout.json` only after `PASS`.
+11. Treat missing `workflow-report.md` or `workflow-report.json` as not closed.
 
 Use [assets/review-checklist.md](assets/review-checklist.md) as the fixed checklist.
 
@@ -121,6 +126,19 @@ Codex must summarize that report in the final user response. Include problems
 encountered, expectation mismatches, recovery actions, residual risk, and
 evidence paths even when the final deploy succeeds.
 
+Files are evidence, not the user-facing report. If the user does not see the
+execution result, issues, deviations, and final quality verdict in chat, the
+workflow is not closed.
+
+After all delegated tasks in a session finish, run the post-run reflection path:
+
+- summarize dispatch/result/review/validation/fix-pass/takeover/release events
+- report which workers passed quality gates and which did not
+- give candidate root causes with evidence, counter-evidence, confidence, and repairability
+- judge whether Claude/Minmax actually saved Codex effort
+- mark token numbers as real usage when available, otherwise estimate with the `chars / 4` proxy
+- record `candidate_lesson` items as updateable hypotheses, not permanent rules
+
 New core runner, report, and telemetry behavior belongs in server-side Bash.
 PowerShell remains a legacy compatibility wrapper and should not grow separate
 business logic.
@@ -132,11 +150,17 @@ runner error, Claude invocation error, shell quoting error, artifact sync error,
 mirror head mismatch, preflight failure, timeout, idle timeout, review reject,
 validation failure, deploy failure, or release-ahead warning.
 
+For session-level ROI and reflection, record lightweight events with
+`record-delegation-event.sh` during dispatch, result, review, validation,
+fix-pass, Codex takeover, and release phases. Generate the final session
+summary with `summarize-delegation-session.sh` after all tasks complete; do not
+run deep reflection inside individual worker execution.
+
 ## Runtime Guardrails
 
 - Default to `ensure-remote-claude-ready` before live delegation. It verifies `claude -p` first and syncs local user config only when the remote environment drifted.
 - Pass `TimeoutSeconds` and `IdleTimeoutSeconds` through the wrappers so server-side Claude runs fail closed instead of spinning forever.
-- Treat timeout or idle timeout as hard review failures and feed them back into the minimal fix loop.
+- Treat timeout or idle timeout as hard review failures and triage them as likely task-size, prompt, or worker-stall problems before retrying.
 
 ## Worktree Rule
 

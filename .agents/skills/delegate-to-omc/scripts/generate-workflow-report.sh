@@ -62,6 +62,7 @@ result = read_json("result.json", {})
 preflight = read_json("preflight.json", {})
 review_data = read_json("review-result.json", {})
 closeout = read_json("closeout.json", {})
+triage = read_json("failure-triage.json", {})
 review_notes = read_text("review-notes.md")
 
 review_result = str(closeout.get("review_result") or review_data.get("review_result") or review_result_from_notes(review_notes))
@@ -96,7 +97,7 @@ if result.get("diff_present") is False:
 if result.get("validation_reported") is False:
     expectation_mismatches.append("Validation was not meaningfully reported.")
 
-next_actions = review_data.get("minimal_fix_list") or []
+next_actions = review_data.get("recommended_corrections") or review_data.get("minimal_fix_list") or []
 if not next_actions and not closeable:
     next_actions = ["Fix the blocking issues and rerun closeout."]
 if closeable:
@@ -128,6 +129,9 @@ payload = {
     "auto_recovered": len(issues) > 0 and closeable,
     "residual_risk": "None recorded." if closeable else "Closeout is blocked; inspect issues and evidence.",
     "next_actions": [str(item) for item in next_actions],
+    "failure_triage": triage,
+    "repair_size": triage.get("repair_size", ""),
+    "recommended_action": triage.get("recommended_action", ""),
     "evidence_files": evidence_files,
     "generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z"),
 }
@@ -166,6 +170,12 @@ md = [
     "## Next Actions",
     "",
     bullet(payload["next_actions"]).rstrip(),
+    "",
+    "## Failure Triage",
+    "",
+    f"- Repair size: `{payload['repair_size']}`",
+    f"- Recommended action: `{payload['recommended_action']}`",
+    f"- Confidence: `{triage.get('confidence', '')}`",
     "",
     "## Evidence",
     "",

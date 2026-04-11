@@ -121,54 +121,54 @@ $changedFiles = @(Get-ChangedFiles -StatusPath $statusPath)
 $relevantFiles = @(Get-BriefSectionLines -Text $briefText -Header "Relevant files")
 $doneWhenItems = @(Get-BriefSectionLines -Text $briefText -Header "Done when")
 $issues = New-Object System.Collections.Generic.List[string]
-$minimalFixes = New-Object System.Collections.Generic.List[string]
+$recommendedCorrections = New-Object System.Collections.Generic.List[string]
 $scopeNotes = New-Object System.Collections.Generic.List[string]
 $validationNotes = New-Object System.Collections.Generic.List[string]
 $riskNotes = New-Object System.Collections.Generic.List[string]
 
 if ($preflight.status -ne "PASS") {
     $issues.Add("Remote preflight is not green (`$($preflight.status)`).")
-    $minimalFixes.Add("Fix the remote environment issue recorded in preflight.json before re-running the task.")
+    $recommendedCorrections.Add("Fix the remote environment issue recorded in preflight.json before re-running the task.")
 }
 
 if ($result.worker_status -ne "SUCCESS") {
     $issues.Add("Worker status is `$($result.worker_status)` instead of `SUCCESS`.")
-    $minimalFixes.Add("Address the worker failure and return a complete `SUCCESS` contract.")
+    $recommendedCorrections.Add("Address the worker failure and return a complete `SUCCESS` contract.")
 }
 
 if (-not $result.contract_complete) {
     $issues.Add("Worker output is missing required contract sections.")
-    $minimalFixes.Add("Return the full result contract with RESULT, SUMMARY, CHANGED_FILES, TESTS_RUN, RISKS, BLOCKERS, and NEXT_ACTIONS.")
+    $recommendedCorrections.Add("Return the full result contract with RESULT, SUMMARY, CHANGED_FILES, TESTS_RUN, RISKS, BLOCKERS, and NEXT_ACTIONS.")
 }
 
 if (-not $result.diff_present) {
     $issues.Add("No real diff was detected for this run.")
-    $minimalFixes.Add("Make the required code changes inside the assigned worktree and ensure git status/diff show the edits.")
+    $recommendedCorrections.Add("Make the required code changes inside the assigned worktree and ensure git status/diff show the edits.")
 }
 
 if (-not $result.validation_reported) {
     $issues.Add("Validation was not reported with a meaningful TESTS_RUN value.")
-    $minimalFixes.Add("Run the declared validation or state a concrete blocker in TESTS_RUN.")
+    $recommendedCorrections.Add("Run the declared validation or state a concrete blocker in TESTS_RUN.")
 }
 
 if ($null -ne $result.timed_out -and $result.timed_out) {
     $issues.Add("The Claude run hit the overall timeout.")
-    $minimalFixes.Add("Reduce the task scope or break it into smaller passes so the worker can finish within the timeout.")
+    $recommendedCorrections.Add("Reduce the task scope or break it into smaller passes so the worker can finish within the timeout.")
 }
 
 if ($null -ne $result.idle_timed_out -and $result.idle_timed_out) {
     $issues.Add("The Claude run was terminated for idle output.")
-    $minimalFixes.Add("Give Claude a smaller, clearer patch to avoid idle spinning and require concrete progress.")
+    $recommendedCorrections.Add("Give Claude a smaller, clearer patch to avoid idle spinning and require concrete progress.")
 }
 
 if ($doneWhenItems.Count -eq 0) {
     $issues.Add("The brief is missing concrete Done when items.")
-    $minimalFixes.Add("Fill in the Done when section with explicit completion checks before rerunning.")
+    $recommendedCorrections.Add("Fill in the Done when section with explicit completion checks before rerunning.")
 }
 
 if ($relevantFiles.Count -eq 0 -and $changedFiles.Count -gt 0) {
     $issues.Add("Changed files cannot be scope-checked because Relevant files is empty.")
-    $minimalFixes.Add("Declare the allowed file surface in Relevant files so scope drift can be checked.")
+    $recommendedCorrections.Add("Declare the allowed file surface in Relevant files so scope drift can be checked.")
 }
 
 $outOfScopeFiles = @()
@@ -178,7 +178,7 @@ if ($changedFiles.Count -gt 0 -and $relevantFiles.Count -gt 0) {
         $issues.Add("Changed file is outside Relevant files: $pathValue")
     }
     if ($outOfScopeFiles.Count -gt 0) {
-        $minimalFixes.Add("Revert or avoid out-of-scope files and keep edits inside the declared Relevant files list.")
+        $recommendedCorrections.Add("Revert or avoid out-of-scope files and keep edits inside the declared Relevant files list.")
     }
 }
 
@@ -213,7 +213,7 @@ if ($riskNotes.Count -eq 0) {
 }
 
 $reviewResult = if ($issues.Count -eq 0) { "PASS" } else { "NEEDS_FIX" }
-$fixLines = if ($minimalFixes.Count -gt 0) { $minimalFixes | Select-Object -Unique } else { @("No additional fixes required.") }
+$correctionLines = if ($recommendedCorrections.Count -gt 0) { $recommendedCorrections | Select-Object -Unique } else { @("No additional fixes required.") }
 
 $reviewContent = @(
     "# Review Notes",
@@ -232,9 +232,9 @@ $reviewContent = @(
     ""
 ) + ($riskNotes | ForEach-Object { "- $_" }) + @(
     "",
-    "## Minimal fix list",
+    "## Recommended corrections",
     ""
-) + ($fixLines | ForEach-Object { "- $_" })
+) + ($correctionLines | ForEach-Object { "- $_" })
 
 Set-Content -Path $reviewPath -Value ($reviewContent -join "`r`n") -Encoding utf8
 
@@ -246,7 +246,8 @@ Set-Content -Path $reviewPath -Value ($reviewContent -join "`r`n") -Encoding utf
     relevant_files = $relevantFiles
     done_when = $doneWhenItems
     issues = $issues
-    minimal_fix_list = $fixLines
+    recommended_corrections = $correctionLines
+    minimal_fix_list = $correctionLines
     checked_at = (Get-Date).ToString("o")
     review_file = $reviewPath
 } | ConvertTo-Json -Depth 5 | Set-Content -Path $reviewResultPath -Encoding utf8
